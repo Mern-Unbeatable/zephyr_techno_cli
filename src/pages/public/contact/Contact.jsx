@@ -12,7 +12,7 @@ const Contact = () => {
   });
   const API_BASE_URL =
     import.meta.env.VITE_BASE_URL ||
-    "https://api-zephyr-techno.maktechgroup.tech";
+    "https://api.zephyrtechnology.co.uk";
   const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) => {

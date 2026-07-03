@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import Swal from 'sweetalert2';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const getStatusFromPromo = (promo) => {
     if (new Date(promo.expiryDate) < new Date()) return 'Expired';

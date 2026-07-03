@@ -6,7 +6,7 @@ import Card from './components/Card';
 import Pagination from './components/Pagination';
 import { Link, useNavigate } from 'react-router';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const Listings = () => {
     const navigate = useNavigate();

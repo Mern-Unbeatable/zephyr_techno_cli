@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import Swal from "sweetalert2";
 import { ArrowLeft } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 import FormField from "./components/FormField";
 import TextInput from "./components/TextInput";
 import SelectInput from "./components/SelectInput";

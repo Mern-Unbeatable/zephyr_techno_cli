@@ -20,7 +20,7 @@ const Settings = () => {
         conditionModelPrices: [],
         conditionModelPricesMap: {},
     });
-    const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+    const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
     useEffect(() => {
         const token = localStorage.getItem('token');

@@ -5,7 +5,7 @@ import { migrateGuestCart } from '../utils/cartApi';
 
 const AuthContext = createContext(null);
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const getTokenFromResponse = (payload = {}) =>
   payload.token || payload.accessToken || payload.jwt || payload.data?.token || payload.data?.accessToken || null;

@@ -2,7 +2,7 @@
 
 // const API_BASE_URL =
 //   import.meta.env.VITE_BASE_URL ||
-//   "https://api-zephyr-techno.maktechgroup.tech";
+//   "https://api.zephyrtechnology.co.uk";
 
 // const SaleNotification = () => {
 //   const [phase, setPhase] = useState("hidden"); // hidden | in | show | out

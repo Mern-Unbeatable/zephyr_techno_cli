@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import Modal from './component/Modal';
 import Pagination from '../../public/products/components/Pagination';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const UserOrders = () => {
     const [orders, setOrders] = useState([]);

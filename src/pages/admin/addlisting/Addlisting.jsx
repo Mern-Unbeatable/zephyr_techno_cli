@@ -25,7 +25,7 @@ import {
 
 const API_BASE_URL =
   import.meta.env.VITE_BASE_URL ||
-  "https://api-zephyr-techno.maktechgroup.tech";
+  "https://api.zephyrtechnology.co.uk";
 
 const Addlisting = ({ isEdit = false, listingId = null }) => {
   const navigate = useNavigate();

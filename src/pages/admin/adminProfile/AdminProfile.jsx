@@ -4,7 +4,7 @@ import { FormField, TextInput } from '../../../components/shared/form';
 import ProfileHeader from './components/ProfileHeader';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const AdminProfile = () => {
     const [formData, setFormData] = useState({

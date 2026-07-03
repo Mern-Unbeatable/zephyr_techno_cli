@@ -23,7 +23,7 @@ import RecentOrder from "./component/RecentOrder";
 import RevenueChart from "./component/RevenueChart";
 import AdminDashboardTitle from "../../../components/dashboards/AdminDashboardTitle";
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const AdminOverview = () => {
   const [overviewData, setOverviewData] = useState(null);

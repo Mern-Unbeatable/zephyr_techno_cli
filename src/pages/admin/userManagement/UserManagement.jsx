@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const STATUS_STYLES = {
     ACTIVE: 'bg-green-100 text-green-800',

@@ -6,7 +6,7 @@ import OrderTabs from './components/OrderTabs';
 import ViewModal from './components/ViewModal';
 import Pagination from '../listings/components/Pagination';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const Order = () => {
     const [activeTab, setActiveTab] = useState('All');

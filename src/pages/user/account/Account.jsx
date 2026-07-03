@@ -3,7 +3,7 @@ import { User, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import Swal from 'sweetalert2';
 
-const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const buildProfileFromResponse = (user = {}) => {
     const address = user.userAddresses?.[0] || {};

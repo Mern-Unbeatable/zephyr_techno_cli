@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import Container from "../../../../../layout/Container";
 
 const API_BASE_URL =
-    import.meta.env.VITE_BASE_URL || 'https://api-zephyr-techno.maktechgroup.tech';
+    import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
 const Cta = () => {
     const [email, setEmail] = useState('');
