@@ -1,0 +1,206 @@
+[
+  {
+    "id": 1,
+    "title": "iPhone 15 Pro Max",
+    "tag": "NEW ARRIVAL",
+    "badgeColor": "bg-custom",
+    "variant": "Natural Titanium \u2022 256GB",
+    "price": 1199,
+    "oldPrice": null,
+    "currency": "GBP",
+    "rating": 4.8,
+    "reviews": 120,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-bluetitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pink-select-202309?wid=470&hei=556&fmt=png&qlt=95&.v=1692923776972"
+    ]
+  },
+  {
+    "id": 2,
+    "title": "iPhone 15 Pro",
+    "tag": "NEW ARRIVAL",
+    "badgeColor": "bg-custom",
+    "variant": "Blue Titanium \u2022 128GB",
+    "price": 999,
+    "oldPrice": null,
+    "currency": "GBP",
+    "rating": 4.7,
+    "reviews": 94,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-bluetitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pink-select-202309?wid=470&hei=556&fmt=png&qlt=95&.v=1692923776972"
+    ]
+  },
+  {
+    "id": 3,
+    "title": "iPhone 15",
+    "tag": "BEST SELLER",
+    "badgeColor": "bg-custom",
+    "variant": "Pink \u2022 128GB",
+    "price": 799,
+    "oldPrice": null,
+    "currency": "GBP",
+    "rating": 4.6,
+    "reviews": 204,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pink-select-202309?wid=470&hei=556&fmt=png&qlt=95&.v=1692923776972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-bluetitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972"
+    ]
+  },
+  {
+    "id": 4,
+    "title": "iPhone 15 Plus",
+    "tag": "BEST SELLER",
+    "badgeColor": "bg-custom",
+    "variant": "Yellow \u2022 256GB",
+    "price": 899,
+    "oldPrice": null,
+    "currency": "GBP",
+    "rating": 4.7,
+    "reviews": 98,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pink-select-202309?wid=470&hei=556&fmt=png&qlt=95&.v=1692923776972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-blue-select-202209?wid=470&hei=556&fmt=png&qlt=95&.v=1660803972464",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972"
+    ]
+  },
+  {
+    "id": 5,
+    "title": "iPhone 14 Pro",
+    "tag": "REFURBISHED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Space Black \u2022 512GB \u2022 Mint",
+    "price": 799,
+    "oldPrice": 999,
+    "currency": "GBP",
+    "rating": 4.5,
+    "reviews": 64,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-select?wid=470&hei=556&fmt=png&qlt=95",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-bluetitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-midnight-select-2021?wid=470&hei=556&fmt=png&qlt=95&.v=1629842709000"
+    ]
+  },
+  {
+    "id": 6,
+    "title": "iPhone 14",
+    "tag": "REFURBISHED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Blue \u2022 128GB \u2022 Very Good",
+    "price": 499,
+    "oldPrice": 649,
+    "currency": "GBP",
+    "rating": 4.4,
+    "reviews": 76,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-blue-select-202209?wid=470&hei=556&fmt=png&qlt=95&.v=1660803972464",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pink-select-202309?wid=470&hei=556&fmt=png&qlt=95&.v=1692923776972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972"
+    ]
+  },
+  {
+    "id": 7,
+    "title": "iPhone 13",
+    "tag": "PRE-OWNED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Midnight \u2022 128GB \u2022 Excellent",
+    "price": 449,
+    "oldPrice": 549,
+    "currency": "GBP",
+    "rating": 4.3,
+    "reviews": 88,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-midnight-select-2021?wid=470&hei=556&fmt=png&qlt=95&.v=1629842709000",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-blue-select-202209?wid=470&hei=556&fmt=png&qlt=95&.v=1660803972464"
+    ]
+  },
+  {
+    "id": 8,
+    "title": "iPhone SE (3rd Gen)",
+    "tag": "NEW ARRIVAL",
+    "badgeColor": "bg-custom",
+    "variant": "Starlight \u2022 64GB",
+    "price": 429,
+    "oldPrice": null,
+    "currency": "GBP",
+    "rating": 4.2,
+    "reviews": 55,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-se-starlight-select-202203?wid=470&hei=556&fmt=png&qlt=95&.v=1646073684301",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-select?wid=470&hei=556&fmt=png&qlt=95",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-midnight-select-2021?wid=470&hei=556&fmt=png&qlt=95&.v=1629842709000"
+    ]
+  },
+  {
+    "id": 9,
+    "title": "iPhone 12 Pro",
+    "tag": "PRE-OWNED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Pacific Blue \u2022 256GB \u2022 Good",
+    "price": 349,
+    "oldPrice": 479,
+    "currency": "GBP",
+    "rating": 4.1,
+    "reviews": 143,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-bluetitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-blue-select-202209?wid=470&hei=556&fmt=png&qlt=95&.v=1660803972464",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972"
+    ]
+  },
+  {
+    "id": 10,
+    "title": "iPhone 14 Plus",
+    "tag": "REFURBISHED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Purple \u2022 256GB \u2022 Excellent",
+    "price": 599,
+    "oldPrice": 749,
+    "currency": "GBP",
+    "rating": 4.5,
+    "reviews": 61,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pink-select-202309?wid=470&hei=556&fmt=png&qlt=95&.v=1692923776972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-bluetitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-blue-select-202209?wid=470&hei=556&fmt=png&qlt=95&.v=1660803972464"
+    ]
+  },
+  {
+    "id": 11,
+    "title": "iPhone 13 Mini",
+    "tag": "PRE-OWNED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Starlight \u2022 128GB \u2022 Good",
+    "price": 329,
+    "oldPrice": 429,
+    "currency": "GBP",
+    "rating": 4.0,
+    "reviews": 112,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-se-starlight-select-202203?wid=470&hei=556&fmt=png&qlt=95&.v=1646073684301",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-midnight-select-2021?wid=470&hei=556&fmt=png&qlt=95&.v=1629842709000",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-naturaltitanium-select?wid=470&hei=556&fmt=png&qlt=95&.v=1692923777972"
+    ]
+  },
+  {
+    "id": 12,
+    "title": "iPhone 12",
+    "tag": "PRE-OWNED",
+    "badgeColor": "bg-[#1E293B]",
+    "variant": "Black \u2022 64GB \u2022 Fair",
+    "price": 249,
+    "oldPrice": 349,
+    "currency": "GBP",
+    "rating": 3.9,
+    "reviews": 187,
+    "images": [
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-max-select?wid=470&hei=556&fmt=png&qlt=95",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-13-midnight-select-2021?wid=470&hei=556&fmt=png&qlt=95&.v=1629842709000",
+      "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-14-blue-select-202209?wid=470&hei=556&fmt=png&qlt=95&.v=1660803972464"
+    ]
+  }
+]

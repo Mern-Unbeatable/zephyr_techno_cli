@@ -1,0 +1,100 @@
+export const INITIAL_SETTINGS = {
+    categories: ['New', 'Used'],
+    series: ['iPhone', 'iPad', 'Samsung'],
+    models: [
+        'iPhone 8',
+        '8 Plus',
+        'iPhone X',
+        'iPhone XR',
+        'iPhone XS',
+        'iPhone XS Max',
+        'iPhone 11',
+        'iPhone 11 Pro',
+        'iPhone 11 Pro Max',
+        'iPad 9th gen',
+        'iPad 10th gen',
+        'iPhone X',
+        'iPhone XR',
+        'iPhone XS',
+        'iPhone XS Max',
+        'iPhone 11',
+        'iPhone 11 Pro',
+        'iPhone 11 Pro Max',
+    ],
+    conditions: ['New', 'Excellent', 'Very Good', 'Broken'],
+    conditionPrices: {
+        'New': '$100.00',
+        'Excellent': '$100.00',
+        'Very Good': '$100.00',
+        'Broken': '$100.00',
+    },
+    storage: ['256 gb', '64 gb', '128 gb'],
+    ram: ['8 gb', '12 gb', '64 gb'],
+    colors: ['Black', 'White', 'Magenta', 'Pink', 'Blue', 'Gray', 'Green', 'Phantom Black', 'Sunset Gold', 'Rose Gold'],
+};
+
+const buildModelFields = (seriesOptions) => [
+    { name: 'modelName', label: 'Model name', placeholder: 'Model name' },
+    {
+        name: 'seriesId',
+        label: 'Select Series',
+        type: 'select',
+        placeholder: 'Select Series',
+        options: seriesOptions,
+    },
+];
+
+export const SECTIONS = (settings) => [
+    {
+        key: 'categories',
+        title: 'Category',
+        addLabel: 'Add Category',
+        modalTitle: 'Category name',
+        fields: [{ name: 'value', label: 'Category name', placeholder: 'Category name' }],
+    },
+    {
+        key: 'series',
+        title: 'Series',
+        addLabel: 'Add Series',
+        modalTitle: 'Series name',
+        fields: [{ name: 'value', label: 'Series name', placeholder: 'Model name' }],
+    },
+    {
+        key: 'models',
+        title: 'Model',
+        addLabel: 'Add Model',
+        modalTitle: 'Model name',
+        fields: buildModelFields(settings.series),
+        valueKey: 'modelName',
+    },
+    {
+        key: 'conditions',
+        title: 'Condition',
+        addLabel: 'Add Condition',
+        modalTitle: 'Condition name',
+        fields: [
+            { name: 'value', label: 'Condition name', placeholder: 'Condition name' },
+        ],
+    },
+    {
+        key: 'storage',
+        title: 'Storage',
+        addLabel: 'Add Storage',
+        modalTitle: 'Storage name',
+        fields: [{ name: 'value', label: 'Storage name', placeholder: 'Storage name' }],
+    },
+    {
+        key: 'ram',
+        title: 'Ram',
+        addLabel: 'Add Ram',
+        modalTitle: 'Ram name',
+        fields: [{ name: 'value', label: 'Ram name', placeholder: 'Ram name' }],
+    },
+    {
+        key: 'colors',
+        title: 'Color',
+        addLabel: 'Add Color',
+        modalTitle: 'Add Color',
+        fields: [{ name: 'value', label: 'Color Name', placeholder: 'Color Name' }],
+    },
+];

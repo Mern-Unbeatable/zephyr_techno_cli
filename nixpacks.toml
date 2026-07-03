@@ -1,0 +1,19 @@
+[phases.setup]
+aptPkgs = ["curl", "ca-certificates"]
+
+[phases.install]
+dependsOn = ["setup"]
+cmds = [
+  "curl -fsSL https://deb.nodesource.com/setup_22.x | bash -",
+  "apt-get install -y nodejs",
+  "npm ci"
+]
+cacheDirectories = ["/root/.npm"]
+
+[phases.build]
+dependsOn = ["install"]
+cmds = ["npm run build"]
+cacheDirectories = ["node_modules/.cache"]
+
+[start]
+cmd = "npx serve dist -s -l 3000"
