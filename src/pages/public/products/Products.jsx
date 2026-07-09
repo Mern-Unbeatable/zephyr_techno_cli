@@ -485,19 +485,14 @@ export default function Products() {
           setAttributes(data.data);
           // Apply filter from URL query param after attributes load
           const filterParam = searchParams.get('filter');
-          if (filterParam === 'NEW') {
-            const newFilter = (data.data.categoryFilters || []).find(c => c.key === 'NEW');
-            if (newFilter) {
-              setCategoryId(newFilter.categoryId);
-              setConditionId(newFilter.conditionId || null);
-              setSelectedFilterKey('NEW');
-            }
-          } else if (filterParam === 'USED') {
-            const usedFilter = (data.data.categoryFilters || []).find(c => c.key === 'USED');
-            if (usedFilter) {
-              setCategoryId(usedFilter.categoryId);
-              setConditionId(null);
-              setSelectedFilterKey('USED');
+          if (filterParam) {
+            const matchedFilter = (data.data.categoryFilters || []).find(
+              (filter) => filter.key === filterParam.toUpperCase(),
+            );
+            if (matchedFilter) {
+              setCategoryId(matchedFilter.categoryId);
+              setConditionId(matchedFilter.conditionId || null);
+              setSelectedFilterKey(matchedFilter.key);
             }
           }
         }

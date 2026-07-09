@@ -444,9 +444,18 @@ const Filter = ({
   const colorsList = attributes?.colors || [];
 
   const allFilter = categoryFilters.find(c => c.key === "ALL");
-  const newFilter = categoryFilters.find(c => c.key === "NEW");
   const usedFilter = categoryFilters.find(c => c.key === "USED");
+  const simpleCategoryFilters = categoryFilters.filter(
+    (filter) => filter.key !== "ALL" && filter.key !== "USED",
+  );
   const usedSubItems = usedFilter?.conditions || [];
+
+  const selectCategoryFilter = (filter) => {
+    setSelectedFilterKey(filter.key);
+    setCategoryId(filter.categoryId || null);
+    setConditionId(filter.conditionId || null);
+    apply();
+  };
 
   return (
     <div>
@@ -486,20 +495,16 @@ const Filter = ({
                     />
                   )}
 
-                  {/* NEW */}
-                  {newFilter && (
+                  {/* Category filters (New, Sealed, etc.) */}
+                  {simpleCategoryFilters.map((filter) => (
                     <CustomRadio
-                      label={newFilter.name}
-                      value="NEW"
+                      key={filter.key}
+                      label={filter.name}
+                      value={filter.key}
                       currentValue={selectedFilterKey}
-                      onChange={() => {
-                        setSelectedFilterKey('NEW');
-                        setCategoryId(newFilter.categoryId || null);
-                        setConditionId(newFilter.conditionId || null);
-                        apply();
-                      }}
+                      onChange={() => selectCategoryFilter(filter)}
                     />
-                  )}
+                  ))}
 
                   {/* USED */}
                   {usedFilter && (

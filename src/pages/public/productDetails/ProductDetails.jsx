@@ -113,6 +113,33 @@ const ProductDetails = () => {
 
   const allImages = useMemo(() => sortImages(product?.images), [product]);
 
+  const selectedStorageStock = useMemo(() => {
+    if (!product) return 0;
+    const option = product.availableStorageOptions?.find(
+      (storage) => storage.id === selectedStorage,
+    );
+    if (option?.stockQuantity != null) {
+      return Math.max(0, Number(option.stockQuantity) || 0);
+    }
+    return Math.max(0, Number(product.stockQuantity) || 0);
+  }, [product, selectedStorage]);
+
+  const selectedStoragePrice = useMemo(() => {
+    if (!product) return 0;
+    const option = product.availableStorageOptions?.find(
+      (storage) => storage.id === selectedStorage,
+    );
+    if (option?.price != null) {
+      return Math.max(0, Number(option.price) || 0);
+    }
+    return Math.max(0, Number(product.basePrice) || 0);
+  }, [product, selectedStorage]);
+
+  const selectStorage = (storageId) => {
+    setSelectedStorage(storageId);
+    setQuantity(1);
+  };
+
   const selectColor = (colorId) => {
     setSelectedColor(colorId);
     setSelectedImage(getImageIndexForColor(product?.images, colorId));
@@ -240,14 +267,14 @@ const ProductDetails = () => {
                 {product.title}
               </h1>
               <p className="text-xl md:text-2xl lg:text-3xl font-bold text-[#151A2A]">
-                £{Number(product.basePrice).toLocaleString()}
+                £{Number(selectedStoragePrice).toLocaleString()}
               </p>
-              {product.stockQuantity <= 5 && product.stockQuantity > 0 && (
+              {selectedStorageStock <= 5 && selectedStorageStock > 0 && (
                 <p className="text-sm text-orange-500 mt-1">
-                  Only {product.stockQuantity} left in stock
+                  Only {selectedStorageStock} left in stock
                 </p>
               )}
-              {product.stockQuantity === 0 && (
+              {selectedStorageStock === 0 && (
                 <p className="text-sm text-red-500 mt-1">Out of stock</p>
               )}
 
@@ -322,7 +349,7 @@ const ProductDetails = () => {
                   {product.availableStorageOptions.map((s) => (
                     <button
                       key={s.id}
-                      onClick={() => setSelectedStorage(s.id)}
+                      onClick={() => selectStorage(s.id)}
                       className={`px-4 py-2 rounded-sm text-[13px] border transition-colors ${
                         selectedStorage === s.id
                           ? "bg-custom border-custom text-white"
@@ -375,14 +402,14 @@ const ProductDetails = () => {
                 <button
                   onClick={() => setQuantity(quantity + 1)}
                   className="text-gray-500 hover:text-[#151A2A]"
-                  disabled={product.stockQuantity !== null && quantity >= product.stockQuantity}
+                  disabled={selectedStorageStock !== null && quantity >= selectedStorageStock}
                 >
                   <FiPlus size={14} />
                 </button>
               </div>
               <button
                 onClick={() => handleAddToCart(false)}
-                disabled={addingToCart || product.stockQuantity === 0}
+                disabled={addingToCart || selectedStorageStock === 0}
                 className="sm:flex-1 bg-[#47B5C9] hover:bg-[#349eab] text-white rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {addingToCart ? (
@@ -396,7 +423,7 @@ const ProductDetails = () => {
             </div>
             <button
               onClick={() => handleAddToCart(true)}
-              disabled={addingToCart || product.stockQuantity === 0}
+              disabled={addingToCart || selectedStorageStock === 0}
               className="w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
             >
               Buy Now

@@ -7,6 +7,7 @@ import ConditionPriceTable from './components/ConditionPriceTable';
 import { INITIAL_SETTINGS, SECTIONS } from './constants';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 import { getColorHex } from '../../../utils/color';
+import { readApiErrorMessage } from '../../../utils/apiError';
 
 const Settings = () => {
     // Start with no fallback categories/series/models/conditions — they'll be loaded from the API
@@ -375,8 +376,9 @@ const Settings = () => {
                     });
 
                     if (!res.ok) {
-                        const text = await res.text();
-                        throw new Error(text || 'Failed to create category');
+                        throw new Error(
+                            await readApiErrorMessage(res, 'Failed to create item.'),
+                        );
                     }
 
                     const payload = await res.json();
@@ -457,8 +459,9 @@ const Settings = () => {
                     });
 
                     if (!res.ok) {
-                        const text = await res.text();
-                        throw new Error(text || 'Failed to create storage option');
+                        throw new Error(
+                            await readApiErrorMessage(res, 'Failed to create storage option.'),
+                        );
                     }
 
                     const payload = await res.json();
@@ -509,8 +512,9 @@ const Settings = () => {
                     });
 
                     if (!res.ok) {
-                        const text = await res.text();
-                        throw new Error(text || 'Failed to create ram option');
+                        throw new Error(
+                            await readApiErrorMessage(res, 'Failed to create RAM option.'),
+                        );
                     }
 
                     const payload = await res.json();
@@ -564,8 +568,9 @@ const Settings = () => {
                     });
 
                     if (!res.ok) {
-                        const text = await res.text();
-                        throw new Error(text || 'Failed to create color');
+                        throw new Error(
+                            await readApiErrorMessage(res, 'Failed to create color.'),
+                        );
                     }
 
                     const payload = await res.json();
@@ -606,14 +611,13 @@ const Settings = () => {
         // Create or update condition-model-price
         if (activeSection.key === 'condition-model-prices') {
             (async () => {
+                const isEdit = !!modalValues.id;
                 try {
                     const token = localStorage.getItem('token');
                     const conditionId = modalValues.conditionId;
                     const deviceModelId = modalValues.deviceModelId;
                     const price = modalValues.price;
                     if (!conditionId || !deviceModelId || price == null) return;
-
-                    const isEdit = !!modalValues.id;
                     const endpoint = isEdit
                         ? `${API_BASE_URL}/api/admin/attributes/condition-model-prices/${modalValues.id}`
                         : `${API_BASE_URL}/api/admin/attributes/condition-model-prices`;
@@ -630,8 +634,12 @@ const Settings = () => {
                     });
 
                     if (!res.ok) {
-                        const text = await res.text();
-                        throw new Error(text || `Failed to ${isEdit ? 'update' : 'create'} condition-model price`);
+                        throw new Error(
+                            await readApiErrorMessage(
+                                res,
+                                `Failed to ${isEdit ? 'update' : 'create'} condition price.`,
+                            ),
+                        );
                     }
 
                     const payload = await res.json();
@@ -684,9 +692,10 @@ const Settings = () => {
                         text: err.message || `Failed to ${isEdit ? 'update' : 'add'} price.`,
                         confirmButtonColor: '#0891b2',
                     });
-                } finally {
-                    handleCloseModal();
+                    return;
                 }
+
+                handleCloseModal();
             })();
             return;
         }

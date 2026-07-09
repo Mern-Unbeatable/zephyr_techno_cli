@@ -49,6 +49,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     { name: "", value: "" },
   ]);
   const [includedItems, setIncludedItems] = useState([{ label: "" }]);
+  const [storageStocks, setStorageStocks] = useState({});
+  const [storagePrices, setStoragePrices] = useState({});
   const [colorImages, setColorImages] = useState({});
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [deletingImageId, setDeletingImageId] = useState(null);
@@ -60,6 +62,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   const [conditions, setConditions] = useState([]);
   const [colors, setColors] = useState([]);
   const [storageOptions, setStorageOptions] = useState([]);
+  const [storageNameById, setStorageNameById] = useState({});
   const [ramOptions, setRamOptions] = useState([]);
   const [filteredModels, setFilteredModels] = useState([]);
 
@@ -94,7 +97,15 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         setConditions(data.conditions || []);
         setAvailableConditions(data.conditions || []);
         setColors(data.colors || []);
-        setStorageOptions(data.storageOptions || []);
+        const storages = data.storageOptions || [];
+        setStorageOptions(storages);
+        setStorageNameById((prev) => {
+          const next = { ...prev };
+          storages.forEach((storage) => {
+            if (storage?.id && storage?.name) next[storage.id] = storage.name;
+          });
+          return next;
+        });
         setRamOptions(data.ramOptions || []);
       } catch (err) {
         await Swal.fire({
@@ -127,8 +138,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     const category = categories.find((cat) => cat.id === formData.categoryId);
     const categoryName = category?.name?.toLowerCase();
 
-    if (categoryName === "new") {
-      // For 'New' category, no condition should be required
+    if (categoryName === "new" || categoryName === "sealed") {
+      // For 'New' / 'Sealed' categories, no condition should be required
       setAvailableConditions([]);
       setConditionDisabled(true);
       updateField("conditionId", "");
@@ -177,6 +188,19 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           const listing = payload.data;
           // Map API data to form structure
           const loadedCategoryId = listing.category?.id || "";
+          const listingStorages = listing.availableStorageOptions || [];
+          const listingStorageNames = {};
+          listingStorages.forEach((storage) => {
+            if (storage?.id && storage?.name) {
+              listingStorageNames[storage.id] = storage.name;
+            }
+          });
+          setStorageNameById((prev) => ({ ...prev, ...listingStorageNames }));
+
+          const validStorageIds = listingStorages
+            .map((storage) => storage.id)
+            .filter((id) => listingStorageNames[id]);
+
           setFormData({
             title: listing.title || "",
             categoryId: loadedCategoryId,
@@ -186,12 +210,26 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             basePrice: listing.basePrice || "",
             stockQuantity: listing.stockQuantity || "",
             colorIds: listing.availableColors?.map((c) => c.id) || [],
-            storageOptionIds:
-              listing.availableStorageOptions?.map((s) => s.id) || [],
+            storageOptionIds: validStorageIds,
             ramOptionIds: listing.availableRamOptions?.map((r) => r.id) || [],
             introduction: listing.introduction || "",
             listingStatus: listing.listingStatus || "ACTIVE",
           });
+          const nextStorageStocks = {};
+          const nextStoragePrices = {};
+          listingStorages.forEach((storage) => {
+            if (!listingStorageNames[storage.id]) return;
+            nextStorageStocks[storage.id] =
+              Number(storage.stockQuantity) > 0
+                ? String(storage.stockQuantity)
+                : "";
+            nextStoragePrices[storage.id] =
+              storage.price != null && Number(storage.price) > 0
+                ? String(storage.price)
+                : "";
+          });
+          setStorageStocks(nextStorageStocks);
+          setStoragePrices(nextStoragePrices);
           if (listing.faqs?.length) setFaqs(listing.faqs);
           if (listing.specifications?.length)
             setSpecifications(listing.specifications);
@@ -199,12 +237,21 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             setIncludedItems(listing.includedItems);
 
           const groupedImages = {};
+          const availableColorIdSet = new Set(
+            (listing.availableColors || []).map((color) => color.id),
+          );
           (listing.availableColors || []).forEach((color) => {
             groupedImages[color.id] = [];
           });
           const fallbackColorId = listing.availableColors?.[0]?.id;
           (listing.images || []).forEach((img) => {
-            const colorId = img.colorId || fallbackColorId;
+            let colorId = img.colorId;
+            if (colorId && !availableColorIdSet.has(colorId)) {
+              return;
+            }
+            if (!colorId) {
+              colorId = fallbackColorId;
+            }
             if (!colorId) return;
             if (!groupedImages[colorId]) groupedImages[colorId] = [];
             groupedImages[colorId].push({
@@ -242,7 +289,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     const category = categories.find((cat) => cat.id === selectedCategoryId);
     const categoryName = category?.name?.toLowerCase();
 
-    if (categoryName === "new") {
+    if (categoryName === "new" || categoryName === "sealed") {
       setAvailableConditions([]);
       setConditionDisabled(true);
       updateField("conditionId", "");
@@ -261,6 +308,36 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     }
   };
 
+  const getStorageStockInputValue = (storageId) => {
+    const value = storageStocks[storageId];
+    if (
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      value === 0 ||
+      value === "0"
+    ) {
+      return "";
+    }
+    return String(value);
+  };
+
+  const getStoragePriceInputValue = (storageId) => {
+    const value = storagePrices[storageId];
+    if (value === undefined || value === null || value === "") {
+      return "";
+    }
+    return String(value);
+  };
+
+  const handleStoragePriceChange = (storageId, value) => {
+    setStoragePrices((prev) => ({ ...prev, [storageId]: value }));
+  };
+
+  const handleStorageStockChange = (storageId, value) => {
+    setStorageStocks((prev) => ({ ...prev, [storageId]: value }));
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     updateField(name, value);
@@ -270,6 +347,27 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     setFormData((prev) => {
       const current = prev[field];
       const isRemoving = current.includes(id);
+
+      if (field === "storageOptionIds") {
+        setStorageStocks((prevStocks) => {
+          const nextStocks = { ...prevStocks };
+          if (isRemoving) {
+            delete nextStocks[id];
+          } else {
+            nextStocks[id] = prevStocks[id] ?? "";
+          }
+          return nextStocks;
+        });
+        setStoragePrices((prevPrices) => {
+          const nextPrices = { ...prevPrices };
+          if (isRemoving) {
+            delete nextPrices[id];
+          } else {
+            nextPrices[id] = prevPrices[id] ?? "";
+          }
+          return nextPrices;
+        });
+      }
 
       if (field === "colorIds") {
         if (isRemoving) {
@@ -361,6 +459,23 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     }));
   };
 
+  const removeImageFromState = (removed, colorId, index) => {
+    setColorImages((prev) => {
+      if (removed?.id) {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          next[key] = (next[key] || []).filter((img) => img.id !== removed.id);
+        }
+        return next;
+      }
+
+      return {
+        ...prev,
+        [colorId]: (prev[colorId] || []).filter((_, i) => i !== index),
+      };
+    });
+  };
+
   const handleColorImageRemove = async (colorId, index) => {
     const items = colorImages[colorId] || [];
     const removed = items[index];
@@ -394,7 +509,10 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         } catch {
           /* empty */
         }
-        if (!res.ok || data.success === false) {
+        const alreadyGone =
+          res.status === 404 ||
+          /not found/i.test(data.message || "");
+        if ((!res.ok || data.success === false) && !alreadyGone) {
           throw new Error(data.message || "Failed to delete image");
         }
       } catch (err) {
@@ -414,10 +532,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       ]);
     }
 
-    setColorImages((prev) => ({
-      ...prev,
-      [colorId]: (prev[colorId] || []).filter((_, i) => i !== index),
-    }));
+    removeImageFromState(removed, colorId, index);
   };
 
   const handleSubmit = async (e) => {
@@ -432,11 +547,27 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       ...(!conditionDisabled
         ? [{ key: "conditionId", label: "Condition" }]
         : []),
-      { key: "basePrice", label: "Price" },
     ];
     const missing = required
       .filter((f) => !formData[f.key])
       .map((f) => f.label);
+
+    if (formData.storageOptionIds.length > 0) {
+      const missingStoragePrices = formData.storageOptionIds.filter((storageId) => {
+        const storageName =
+          storageOptions.find((s) => s.id === storageId)?.name ||
+          storageNameById[storageId];
+        if (!storageName) return false;
+        const price = parseFloat(storagePrices[storageId]);
+        return !price || price <= 0;
+      });
+      if (missingStoragePrices.length > 0) {
+        missing.push("Price for each selected storage option");
+      }
+    } else if (!formData.basePrice) {
+      missing.push("Price");
+    }
+
     if (missing.length > 0) {
       await Swal.fire({
         icon: "warning",
@@ -459,8 +590,17 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       formDataToSend.append("deviceModelId", formData.deviceModelId);
       if (formData.conditionId)
         formDataToSend.append("conditionId", formData.conditionId);
-      formDataToSend.append("basePrice", formData.basePrice);
-      formDataToSend.append("stockQuantity", formData.stockQuantity);
+      const storageEntries = formData.storageOptionIds.map((storageOptionId) => ({
+        storageOptionId,
+        stockQuantity: parseInt(storageStocks[storageOptionId], 10) || 0,
+        price: parseFloat(storagePrices[storageOptionId]) || 0,
+      }));
+      const minStoragePrice = storageEntries.length
+        ? Math.min(...storageEntries.map((entry) => entry.price).filter((price) => price > 0))
+        : parseFloat(formData.basePrice) || 0;
+
+      formDataToSend.append("basePrice", minStoragePrice);
+      formDataToSend.append("storageStocks", JSON.stringify(storageEntries));
       formDataToSend.append("introduction", formData.introduction);
       formDataToSend.append("listingStatus", formData.listingStatus);
 
@@ -655,14 +795,16 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               />
             </FormField>
           )}
-          <FormField label="Price">
-            <NumberInput
-              name="basePrice"
-              placeholder="1200000"
-              value={formData.basePrice}
-              onChange={handleChange}
-            />
-          </FormField>
+          {formData.storageOptionIds.length === 0 && (
+            <FormField label="Price">
+              <NumberInput
+                name="basePrice"
+                placeholder="1200000"
+                value={formData.basePrice}
+                onChange={handleChange}
+              />
+            </FormField>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -689,14 +831,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               )}
             </div>
           </FormField>
-          <FormField label="Stock Quantity">
-            <NumberInput
-              name="stockQuantity"
-              placeholder="0"
-              value={formData.stockQuantity}
-              onChange={handleChange}
-            />
-          </FormField>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -722,6 +856,46 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                 </span>
               )}
             </div>
+            {formData.storageOptionIds.length > 0 && (
+              <div className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm font-medium text-gray-700">
+                  Price & Stock by Storage
+                </p>
+                {formData.storageOptionIds.map((storageId) => {
+                  const storageName =
+                    storageOptions.find((s) => s.id === storageId)?.name ||
+                    storageNameById[storageId];
+                  if (!storageName) return null;
+
+                  return (
+                    <div
+                      key={storageId}
+                      className="grid grid-cols-1 sm:grid-cols-[7rem_1fr_1fr] items-center gap-3"
+                    >
+                      <span className="text-sm text-gray-600 shrink-0">
+                        {storageName}
+                      </span>
+                      <NumberInput
+                        name={`storage-price-${storageId}`}
+                        placeholder="Price"
+                        value={getStoragePriceInputValue(storageId)}
+                        onChange={(e) =>
+                          handleStoragePriceChange(storageId, e.target.value)
+                        }
+                      />
+                      <NumberInput
+                        name={`storage-stock-${storageId}`}
+                        placeholder="0"
+                        value={getStorageStockInputValue(storageId)}
+                        onChange={(e) =>
+                          handleStorageStockChange(storageId, e.target.value)
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </FormField>
           <FormField label="RAM Options">
             <div className="flex flex-wrap gap-2">
