@@ -22,6 +22,7 @@ import {
   INITIAL_FORM,
   INITIAL_FAQS,
 } from "./constants";
+import { sortStorageOptionsBySize } from "../../../utils/storageSort";
 
 const API_BASE_URL =
   import.meta.env.VITE_BASE_URL ||
@@ -97,7 +98,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         setConditions(data.conditions || []);
         setAvailableConditions(data.conditions || []);
         setColors(data.colors || []);
-        const storages = data.storageOptions || [];
+        const storages = sortStorageOptionsBySize(data.storageOptions || []);
         setStorageOptions(storages);
         setStorageNameById((prev) => {
           const next = { ...prev };
@@ -130,6 +131,30 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       setFilteredModels([]);
     }
   }, [formData.seriesId, allModels]);
+
+  // Drop storage IDs that are no longer in the active master list (soft-deleted duplicates/orphans)
+  useEffect(() => {
+    if (!storageOptions.length || !formData.storageOptionIds.length) return;
+    const knownIds = new Set(storageOptions.map((s) => s.id));
+    const pruned = formData.storageOptionIds.filter((id) => knownIds.has(id));
+    if (pruned.length === formData.storageOptionIds.length) return;
+
+    setFormData((prev) => ({ ...prev, storageOptionIds: pruned }));
+    setStorageStocks((prev) => {
+      const next = {};
+      pruned.forEach((id) => {
+        if (prev[id] !== undefined) next[id] = prev[id];
+      });
+      return next;
+    });
+    setStoragePrices((prev) => {
+      const next = {};
+      pruned.forEach((id) => {
+        if (prev[id] !== undefined) next[id] = prev[id];
+      });
+      return next;
+    });
+  }, [storageOptions, formData.storageOptionIds]);
 
   // Apply category-condition rules when formData.categoryId is available
   // Ensure same behavior for add and edit: when category is 'New' condition is disabled
@@ -197,9 +222,19 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           });
           setStorageNameById((prev) => ({ ...prev, ...listingStorageNames }));
 
+          const knownStorageIds = new Set(
+            (storageOptions.length
+              ? storageOptions
+              : Object.keys(listingStorageNames).map((id) => ({ id }))
+            ).map((s) => s.id),
+          );
+          // Prefer master-list IDs only so soft-deleted/orphan storages cannot linger in the form
           const validStorageIds = listingStorages
             .map((storage) => storage.id)
-            .filter((id) => listingStorageNames[id]);
+            .filter((id) => listingStorageNames[id])
+            .filter((id) =>
+              storageOptions.length ? knownStorageIds.has(id) : true,
+            );
 
           setFormData({
             title: listing.title || "",
@@ -861,12 +896,17 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                 <p className="text-sm font-medium text-gray-700">
                   Price & Stock by Storage
                 </p>
-                {formData.storageOptionIds.map((storageId) => {
-                  const storageName =
-                    storageOptions.find((s) => s.id === storageId)?.name ||
-                    storageNameById[storageId];
-                  if (!storageName) return null;
-
+                {sortStorageOptionsBySize(
+                  formData.storageOptionIds
+                    .map((storageId) => {
+                      const storageName = storageOptions.find(
+                        (s) => s.id === storageId,
+                      )?.name;
+                      if (!storageName) return null;
+                      return { id: storageId, name: storageName };
+                    })
+                    .filter(Boolean),
+                ).map(({ id: storageId, name: storageName }) => {
                   return (
                     <div
                       key={storageId}

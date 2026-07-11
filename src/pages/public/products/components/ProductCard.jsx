@@ -84,11 +84,11 @@ export default function ProductCard({ product }) {
         </p>
         <div className="flex items-baseline gap-2 mt-2">
           <span className="text-lg md:text-xl font-bold text-[#1C2337]">
-            ${product.price}
+          £{product.price}
           </span>
           {product.oldPrice && (
             <span className="text-xs md:text-sm text-gray-400 line-through">
-              ${product.oldPrice}
+              £{product.oldPrice}
             </span>
           )}
         </div>

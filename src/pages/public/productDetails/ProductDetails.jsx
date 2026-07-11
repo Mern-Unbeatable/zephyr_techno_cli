@@ -17,6 +17,7 @@ import RelatedProducts from "./sections/relatedProduct/RelatedProducts";
 import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
+import { sortStorageOptionsBySize } from '../../../utils/storageSort';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -100,10 +101,13 @@ const ProductDetails = () => {
       })
       .then((json) => {
         const data = json.data;
+        const sortedStorages = sortStorageOptionsBySize(
+          data.availableStorageOptions || [],
+        );
         const firstColorId = data.availableColors?.[0]?.id ?? null;
-        setProduct(data);
+        setProduct({ ...data, availableStorageOptions: sortedStorages });
         setSelectedColor(firstColorId);
-        setSelectedStorage(data.availableStorageOptions?.[0]?.id ?? null);
+        setSelectedStorage(sortedStorages[0]?.id ?? null);
         setSelectedRam(data.availableRamOptions?.[0]?.id ?? null);
         setSelectedImage(getImageIndexForColor(data.images, firstColorId));
       })

@@ -387,6 +387,7 @@
 
 import React, { useState } from "react";
 import { getColorHex, isLightColor } from "../../../../utils/color";
+import { sortStorageOptionsBySize } from "../../../../utils/storageSort";
 
 function FilterSection({ title, children }) {
   const [open, setOpen] = useState(true);
@@ -439,7 +440,7 @@ const Filter = ({
 
   const categoryFilters = attributes?.categoryFilters || [];
   const seriesList = attributes?.series || [];
-  const storageOptions = attributes?.storageOptions || [];
+  const storageOptions = sortStorageOptionsBySize(attributes?.storageOptions || []);
   const ramOptions = attributes?.ramOptions || [];
   const colorsList = attributes?.colors || [];
 

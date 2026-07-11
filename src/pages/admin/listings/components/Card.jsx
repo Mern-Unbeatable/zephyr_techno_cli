@@ -80,7 +80,7 @@ const Card = ({
                             ${originalPrice.toLocaleString()}
                         </p> */}
                         <p className="text-lg font-semibold text-gray-900">
-                            ${discountedPrice.toLocaleString()}
+                        £{discountedPrice.toLocaleString()}
                         </p>
                     </div>
                     <div className="text-right text-sm">

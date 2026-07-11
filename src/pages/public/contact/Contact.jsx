@@ -1,8 +1,21 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import Swal from "sweetalert2";
 import Container from "../../../layout/Container";
 
+const WHATSAPP_NUMBER = "+447500990009";
+const WEBSITE_URL = "https://zephyrtechnology.co.uk";
+
+const toast = Swal.mixin({
+  toast: true,
+  position: "top-end",
+  showConfirmButton: false,
+  timer: 2500,
+  timerProgressBar: true,
+});
+
 const Contact = () => {
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     firstName: "",
     email: "",
@@ -14,6 +27,21 @@ const Contact = () => {
     import.meta.env.VITE_BASE_URL ||
     "https://api.zephyrtechnology.co.uk";
   const [submitting, setSubmitting] = useState(false);
+
+  const copyToClipboard = async (text, successMessage) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      await toast.fire({
+        icon: "success",
+        title: successMessage,
+      });
+    } catch {
+      await toast.fire({
+        icon: "error",
+        title: "Failed to copy",
+      });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -257,7 +285,9 @@ const Contact = () => {
 
                   {/* WhatsApp link */}
                   <a
-                    href="#"
+                    href="https://wa.me/447500990009"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-2 text-sm text-custom hover:text-[#5bcde0] transition-colors mb-4 w-fit"
                   >
                     <svg
@@ -278,8 +308,17 @@ const Contact = () => {
 
                   {/* Icon buttons */}
                   <div className="flex gap-2">
-                    {/* Share */}
-                    <button className="w-9 h-9 rounded-lg border border-white/20 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all duration-200 cursor-pointer">
+                    <button
+                      type="button"
+                      aria-label="Copy WhatsApp number"
+                      onClick={() =>
+                        copyToClipboard(
+                          WHATSAPP_NUMBER,
+                          "WhatsApp number copied",
+                        )
+                      }
+                      className="w-9 h-9 rounded-lg border border-white/20 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all duration-200 cursor-pointer"
+                    >
                       <svg
                         className="w-4 h-4"
                         fill="none"
@@ -295,7 +334,14 @@ const Contact = () => {
                       </svg>
                     </button>
                     {/* Globe */}
-                    <button className="w-9 h-9 rounded-lg border border-white/20 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all duration-200 cursor-pointer">
+                    <button
+                      type="button"
+                      aria-label="Copy website link"
+                      onClick={() =>
+                        copyToClipboard(WEBSITE_URL, "Website link copied")
+                      }
+                      className="w-9 h-9 rounded-lg border border-white/20 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all duration-200 cursor-pointer"
+                    >
                       <svg
                         className="w-4 h-4"
                         fill="none"
@@ -309,7 +355,12 @@ const Contact = () => {
                       </svg>
                     </button>
                     {/* Cog */}
-                    <button className="w-9 h-9 rounded-lg border border-white/20 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all duration-200 cursor-pointer">
+                    <button
+                      type="button"
+                      aria-label="Go to business page"
+                      onClick={() => navigate("/for-businesses")}
+                      className="w-9 h-9 rounded-lg border border-white/20 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/40 transition-all duration-200 cursor-pointer"
+                    >
                       <svg
                         className="w-4 h-4"
                         fill="none"
