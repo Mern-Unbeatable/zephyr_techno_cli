@@ -261,7 +261,7 @@ const Contact = () => {
                   <p className="text-sm text-[#EBECF0]/80">
                     Email : support@zephyrtechnology.co.uk
                     <br />
-                    Phone : 44 1753 316031
+                    Phone : +44 1753 316031
                   </p>
                 </div>
 
@@ -270,10 +270,10 @@ const Contact = () => {
                   <h3 className="text-base lg:text-lg font-semibold text-white mb-2">
                     Business Hours
                   </h3>
-                  <p className="text-sm text-[#EBECF0]/80 leading-relaxed">
-                    Monday – Friday: 08:00 – 20:00
+                  <p className="text-xs text-[#EBECF0]/80 leading-relaxed font-bold">
+                    Monday – Friday: 08:00 – 20:00 (WhatsApp Chat Only)
                     <br />
-                    Saturday – Sunday: 10:00 – 16:00
+                    Saturday – Sunday: 10:00 – 16:00 (WhatsApp Chat Only)
                   </p>
                 </div>
 
