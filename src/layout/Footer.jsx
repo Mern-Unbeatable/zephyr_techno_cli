@@ -149,7 +149,7 @@ const Footer = () => {
                 className="text-base text-[#6A6A6A] flex items-center gap-2 hover:underline"
               >
                 <MdOutlinePhone size={20} />
-                44 1753 316031
+                +44 1753 316031
               </a>
               <a
                 href="https://wa.me/447500990009"
