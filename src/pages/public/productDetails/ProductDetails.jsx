@@ -117,6 +117,24 @@ const ProductDetails = () => {
 
   const allImages = useMemo(() => sortImages(product?.images), [product]);
 
+  const thumbnailImages = useMemo(() => {
+    if (!allImages.length) return [];
+
+    const colorImages = selectedColor
+      ? allImages.filter((image) => image.colorId === selectedColor)
+      : [];
+    const imagesToShow =
+      colorImages.length > 0
+        ? colorImages
+        : allImages.filter((image) => !image.colorId);
+    const visibleImages = imagesToShow.length > 0 ? imagesToShow : allImages;
+
+    return visibleImages.map((image) => ({
+      ...image,
+      originalIndex: allImages.findIndex((item) => item.id === image.id),
+    }));
+  }, [allImages, selectedColor]);
+
   const selectedStorageStock = useMemo(() => {
     if (!product) return 0;
     const option = product.availableStorageOptions?.find(
@@ -232,20 +250,19 @@ const ProductDetails = () => {
                 <span className="text-gray-400 text-sm">No image</span>
               )}
             </div>
-            {allImages.length > 1 && (
+            {thumbnailImages.length > 0 && (
               <div className="grid grid-cols-4 gap-2 md:gap-3">
-                {allImages.map((img, idx) => (
+                {thumbnailImages.map((img, idx) => (
                   <button
                     key={img.id}
                     onClick={() => {
+                      setSelectedImage(img.originalIndex);
                       if (img.colorId) {
-                        selectColor(img.colorId);
-                      } else {
-                        setSelectedImage(idx);
+                        setSelectedColor(img.colorId);
                       }
                     }}
                     className={`aspect-4/3 rounded-lg border-2 overflow-hidden transition-all p-0.5 ${
-                      selectedImage === idx
+                      selectedImage === img.originalIndex
                         ? "border-custom"
                         : "border-gray-200 hover:border-gray-300"
                     }`}
