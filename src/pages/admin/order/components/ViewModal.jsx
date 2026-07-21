@@ -6,8 +6,17 @@ const getSelectedOptionLines = (options) => {
     return [
         { label: 'color', value: options.color?.name ?? options.color },
         { label: 'storage', value: options.storage?.name ?? options.storage },
-        { label: 'ram', value: options.ram?.name ?? options.ram },
     ].filter((entry) => entry.value);
+};
+
+const getItemThumbnail = (item) => {
+    const raw = item.thumbnail || item.product?.thumbnail;
+    if (!raw) return null;
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    const base =
+        import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
+    return `${base.replace(/\/$/, '')}/${String(raw).replace(/^\/+/, '')}`;
 };
 
 const ViewModal = ({
@@ -76,14 +85,21 @@ const ViewModal = ({
                         <div className="space-y-2">
                             {selectedOrder.items.map((item, i) => {
                                 const optionLines = getSelectedOptionLines(item.selectedOptions);
+                                const thumbnail = getItemThumbnail(item);
 
                                 return (
                                 <div key={i} className="flex items-center gap-3 rounded-xl bg-gray-100 px-3 py-2">
-                                    <img
-                                        src={item.product.thumbnail}
-                                        alt={item.product.title}
-                                        className="h-14 w-14 rounded-lg bg-white object-contain p-0.5"
-                                    />
+                                    {thumbnail ? (
+                                        <img
+                                            src={thumbnail}
+                                            alt={item.product.title}
+                                            className="h-14 w-14 rounded-lg bg-white object-contain p-0.5"
+                                        />
+                                    ) : (
+                                        <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-white text-xs text-gray-400">
+                                            No image
+                                        </div>
+                                    )}
                                     <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm font-medium text-gray-800">{item.product.title}</p>
                                         {optionLines.length > 0 ? (

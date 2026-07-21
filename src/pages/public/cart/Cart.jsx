@@ -19,7 +19,6 @@ const Cart = () => {
     useCart();
   const [updatingId, setUpdatingId] = useState(null);
   const [removingId, setRemovingId] = useState(null);
-  console.log(cartItems)
   const updateQuantity = async (id, change) => {
     const item = cartItems.find((i) => i.id === id);
 
@@ -114,10 +113,6 @@ const Cart = () => {
                           {(item.selectedOptions?.storage?.name ??
                           item.selectedOptions?.storage)
                             ? ` / ${item.selectedOptions?.storage?.name ?? item.selectedOptions?.storage}`
-                            : ""}
-                          {(item.selectedOptions?.ram?.name ??
-                          item.selectedOptions?.ram)
-                            ? ` / ${item.selectedOptions?.ram?.name ?? item.selectedOptions?.ram}`
                             : ""}
                         </p>
                         <div className="mt-5 flex items-center border border-gray-300 rounded-sm px-2 py-1 w-fit">
