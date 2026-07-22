@@ -321,7 +321,7 @@ const Checkout = () => {
                     </div>
                   </div>
                   <span className={`text-sm font-bold ${shippingMethod === "express" ? "text-[#151A2A]" : "text-[#9CA3AF]"}`}>
-                    ${EXPRESS_COST}.00
+                    £{EXPRESS_COST}.00
                   </span>
                 </button>
               </div>
@@ -337,18 +337,18 @@ const Checkout = () => {
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center">
                   <span className="text-base text-[#3D494C]">Subtotal</span>
-                  <span className="text-base text-[#3D494C]">${subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-base text-[#3D494C]">£{subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-base text-[#3D494C]">Shipping</span>
                   <span className="text-base font-medium text-[#006878]">
-                    {shippingMethod === "standard" ? "Free" : `$${EXPRESS_COST}.00`}
+                    {shippingMethod === "standard" ? "Free" : `£${EXPRESS_COST}.00`}
                   </span>
                 </div>
                 {promoResult && (
                   <div className="flex justify-between items-center">
                     <span className="text-base text-green-600">Discount ({promoResult.promoCode?.code})</span>
-                    <span className="text-base font-medium text-green-600">-${promoResult.discount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-base font-medium text-green-600">-£{promoResult.discount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                   </div>
                 )}
               </div>
@@ -373,14 +373,14 @@ const Checkout = () => {
                   </button>
                 </div>
                 {promoError && <p className="text-xs text-red-500">{promoError}</p>}
-                {promoResult && <p className="text-xs text-green-600">✓ Promo applied! You save ${promoResult.discount.toFixed(2)}</p>}
+                {promoResult && <p className="text-xs text-green-600">✓ Promo applied! You save £{promoResult.discount.toFixed(2)}</p>}
               </div>
 
               {/* Total */}
               <div className="flex justify-between items-center pt-6 border-t border-[#BDC9CC]">
                 <span className="text-base text-[#171C1E]">Total</span>
                 <span className="text-[40px] font-bold text-[#171C1E] leading-[1.2] tracking-[-0.4px]">
-                  ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  £{total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </span>
               </div>
 

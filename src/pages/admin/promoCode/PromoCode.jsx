@@ -213,9 +213,9 @@ const PromoCode = () => {
                                             {promo.discountType === 'PERCENTAGE' ? 'Percentage' : 'Fixed Amount'}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-700">
-                                            {promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}%` : `$${promo.discountValue}`}
+                                            {promo.discountType === 'PERCENTAGE' ? `${promo.discountValue}%` : `£${promo.discountValue}`}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-700">${promo.minOrderValue}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-700">£{promo.minOrderValue}</td>
                                         <td className="px-6 py-4 text-sm text-gray-700">
                                             {promo.maxUsageCount ?? 'Unlimited'}
                                         </td>
@@ -352,12 +352,12 @@ const PromoCode = () => {
                             <div>
                                 <p className="text-xs font-semibold uppercase text-gray-400">Discount Value</p>
                                 <p className="mt-0.5">
-                                    {selectedPromo.discountType === 'PERCENTAGE' ? `${selectedPromo.discountValue}%` : `$${selectedPromo.discountValue}`}
+                                    {selectedPromo.discountType === 'PERCENTAGE' ? `${selectedPromo.discountValue}%` : `£${selectedPromo.discountValue}`}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-xs font-semibold uppercase text-gray-400">Min Order Value</p>
-                                <p className="mt-0.5">${selectedPromo.minOrderValue}</p>
+                                <p className="mt-0.5">£{selectedPromo.minOrderValue}</p>
                             </div>
                             <div>
                                 <p className="text-xs font-semibold uppercase text-gray-400">Usage</p>

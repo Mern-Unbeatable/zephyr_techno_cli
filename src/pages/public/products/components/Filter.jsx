@@ -583,7 +583,7 @@ const Filter = ({
                   <input type="number" min={0} max={priceMax} value={priceMin}
                     onChange={(e) => setPriceMin(Number(e.target.value))} onBlur={apply}
                     className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[14px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-custom/20"
-                    placeholder="$0"
+                    placeholder="£0"
                   />
                 </div>
                 <div className="flex-1">
@@ -591,7 +591,7 @@ const Filter = ({
                   <input type="number" min={priceMin} max={2000} value={priceMax}
                     onChange={(e) => setPriceMax(Number(e.target.value))} onBlur={apply}
                     className="w-full border border-gray-200 rounded-lg px-2 py-1 text-[14px] text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-custom/20"
-                    placeholder="$2000"
+                    placeholder="£2000"
                   />
                 </div>
               </div>

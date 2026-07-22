@@ -57,7 +57,7 @@ const AdminOverview = () => {
           ? `${order.customer.email}${order.customer?.isGuest ? ' (Guest)' : ''}`
           : 'Guest',
         product: order.product?.title ?? '—',
-        amount: `$${order.totalPrice.toLocaleString()}`,
+        amount: `£${order.totalPrice.toLocaleString()}`,
         status: order.status.charAt(0) + order.status.slice(1).toLowerCase(),
         statusColor: getStatusColor(order.status)
       }));
@@ -118,7 +118,7 @@ const AdminOverview = () => {
   const stats = overviewData ? [
     {
       label: "Total Sales",
-      value: `$${overviewData.totalSales.toLocaleString()}`,
+      value: `£${overviewData.totalSales.toLocaleString()}`,
       icon: DollarSign,
       color: "text-green-500",
       bg: "bg-green-50",

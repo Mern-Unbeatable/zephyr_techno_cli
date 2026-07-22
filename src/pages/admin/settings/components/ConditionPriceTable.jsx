@@ -168,7 +168,7 @@ const ConditionPriceTable = ({
                 const priceVal = row.price != null ? Number(row.price) : null;
                 const priceLabel =
                   priceVal != null && !isNaN(priceVal)
-                    ? `$${priceVal.toLocaleString()}`
+                    ? `£${priceVal.toLocaleString()}`
                     : "—";
                 return (
                   <tr

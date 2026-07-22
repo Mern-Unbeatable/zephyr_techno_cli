@@ -41,7 +41,7 @@ const RevenueChart = ({ chartData, selectedYear, onYearChange }) => {
                 border: "1px solid #ddd",
                 borderRadius: "6px",
               }}
-              formatter={(value) => `$${value.toLocaleString()}`}
+              formatter={(value) => `£${value.toLocaleString()}`}
             />
             <Area
               type="monotone"

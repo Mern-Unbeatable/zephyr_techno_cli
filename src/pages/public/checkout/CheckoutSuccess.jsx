@@ -93,7 +93,7 @@ const CheckoutSuccess = () => {
                                             <p className="text-xs text-gray-500 mt-0.5">Qty: {item.quantity}</p>
                                         </div>
                                         <span className="text-sm font-medium text-gray-700">
-                                            ${(item.priceAtPurchase * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                            £{(item.priceAtPurchase * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                         </span>
                                     </div>
                                 ))}
@@ -123,7 +123,7 @@ const CheckoutSuccess = () => {
                             <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
                                 <span className="font-medium text-gray-900">Total Paid</span>
                                 <span className="text-xl font-bold text-gray-900">
-                                    ${order.totalPrice?.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                                    £{order.totalPrice?.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </span>
                             </div>
                         </div>

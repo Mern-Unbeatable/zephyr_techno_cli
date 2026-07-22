@@ -1,6 +1,6 @@
 export const DISCOUNT_TYPES = [
     { label: 'Percentage (%)', value: 'percentage' },
-    { label: 'Fixed Amount ($)', value: 'fixed' },
+    { label: 'Fixed Amount (£)', value: 'fixed' },
 ];
 
 export const USER_OPTIONS = ['All User', 'New User', 'Existing User'];

@@ -139,7 +139,7 @@ const Cart = () => {
                       {/* Right Info */}
                       <div className="flex flex-row md:flex-col items-center md:items-end justify-between mt-4 md:mt-0">
                         <span className="text-[17px] font-medium text-gray-900">
-                          $
+                          £
                           {(
                             item.total ?? item.price * item.quantity
                           ).toLocaleString("en-US", {
@@ -183,7 +183,7 @@ const Cart = () => {
                   <div className="flex justify-between text-[14px]">
                     <span className="text-gray-500">Subtotal</span>
                     <span className="text-gray-600">
-                      $
+                      £
                       {subtotal.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                       })}
@@ -201,7 +201,7 @@ const Cart = () => {
                       Total
                     </span>
                     <span className="text-[28px] font-bold text-gray-900 tracking-tight">
-                      $
+                      £
                       {total.toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                       })}
@@ -233,7 +233,7 @@ const Cart = () => {
                 Free Shipping
               </h4>
               <p className="text-[13px] text-gray-500">
-                On all orders over $500
+                On all orders over £500
               </p>
             </div>
 

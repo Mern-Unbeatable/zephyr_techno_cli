@@ -226,7 +226,7 @@ const CellPhoneMange = () => {
                                     <td className="px-6 py-4 text-sm text-gray-700">{request.conditionName || 'â€”'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
                                         {/* <span className="text-gray-400 line-through text-xs mr-1">${request.baseOfferPrice}</span> */}
-                                        <span className="font-medium text-gray-800">${request.userOfferedPrice}</span>
+                                        <span className="font-medium text-gray-800">£{request.userOfferedPrice}</span>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
                                         {new Date(request.createdAt).toLocaleDateString()}
@@ -365,11 +365,11 @@ const CellPhoneMange = () => {
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Base Offer Price</p>
-                                    <p className="mt-0.5">${selectedRequest.baseOfferPrice}</p>
+                                    <p className="mt-0.5">£{selectedRequest.baseOfferPrice}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">User Offered Price</p>
-                                    <p className="mt-0.5">${selectedRequest.userOfferedPrice}</p>
+                                    <p className="mt-0.5">£{selectedRequest.userOfferedPrice}</p>
                                 </div>
                                 <div className="col-span-2">
                                     <p className="text-xs font-semibold uppercase text-gray-400">Date</p>

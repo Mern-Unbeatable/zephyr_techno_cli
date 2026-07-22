@@ -116,7 +116,7 @@ const UserOrders = () => {
                                     <p className="text-sm text-gray-500 mt-1 line-clamp-1">{prod?.title}</p>
                                     <div className="mt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                                         <div>
-                                            <p className="text-lg font-bold text-gray-900">${Number(order.totalPrice).toLocaleString()}</p>
+                                            <p className="text-lg font-bold text-gray-900">£{Number(order.totalPrice).toLocaleString()}</p>
                                             <p className="text-xs text-gray-400 mt-1">{date}</p>
                                         </div>
                                         <div className="flex items-center gap-2">

@@ -135,7 +135,7 @@ const Order = () => {
     };
 
     const formatOrderPrice = (price) => {
-        return `$${price.toLocaleString()}`;
+        return `£${price.toLocaleString()}`;
     };
 
     const handleToggleMenu = (e, dbId) => {
