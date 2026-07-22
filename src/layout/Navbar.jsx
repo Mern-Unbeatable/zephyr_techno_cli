@@ -4,6 +4,7 @@ import { FiShoppingCart, FiX, FiMenu, FiLogOut, FiUser } from "react-icons/fi";
 import logo from "../assets/logo.webp";
 import Container from "./Container";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { getRoles } from "../utils/roles";
 
 const Navbar = () => {
@@ -13,6 +14,8 @@ const Navbar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, role, isAuthenticated, logout } = useAuth();
+  const { totalItems, cartItems } = useCart();
+  const cartCount = totalItems || cartItems.length;
 
   const isActive = (to) => {
     if (to === "/") return location.pathname === "/";
@@ -99,9 +102,15 @@ const Navbar = () => {
           <div className="navbar-end gap-2 lg:gap-3 ml-5">
             <Link
               to="/cart"
-              className="btn btn-ghost hover:bg-gray-100 border-none btn-circle"
+              className="btn btn-ghost hover:bg-gray-100 border-none btn-circle relative"
+              aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : "Cart"}
             >
               <FiShoppingCart size={20} />
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#47B5C9] px-1 text-[10px] font-bold leading-none text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </Link>
             <Link
               to="/sell"

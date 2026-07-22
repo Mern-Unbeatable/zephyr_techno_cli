@@ -208,54 +208,74 @@ const NOTIFICATIONS = [
   { name: "Aria O.", action: "sold", phone: "iPhone 15 Pro Max" }
 ];
 
+const INITIAL_DELAY_MS = 3000;
+const MIN_GAP_MS = 20000;
+const MAX_GAP_MS = 60000;
+const VISIBLE_MS = 6000;
+
+const getRandomGap = () =>
+  MIN_GAP_MS + Math.floor(Math.random() * (MAX_GAP_MS - MIN_GAP_MS + 1));
+
 const SaleNotification = () => {
   const [phase, setPhase] = useState("hidden"); // hidden | in | show | out
   const [current, setCurrent] = useState(null);
-  const timers = useRef([]);
+  const displayTimers = useRef([]);
+  const scheduleTimer = useRef(null);
 
-  const clearTimers = () => {
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
+  const clearDisplayTimers = () => {
+    displayTimers.current.forEach(clearTimeout);
+    displayTimers.current = [];
   };
 
-  const addTimer = (fn, delay) => {
+  const addDisplayTimer = (fn, delay) => {
     const id = setTimeout(fn, delay);
-    timers.current.push(id);
+    displayTimers.current.push(id);
     return id;
+  };
+
+  const clearScheduleTimer = () => {
+    if (scheduleTimer.current) {
+      clearTimeout(scheduleTimer.current);
+      scheduleTimer.current = null;
+    }
   };
 
   const dismiss = useCallback(() => {
     setPhase("out");
-    addTimer(() => setPhase("hidden"), 350);
+    addDisplayTimer(() => setPhase("hidden"), 350);
   }, []);
 
   const show = useCallback(() => {
-    clearTimers();
+    clearDisplayTimers();
     const pick =
       NOTIFICATIONS[Math.floor(Math.random() * NOTIFICATIONS.length)];
     setCurrent(pick);
 
-    // Trigger enter animation
     setPhase("in");
-    addTimer(() => setPhase("show"), 50);
-
-    // Auto-dismiss after 6 seconds
-    addTimer(dismiss, 6000);
+    addDisplayTimer(() => setPhase("show"), 50);
+    addDisplayTimer(dismiss, VISIBLE_MS);
   }, [dismiss]);
 
+  const scheduleNext = useCallback(() => {
+    clearScheduleTimer();
+    scheduleTimer.current = setTimeout(show, getRandomGap());
+  }, [show]);
+
   useEffect(() => {
-    // First popup after 3 seconds, then every 30 seconds
-    const boot = setTimeout(() => {
-      show();
-      const interval = setInterval(show, 30000);
-      timers.current.push(interval);
-    }, 3000);
+    scheduleTimer.current = setTimeout(show, INITIAL_DELAY_MS);
 
     return () => {
-      clearTimeout(boot);
-      clearTimers();
+      clearScheduleTimer();
+      clearDisplayTimers();
     };
   }, [show]);
+
+  useEffect(() => {
+    if (phase !== "hidden") return;
+    if (!current) return;
+
+    scheduleNext();
+  }, [phase, current, scheduleNext]);
 
   if (phase === "hidden" || !current) return null;
 

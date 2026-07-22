@@ -1,15 +1,15 @@
 import Container from '../../../../layout/Container';
 import {
     FiCheckCircle,
-    FiDollarSign,
     FiZap,
     FiTruck,
     FiUsers,
 } from 'react-icons/fi';
+import { LuPoundSterling } from 'react-icons/lu';
 
 const reasons = [
     { title: 'VAT Registered UK Supplier', icon: FiCheckCircle },
-    { title: 'Competitive Market Pricing', icon: FiDollarSign },
+    { title: 'Competitive Market Pricing', icon: LuPoundSterling },
     { title: 'Rapidly, Quote-to-Order Speed', icon: FiZap },
     { title: 'Fast & Reliable Delivery', icon: FiTruck },
     { title: 'Dedicated Team of Experts', icon: FiUsers },

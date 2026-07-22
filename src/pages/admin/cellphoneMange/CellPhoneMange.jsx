@@ -225,7 +225,7 @@ const CellPhoneMange = () => {
                                     <td className="px-6 py-4 text-sm text-gray-700">{request.deviceModelName || 'â€”'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{request.conditionName || 'â€”'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
-                                        {/* <span className="text-gray-400 line-through text-xs mr-1">${request.baseOfferPrice}</span> */}
+                                        {/* <span className="text-gray-400 line-through text-xs mr-1">£{request.baseOfferPrice}</span> */}
                                         <span className="font-medium text-gray-800">£{request.userOfferedPrice}</span>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">

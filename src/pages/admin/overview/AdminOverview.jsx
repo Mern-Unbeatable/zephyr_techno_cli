@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import {
-  DollarSign,
+  PoundSterling,
   ShoppingCart,
   Smartphone,
   Package,
@@ -119,7 +119,7 @@ const AdminOverview = () => {
     {
       label: "Total Sales",
       value: `£${overviewData.totalSales.toLocaleString()}`,
-      icon: DollarSign,
+      icon: PoundSterling,
       color: "text-green-500",
       bg: "bg-green-50",
     },
