@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import { Link } from "react-router";
 import { useCart } from "../../../context/CartContext";
+import { clearCheckoutSession } from "../../../utils/checkoutSession";
 import Swal from 'sweetalert2';
 
 const Cart = () => {
@@ -211,6 +212,7 @@ const Cart = () => {
 
                 <Link
                   to={"/checkout"}
+                  onClick={() => clearCheckoutSession()}
                   className="w-full bg-[#47B5C9] hover:bg-[#349eab] text-white py-3.5 rounded-md text-[15px] font-medium flex justify-center items-center gap-2 transition-colors"
                 >
                   <FiLock className="w-4.5 h-4.5" />

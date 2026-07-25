@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { FiCheckCircle, FiPackage, FiAlertCircle } from 'react-icons/fi';
 import Container from '../../../layout/Container';
 import { confirmPayment } from '../../../utils/cartApi';
+import { clearCheckoutSession } from '../../../utils/checkoutSession';
 import { useCart } from '../../../context/CartContext';
 
 const CheckoutSuccess = () => {
@@ -17,6 +18,7 @@ const CheckoutSuccess = () => {
             try {
                 const data = await confirmPayment();
                 if (data.success) {
+                    clearCheckoutSession();
                     setOrder(data.data);
                     await fetchCart(); // refresh cart count (now empty)
                 } else {

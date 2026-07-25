@@ -1,4 +1,5 @@
 import { getOrCreateGuestSessionId, getGuestSessionId, clearGuestSessionId } from './guestSession';
+import { clearCheckoutSession } from './checkoutSession';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -154,31 +155,44 @@ export async function validatePromo({ promoCode, cartItemIds = [] }) {
 
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
-export async function checkout({ guestEmail, shippingAddress, shippingMethod, shippingCost, promoCode, cartItemIds } = {}) {
+export async function checkout({
+  guestEmail,
+  shippingAddress,
+  shippingMethod,
+  shippingCost,
+  promoCode,
+  cartItemIds,
+  directProduct,
+} = {}) {
+  const shared = {
+    shippingAddress,
+    shippingMethod: shippingMethod || 'Standard Delivery',
+    shippingCost: shippingCost || 0,
+    promoCode: promoCode || null,
+  };
+
+  if (directProduct?.productId) {
+    Object.assign(shared, {
+      productId: directProduct.productId,
+      colorId: directProduct.colorId || null,
+      storageOptionId: directProduct.storageOptionId || null,
+      ramOptionId: directProduct.ramOptionId || null,
+      quantity: directProduct.quantity || 1,
+    });
+  } else {
+    shared.cartItemIds = cartItemIds || [];
+  }
+
   let body;
   let headers;
 
   if (isLoggedIn()) {
     headers = authHeaders();
-    body = {
-      cartItemIds: cartItemIds || [],
-      shippingAddress,
-      shippingMethod: shippingMethod || 'Standard Delivery',
-      shippingCost: shippingCost || 0,
-      promoCode: promoCode || null,
-    };
+    body = { ...shared };
   } else {
     headers = guestHeaders();
     const guestSessionId = getOrCreateGuestSessionId();
-    body = {
-      guestSessionId,
-      guestEmail,
-      cartItemIds: cartItemIds || [],
-      shippingAddress,
-      shippingMethod: shippingMethod || 'Standard Delivery',
-      shippingCost: shippingCost || 0,
-      promoCode: promoCode || null,
-    };
+    body = { guestSessionId, guestEmail, ...shared };
   }
 
   const res = await fetch(`${BASE_URL}/api/public/product/checkout`, {
@@ -190,6 +204,7 @@ export async function checkout({ guestEmail, shippingAddress, shippingMethod, sh
   const data = await res.json();
 
   if (data.success) {
+    clearCheckoutSession();
     sessionStorage.setItem('stripeSessionId', data.data.sessionId);
     sessionStorage.setItem('pendingOrderId', data.data.orderId);
     window.location.href = data.data.checkoutUrl;

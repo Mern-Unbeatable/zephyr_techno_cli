@@ -1,16 +1,52 @@
 import { Check } from 'lucide-react';
 import React, { useState, useRef, useMemo } from 'react';
+import { useLocation } from 'react-router';
 import Container from '../../../layout/Container';
 import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import { checkout, validatePromo } from '../../../utils/cartApi';
 import { filterUkCounties } from '../../../data/ukCounties';
+import {
+  clearCheckoutSession,
+  readCheckoutCartItemIds,
+  readBuyNowProduct,
+} from '../../../utils/checkoutSession';
 
 const EXPRESS_COST = 15;
 
 const Checkout = () => {
-    const { cartItems, subtotal } = useCart();
+    const location = useLocation();
+    const { cartItems } = useCart();
     const { isAuthenticated } = useAuth();
+
+    const buyNowProduct = useMemo(() => {
+        const fromSession = readBuyNowProduct();
+        if (fromSession) return fromSession;
+        const fromNav = location.state?.buyNow;
+        return fromNav?.productId ? fromNav : null;
+    }, [location.key, location.state]);
+
+    const checkoutItemIds = useMemo(
+        () => (buyNowProduct ? null : readCheckoutCartItemIds()),
+        [location.key, buyNowProduct],
+    );
+
+    const isBuyNowCheckout = Boolean(buyNowProduct);
+
+    const activeCartItems = useMemo(() => {
+        if (isBuyNowCheckout) return [];
+        if (!checkoutItemIds?.length) return cartItems;
+        return cartItems.filter((item) => checkoutItemIds.includes(item.id));
+    }, [cartItems, checkoutItemIds, isBuyNowCheckout]);
+
+    const activeSubtotal = useMemo(() => {
+        if (isBuyNowCheckout) {
+            const unitPrice = Number(buyNowProduct.unitPrice) || 0;
+            const qty = Number(buyNowProduct.quantity) || 1;
+            return unitPrice * qty;
+        }
+        return activeCartItems.reduce((sum, item) => sum + (item.total ?? 0), 0);
+    }, [activeCartItems, isBuyNowCheckout, buyNowProduct]);
     const [shippingMethod, setShippingMethod] = useState('standard');
     const [promoCode, setPromoCode] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -39,7 +75,7 @@ const Checkout = () => {
     );
 
     const shippingCost = shippingMethod === 'express' ? EXPRESS_COST : 0;
-    const baseTotal = subtotal + shippingCost;
+    const baseTotal = activeSubtotal + shippingCost;
     const discount = promoResult?.discount ?? 0;
     const total = promoResult ? promoResult.finalTotal + shippingCost : baseTotal;
 
@@ -69,12 +105,16 @@ const Checkout = () => {
     };
 
     const handleApplyPromo = async () => {
+        if (isBuyNowCheckout) {
+            setPromoError('Promo codes cannot be applied to Buy Now checkout.');
+            return;
+        }
         if (!promoCode.trim()) return;
         setPromoError('');
         setPromoResult(null);
         setPromoLoading(true);
         try {
-            const cartItemIds = cartItems.map((i) => i.id);
+            const cartItemIds = activeCartItems.map((i) => i.id);
             const res = await validatePromo({ promoCode: promoCode.trim(), cartItemIds });
             if (res.success && res.data?.valid) {
                 setPromoResult(res.data);
@@ -99,7 +139,7 @@ const Checkout = () => {
             setError('Please enter your email address.');
             return;
         }
-        if (cartItems.length === 0) {
+        if (!isBuyNowCheckout && activeCartItems.length === 0) {
             setError('Your cart is empty.');
             return;
         }
@@ -110,7 +150,7 @@ const Checkout = () => {
             const addressLine2 = form.addressLine2.trim();
             const street = addressLine2 ? `${streetLine}, ${addressLine2}` : streetLine;
 
-            await checkout({
+            const checkoutPayload = {
                 guestEmail: isAuthenticated ? undefined : form.email,
                 shippingAddress: {
                     fullName: form.fullName.trim(),
@@ -123,9 +163,23 @@ const Checkout = () => {
                 },
                 shippingMethod: shippingMethod === 'express' ? 'Express Delivery' : 'Standard Delivery',
                 shippingCost,
-                promoCode: promoCode || null,
-                cartItemIds: [],
-            });
+                promoCode: isBuyNowCheckout ? null : promoCode || null,
+            };
+
+            if (isBuyNowCheckout) {
+                checkoutPayload.directProduct = {
+                    productId: buyNowProduct.productId,
+                    colorId: buyNowProduct.colorId,
+                    storageOptionId: buyNowProduct.storageOptionId,
+                    ramOptionId: buyNowProduct.ramOptionId,
+                    quantity: buyNowProduct.quantity,
+                };
+            } else {
+                checkoutPayload.cartItemIds =
+                    checkoutItemIds || activeCartItems.map((i) => i.id);
+            }
+
+            await checkout(checkoutPayload);
             // checkout() redirects to Stripe on success — code below only runs on API error
         } catch (err) {
             setError(err.message || 'Something went wrong. Please try again.');
@@ -389,9 +443,24 @@ const Checkout = () => {
 
               {/* Line Items */}
               <div className="flex flex-col gap-4">
+                {isBuyNowCheckout && (
+                  <div className="flex justify-between items-start gap-4 pb-2 border-b border-[#D1D5DB]">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#171C1E] truncate">
+                        {buyNowProduct.title || 'Selected product'}
+                      </p>
+                      <p className="text-xs text-[#6B7280]">
+                        Qty: {Number(buyNowProduct.quantity) || 1}
+                      </p>
+                    </div>
+                    <span className="text-sm font-medium text-[#3D494C] shrink-0">
+                      £{activeSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-base text-[#3D494C]">Subtotal</span>
-                  <span className="text-base text-[#3D494C]">£{subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  <span className="text-base text-[#3D494C]">£{activeSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-base text-[#3D494C]">Shipping</span>
@@ -408,27 +477,29 @@ const Checkout = () => {
               </div>
 
               {/* Promo Code */}
-              <div className="flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Promo code"
-                    value={promoCode}
-                    onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); setPromoError(''); }}
-                    className="flex-1 h-12 px-4 border border-[#BDC9CC] rounded-lg text-sm text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyPromo}
-                    disabled={promoLoading || !promoCode.trim()}
-                    className="px-4 py-2 bg-[#171C1E] text-white text-sm rounded-lg hover:bg-[#2a3035] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {promoLoading ? <span className="loading loading-spinner loading-xs"></span> : 'Apply'}
-                  </button>
+              {!isBuyNowCheckout && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Promo code"
+                      value={promoCode}
+                      onChange={(e) => { setPromoCode(e.target.value); setPromoResult(null); setPromoError(''); }}
+                      className="flex-1 h-12 px-4 border border-[#BDC9CC] rounded-lg text-sm text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromo}
+                      disabled={promoLoading || !promoCode.trim()}
+                      className="px-4 py-2 bg-[#171C1E] text-white text-sm rounded-lg hover:bg-[#2a3035] transition-colors whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {promoLoading ? <span className="loading loading-spinner loading-xs"></span> : 'Apply'}
+                    </button>
+                  </div>
+                  {promoError && <p className="text-xs text-red-500">{promoError}</p>}
+                  {promoResult && <p className="text-xs text-green-600">✓ Promo applied! You save £{promoResult.discount.toFixed(2)}</p>}
                 </div>
-                {promoError && <p className="text-xs text-red-500">{promoError}</p>}
-                {promoResult && <p className="text-xs text-green-600">✓ Promo applied! You save £{promoResult.discount.toFixed(2)}</p>}
-              </div>
+              )}
 
               {/* Total */}
               <div className="flex justify-between items-center pt-6 border-t border-[#BDC9CC]">
@@ -446,7 +517,7 @@ const Checkout = () => {
               {/* Place Order */}
               <button
                 onClick={handlePlaceOrder}
-                disabled={submitting || cartItems.length === 0}
+                disabled={submitting || (!isBuyNowCheckout && activeCartItems.length === 0)}
                 className="w-full h-12 bg-custom hover:bg-[#2fa3bb] text-white text-sm font-bold uppercase tracking-wide rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {submitting ? (
