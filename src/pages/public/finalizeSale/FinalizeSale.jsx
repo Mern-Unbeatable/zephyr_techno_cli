@@ -39,6 +39,7 @@ const FinalizeSale = () => {
         phone: formData.phone,
         deviceName: flow.deviceName,
         deviceModelId: flow.deviceModelId,
+        storageOptionId: flow.storageOptionId,
         conditionId: flow.conditionId,
         baseOfferPrice: parseFloat(flow.baseOfferPrice) || undefined,
       };

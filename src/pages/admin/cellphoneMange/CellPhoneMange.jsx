@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 
@@ -208,6 +208,7 @@ const CellPhoneMange = () => {
                             <tr>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Customer</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Device</th>
+                                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Storage</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Condition</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Offer Price</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
@@ -222,8 +223,9 @@ const CellPhoneMange = () => {
                                         <div className="text-sm font-medium text-gray-800">{request.fullName}</div>
                                         <div className="mt-0.5 text-xs text-gray-500">{request.email}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">{request.deviceModelName || 'â€”'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">{request.conditionName || 'â€”'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">{request.deviceModelName || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">{request.storageOptionName || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">{request.conditionName || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
                                         {/* <span className="text-gray-400 line-through text-xs mr-1">£{request.baseOfferPrice}</span> */}
                                         <span className="font-medium text-gray-800">£{request.userOfferedPrice}</span>
@@ -291,7 +293,7 @@ const CellPhoneMange = () => {
                 {!loading && (meta.hasNext || meta.hasPrevious) && (
                     <div className="flex items-center justify-between border-t border-gray-100 px-6 py-3 text-sm text-gray-600">
                         <span>
-                            Showing {(meta.page - 1) * meta.limit + 1}â€“{Math.min(meta.page * meta.limit, meta.total)} of {meta.total} results
+                            Showing {(meta.page - 1) * meta.limit + 1}–{Math.min(meta.page * meta.limit, meta.total)} of {meta.total} results
                         </span>
                         <div className="flex gap-2">
                             <button
@@ -351,11 +353,15 @@ const CellPhoneMange = () => {
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Device</p>
-                                    <p className="mt-0.5">{selectedRequest.deviceModelName || 'â€”'}</p>
+                                    <p className="mt-0.5">{selectedRequest.deviceModelName || '—'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold uppercase text-gray-400">Storage</p>
+                                    <p className="mt-0.5">{selectedRequest.storageOptionName || '—'}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Condition</p>
-                                    <p className="mt-0.5">{selectedRequest.conditionName || 'â€”'}</p>
+                                    <p className="mt-0.5">{selectedRequest.conditionName || '—'}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Status</p>

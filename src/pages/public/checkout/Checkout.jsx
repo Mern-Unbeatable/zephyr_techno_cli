@@ -1,9 +1,10 @@
 import { Check } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import Container from '../../../layout/Container';
 import { useCart } from '../../../context/CartContext';
 import { useAuth } from '../../../context/AuthContext';
 import { checkout, validatePromo } from '../../../utils/cartApi';
+import { filterUkCounties } from '../../../data/ukCounties';
 
 const EXPRESS_COST = 15;
 
@@ -17,17 +18,25 @@ const Checkout = () => {
     const [promoLoading, setPromoLoading] = useState(false);
     const [promoResult, setPromoResult] = useState(null); // { discount, finalTotal, promoCode }
     const [promoError, setPromoError] = useState('');
+    const [countyOpen, setCountyOpen] = useState(false);
+    const countyBlurTimer = useRef(null);
 
     const [form, setForm] = useState({
         email: '',
         fullName: '',
-        country: 'US',
+        country: 'United Kingdom',
         street: '',
+        addressLine2: '',
         city: '',
         state: '',
         zipCode: '',
         phone: '',
     });
+
+    const countySuggestions = useMemo(
+        () => filterUkCounties(form.state),
+        [form.state],
+    );
 
     const shippingCost = shippingMethod === 'express' ? EXPRESS_COST : 0;
     const baseTotal = subtotal + shippingCost;
@@ -43,6 +52,20 @@ const Checkout = () => {
       } else {
         setForm((prev) => ({ ...prev, [name]: value }));
       }
+    };
+
+    const handleCountyFocus = () => {
+      if (countyBlurTimer.current) clearTimeout(countyBlurTimer.current);
+      setCountyOpen(true);
+    };
+
+    const handleCountyBlur = () => {
+      countyBlurTimer.current = setTimeout(() => setCountyOpen(false), 150);
+    };
+
+    const selectCounty = (county) => {
+      setForm((prev) => ({ ...prev, state: county }));
+      setCountyOpen(false);
     };
 
     const handleApplyPromo = async () => {
@@ -68,8 +91,8 @@ const Checkout = () => {
     const handlePlaceOrder = async () => {
         setError('');
 
-        if (!form.fullName || !form.street || !form.city || !form.state || !form.zipCode || !form.country || !form.phone) {
-            setError('Please fill in all shipping address fields.');
+        if (!form.fullName || !form.street || !form.city || !form.zipCode || !form.phone) {
+            setError('Please fill in all required shipping address fields.');
             return;
         }
         if (!isAuthenticated && !form.email) {
@@ -83,15 +106,19 @@ const Checkout = () => {
 
         try {
             setSubmitting(true);
+            const streetLine = form.street.trim();
+            const addressLine2 = form.addressLine2.trim();
+            const street = addressLine2 ? `${streetLine}, ${addressLine2}` : streetLine;
+
             await checkout({
                 guestEmail: isAuthenticated ? undefined : form.email,
                 shippingAddress: {
-                    fullName: form.fullName,
-                    phone: form.phone,
-                    street: form.street,
-                    city: form.city,
-                    state: form.state,
-                    zipCode: form.zipCode,
+                    fullName: form.fullName.trim(),
+                    phone: form.phone.trim(),
+                    street,
+                    city: form.city.trim(),
+                    state: form.state.trim() || undefined,
+                    zipCode: form.zipCode.trim().toUpperCase(),
                     country: form.country,
                 },
                 shippingMethod: shippingMethod === 'express' ? 'Express Delivery' : 'Standard Delivery',
@@ -152,85 +179,112 @@ const Checkout = () => {
                   <input
                     type="text"
                     name="fullName"
-                    placeholder="John Doe"
+                    placeholder="John Smith"
                     value={form.fullName}
                     onChange={handleChange}
                     className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
                   />
                 </div>
 
-                {/* Country/Region — full width */}
+                {/* Country — UK only */}
                 <div className="sm:col-span-2 flex flex-col gap-2">
                   <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">
-                    Country / Region
+                    Country
                   </label>
-                  <div className="relative">
-                    <select
-                      name="country"
-                      value={form.country}
-                      onChange={handleChange}
-                      className="h-14 w-full px-4 pr-10 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white appearance-none cursor-pointer"
-                    >
-                      <option value="UK">UK</option>
-                      <option value="US">US</option>
-                      <option value="CA">Canada</option>
-                      <option value="AU">Australia</option>
-                    </select>
-                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <path d="M7.2 9.6L12 14.4L16.8 9.6" stroke="#6B7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                  <div className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] bg-[#F9FAFB] flex items-center">
+                    United Kingdom
                   </div>
                 </div>
 
-                {/* Street Address — full width */}
+                {/* Address Line 1 — full width */}
                   <div className="sm:col-span-2 flex flex-col gap-2">
                   <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">
-                    Street Address
+                    Address Line 1
                   </label>
                   <input
                     type="text"
                     name="street"
-                    placeholder="123 tech lane"
+                    placeholder="221B Baker Street"
                     value={form.street}
                     onChange={handleChange}
                     className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
                   />
                 </div>
 
-                {/* City */}
+                {/* Address Line 2 (Optional) */}
+                <div className="sm:col-span-2 flex flex-col gap-2">
+                  <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">
+                    Address Line 2 <span className="font-normal normal-case tracking-normal text-[#9CA3AF]">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="addressLine2"
+                    placeholder="Flat 2"
+                    value={form.addressLine2}
+                    onChange={handleChange}
+                    className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
+                  />
+                </div>
+
+                {/* Town / City */}
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">City</label>
+                  <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">Town / City</label>
                   <input
                     type="text"
                     name="city"
-                    placeholder="San Francisco"
+                    placeholder="London"
                     value={form.city}
                     onChange={handleChange}
                     className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
                   />
                 </div>
 
-                {/* State + ZIP nested grid */}
+                {/* County + Postcode */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">State</label>
+                  <div className="flex flex-col gap-2 relative">
+                    <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">
+                      County <span className="font-normal normal-case tracking-normal text-[#9CA3AF]">(Optional)</span>
+                    </label>
                     <input
                       type="text"
                       name="state"
-                      placeholder="CA"
+                      placeholder="Greater London"
                       value={form.state}
                       onChange={handleChange}
+                      onFocus={handleCountyFocus}
+                      onBlur={handleCountyBlur}
+                      autoComplete="address-level1"
                       className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
                     />
+                    {countyOpen && countySuggestions.length > 0 && (
+                      <ul
+                        className="absolute top-full left-0 right-0 z-20 mt-1 max-h-48 overflow-y-auto rounded-sm border border-[#E5E7EB] bg-white py-1 shadow-lg"
+                        role="listbox"
+                      >
+                        {countySuggestions.map((county) => (
+                          <li key={county} role="option">
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => selectCounty(county)}
+                              className="w-full px-4 py-2.5 text-left text-sm text-[#151A2A] hover:bg-[#F0F4F6] transition-colors"
+                            >
+                              {county}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">ZIP</label>
+                    <label className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280]">Postcode</label>
                     <input
                       type="text"
                       name="zipCode"
-                      placeholder="94103"
+                      placeholder="NW1 6XE"
                       value={form.zipCode}
                       onChange={handleChange}
+                      autoComplete="postal-code"
                       className="h-12 px-4 border border-[#E5E7EB] rounded-sm text-base text-[#151A2A] placeholder-[#6B7280] focus:outline-none focus:border-custom focus:ring-1 focus:ring-custom bg-white"
                     />
                   </div>
@@ -244,7 +298,7 @@ const Checkout = () => {
                   <input
                     type="tel"
                     name="phone"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="+44"
                     value={form.phone}
                     onChange={handleChange}
                     inputMode="tel"

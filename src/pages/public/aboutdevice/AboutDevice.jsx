@@ -65,6 +65,8 @@ const AboutDevice = () => {
   const [apiConditions, setApiConditions] = useState([]);
   const [device, setDevice] = useState(null);
   const [price, setPrice] = useState(null);
+  const [hasConfiguredPrice, setHasConfiguredPrice] = useState(false);
+  const [loadingPrice, setLoadingPrice] = useState(false);
 
   useEffect(() => {
     try {
@@ -77,7 +79,14 @@ const AboutDevice = () => {
         const base = import.meta.env.VITE_BASE_URL || '';
         const res = await fetch(`${base}/api/sell/conditions`);
         const json = await res.json();
-        if (json?.success && Array.isArray(json.data)) setApiConditions(json.data);
+        if (json?.success && Array.isArray(json.data)) {
+          setApiConditions(json.data);
+          const excellent = json.data.find((c) =>
+            c.name?.toLowerCase().includes('excellent'),
+          );
+          if (excellent?.id) setSelectedCondition(excellent.id);
+          else if (json.data[0]?.id) setSelectedCondition(json.data[0].id);
+        }
       } catch (e) {
         // ignore
       }
@@ -88,21 +97,44 @@ const AboutDevice = () => {
 
   useEffect(() => {
     const fetchPrice = async () => {
-      if (!selectedCondition || !device?.deviceModelId) return;
+      if (!selectedCondition || !device?.deviceModelId || !device?.storageOptionId) return;
+      setLoadingPrice(true);
       try {
         const base = import.meta.env.VITE_BASE_URL || '';
-        const res = await fetch(`${base}/api/sell/price?conditionId=${selectedCondition}&deviceModelId=${device.deviceModelId}`);
+        const params = new URLSearchParams({
+          conditionId: selectedCondition,
+          deviceModelId: device.deviceModelId,
+          storageOptionId: device.storageOptionId,
+        });
+        const res = await fetch(`${base}/api/sell/price?${params}`);
         const json = await res.json();
-        if (json?.success && json.data && json.data.price) {
-          setPrice(json.data.price);
-          const updated = { ...device, conditionId: selectedCondition, baseOfferPrice: json.data.price };
+        if (json?.success && json.data) {
+          const configured = Boolean(json.data.hasConfiguredPrice && json.data.price != null);
+          setHasConfiguredPrice(configured);
+          setPrice(configured ? json.data.price : null);
+
+          const conditionName =
+            apiConditions.find((c) => c.id === selectedCondition)?.name ||
+            conditions.find((c) => c.id === selectedCondition)?.title;
+          const updated = {
+            ...device,
+            conditionId: selectedCondition,
+            conditionName,
+            baseOfferPrice: configured ? json.data.price : null,
+            hasConfiguredPrice: configured,
+          };
           localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          setDevice(updated);
         }
-      } catch (e) {}
+      } catch (e) {
+        setHasConfiguredPrice(false);
+        setPrice(null);
+      }
+      setLoadingPrice(false);
     };
 
     fetchPrice();
-  }, [selectedCondition, device]);
+  }, [selectedCondition, device?.deviceModelId, device?.storageOptionId, apiConditions]);
 
   return (
     <div className="bg-[#FBFDFF] min-h-screen py-10 lg:py-16">
@@ -164,7 +196,12 @@ const AboutDevice = () => {
                   className="object-contain h-full w-full"
                 />
               </div>
-              <h2 className="text-xl font-bold text-[#171C1E]">{device?.deviceName || 'Select Device'}</h2>
+              <div>
+                <h2 className="text-xl font-bold text-[#171C1E]">{device?.deviceName || 'Select Device'}</h2>
+                {device?.storageName && (
+                  <p className="text-sm font-medium text-[#3D494C] mt-1">{device.storageName}</p>
+                )}
+              </div>
             </div>
             <Link to="/sell-worth" className="flex items-center gap-2 text-custom font-bold text-sm hover:underline cursor-pointer">
               Change
@@ -238,17 +275,32 @@ const AboutDevice = () => {
                 Your Estimated Quote
               </p>
               <div className="text-4xl sm:text-5xl text-custom font-light mb-4">
-                {price ? `£${price}` : '—'}
+                {loadingPrice
+                  ? '…'
+                  : hasConfiguredPrice && price != null
+                    ? `£${price}`
+                    : 'Contact us for a quote'}
               </div>
               <p className="text-[#3D494C] text-sm mb-6 max-w-md mx-auto">
-                This price is locked for 7 days. We'll verify the condition upon
-                arrival and pay you within 24 hours.
+                {hasConfiguredPrice && price != null
+                  ? "This price is locked for 7 days. We'll verify the condition upon arrival and pay you within 24 hours."
+                  : "We haven't set an online price for this model, storage, and condition yet. Please contact us or choose a different option."}
               </p>
 
-              <Link to={"/finalize-sale"} className="inline-flex items-center gap-2 bg-custom text-white font-bold py-3 px-6 text-sm md:text-base rounded-lg hover:brightness-110 transition-all shadow-md cursor-pointer">
-                Next Step: Handover
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+              {hasConfiguredPrice && price != null ? (
+                <Link to={"/finalize-sale"} className="inline-flex items-center gap-2 bg-custom text-white font-bold py-3 px-6 text-sm md:text-base rounded-lg hover:brightness-110 transition-all shadow-md cursor-pointer">
+                  Next Step: Handover
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              ) : (
+                <Link
+                  to="/contact"
+                  className="inline-flex items-center gap-2 bg-custom text-white font-bold py-3 px-6 text-sm md:text-base rounded-lg hover:brightness-110 transition-all shadow-md cursor-pointer"
+                >
+                  Contact Us
+                  <ArrowRight className="w-5 h-5" />
+                </Link>
+              )}
             </div>
           </div>
         </div>

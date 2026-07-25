@@ -288,6 +288,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ShieldCheck } from "lucide-react";
 import Container from "../../../layout/Container";
 import { Link } from "react-router";
+import { sortStorageOptionsBySize } from "../../../utils/storageSort";
 
 const STORAGE_KEY = "sellFlow";
 
@@ -296,6 +297,9 @@ const SellWorth = () => {
   const [models, setModels] = useState([]);
   const [selectedSeries, setSelectedSeries] = useState(null);
   const [selectedModel, setSelectedModel] = useState(null);
+  const [storageOptions, setStorageOptions] = useState([]);
+  const [selectedStorage, setSelectedStorage] = useState(null);
+  const [loadingStorage, setLoadingStorage] = useState(false);
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [loadingModels, setLoadingModels] = useState(false);
   const [showModels, setShowModels] = useState(false);
@@ -322,9 +326,36 @@ const SellWorth = () => {
     fetchSeries();
   }, []);
 
+  const fetchStorageOptionsForModel = async (deviceModelId) => {
+    setLoadingStorage(true);
+    setStorageOptions([]);
+    setSelectedStorage(null);
+    try {
+      const base = import.meta.env.VITE_BASE_URL || "";
+      const res = await fetch(
+        `${base}/api/sell/storage-options?deviceModelId=${encodeURIComponent(deviceModelId)}`,
+      );
+      const json = await res.json();
+      if (json?.success && Array.isArray(json.data)) {
+        setStorageOptions(sortStorageOptionsBySize(json.data));
+      }
+    } catch (e) {}
+    setLoadingStorage(false);
+  };
+
+  useEffect(() => {
+    if (!selectedModel?.id) {
+      setStorageOptions([]);
+      setSelectedStorage(null);
+      return;
+    }
+    fetchStorageOptionsForModel(selectedModel.id);
+  }, [selectedModel?.id]);
+
   const handleSelectSeries = async (s) => {
     setSelectedSeries(s);
     setSelectedModel(null);
+    setSelectedStorage(null);
     setModels([]);
     setLoadingModels(true);
     try {
@@ -337,12 +368,14 @@ const SellWorth = () => {
   };
 
   const onRevealPrice = () => {
-    if (!selectedModel || !selectedSeries) return;
+    if (!selectedModel || !selectedSeries || !selectedStorage) return;
     const payload = {
       seriesId: selectedSeries.id,
       seriesName: selectedSeries.name,
       deviceModelId: selectedModel.id,
       deviceName: selectedModel.name,
+      storageOptionId: selectedStorage.id,
+      storageName: selectedStorage.name,
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -495,6 +528,7 @@ const SellWorth = () => {
                         key={m.id}
                         onClick={() => {
                           setSelectedModel(m);
+                          setSelectedStorage(null);
                           setShowModels(false);
                         }}
                         className="w-full text-left px-5 py-[14px] flex items-center gap-3 transition-colors duration-150"
@@ -537,11 +571,50 @@ const SellWorth = () => {
           </div>
         </div>
 
+        {selectedModel && (
+          <div className="max-w-2xl mx-auto mb-10">
+            <label className="block text-xs font-bold text-[#3D494C] mb-3 uppercase tracking-wide">
+              SELECT YOUR STORAGE
+            </label>
+            {loadingStorage ? (
+              <p className="text-sm text-[#6B7280]">Loading storage options...</p>
+            ) : storageOptions.length === 0 ? (
+              <p className="text-sm text-[#6B7280]">
+                No priced storage options for this model yet. Please contact us or try another model.
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {storageOptions.map((storage) => {
+                  const isActive = selectedStorage?.id === storage.id;
+                  return (
+                    <button
+                      key={storage.id}
+                      type="button"
+                      onClick={() => setSelectedStorage(storage)}
+                      className={`py-3 px-4 rounded-lg border text-sm font-medium transition-all ${
+                        isActive
+                          ? "border-custom bg-custom text-white"
+                          : "border-[#BDC9CC] bg-white text-[#171C1E] hover:border-custom"
+                      }`}
+                    >
+                      {storage.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex flex-col items-center mb-20">
           <Link
             to={"/confirm-sale"}
             onClick={onRevealPrice}
-            className="w-full sm:w-auto bg-custom text-white text-lg md:text-xl font-semibold py-4 px-12 md:px-32 rounded-lg hover:brightness-110 transition-all duration-300 mb-4 shadow-md cursor-pointer"
+            className={`w-full sm:w-auto bg-custom text-white text-lg md:text-xl font-semibold py-4 px-12 md:px-32 rounded-lg hover:brightness-110 transition-all duration-300 mb-4 shadow-md ${
+              selectedModel && selectedStorage
+                ? "cursor-pointer"
+                : "pointer-events-none opacity-50"
+            }`}
           >
             Reveal Price
           </Link>

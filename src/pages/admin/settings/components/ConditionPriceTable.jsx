@@ -1,5 +1,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
+import { conditionDisplayRank, sortConditionsForDisplay } from "../../../../utils/conditionSort";
+import { storageSizeInGb } from "../../../../utils/storageSort";
 
 const ConditionPriceTable = ({
   models = [],
@@ -35,101 +37,50 @@ const ConditionPriceTable = ({
     };
   }, []);
 
-  // group backend entries by deviceModelId preserving order from models list
-  const groups = useMemo(() => {
-    const byModel = {};
-    conditionModelPrices.forEach((e) => {
-      const mid = e.deviceModelId || "global";
-      if (!byModel[mid]) byModel[mid] = [];
-      byModel[mid].push(e);
-    });
+  const rows = useMemo(() => {
+    const modelOrder = new Map(models.map((m, i) => [m.id, i]));
+    const orderedConditions = sortConditionsForDisplay(conditions);
+    const conditionOrder = new Map(orderedConditions.map((c, i) => [c.id, i]));
 
-    // preserve models order; include models even with no entries optionally
-    const groupsFromModels = models.map((m) => ({
-      model: m,
-      rows: byModel[m.id] || [],
-    }));
-    // include any orphan model ids returned from backend that aren't in models list
-    const knownIds = new Set(models.map((m) => m.id));
-    const orphanGroups = Object.keys(byModel)
-      .filter((mid) => !knownIds.has(mid))
-      .map((mid) => ({
-        model: {
-          id: mid,
-          name: byModel[mid]?.[0]?.deviceModel?.name || "Unknown Model",
-        },
-        rows: byModel[mid],
-      }));
+    return conditionModelPrices
+      .map((r) => {
+        const modelName =
+          r.deviceModel?.name ||
+          r.deviceModelName ||
+          models.find((m) => m.id === r.deviceModelId)?.name ||
+          "Unknown Model";
+        const storageName =
+          r.storageOption?.name || r.storageOptionName || "—";
+        return {
+          ...r,
+          modelName: String(modelName).trim(),
+          storageName,
+        };
+      })
+      .sort((a, b) => {
+        const ma = modelOrder.get(a.deviceModelId) ?? 999;
+        const mb = modelOrder.get(b.deviceModelId) ?? 999;
+        if (ma !== mb) return ma - mb;
 
-    return [...groupsFromModels, ...orphanGroups].filter(
-      (g) => g.rows.length > 0,
-    );
-  }, [models, conditionModelPrices]);
+        const ca = conditionOrder.get(a.conditionId);
+        const cb = conditionOrder.get(b.conditionId);
+        const cra = ca != null ? ca : conditionDisplayRank(a.conditionName || a.condition?.name);
+        const crb = cb != null ? cb : conditionDisplayRank(b.conditionName || b.condition?.name);
+        if (cra !== crb) return cra - crb;
 
-  const flattened = groups.flatMap((g) =>
-    g.rows.map((r) => {
-      const dmName = r?.deviceModel?.name;
-      const gmName = g?.model?.name || g?.model?.label;
-      const modelName = dmName || gmName || "Unknown Model";
-      return {
-        ...r,
-        modelName: typeof modelName === "string" ? modelName.trim() : modelName,
-      };
-    }),
-  );
+        const sa = storageSizeInGb(a.storageName);
+        const sb = storageSizeInGb(b.storageName);
+        return sa - sb;
+      });
+  }, [conditionModelPrices, models, conditions]);
 
-  // debug: in development, log groups to help diagnose missing names
-  if (
-    typeof process !== "undefined" &&
-    process.env &&
-    process.env.NODE_ENV === "development"
-  ) {
-    // eslint-disable-next-line no-console
-    console.debug("ConditionPriceTable groups:", groups);
-    // eslint-disable-next-line no-console
-    console.debug(
-      "ConditionPriceTable flattened sample:",
-      flattened.slice(0, 10),
-    );
-  }
   const [page, setPage] = useState(1);
-  const total = flattened.length;
+  const total = rows.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const startIndex = (page - 1) * pageSize;
   const endIndex = Math.min(total, startIndex + pageSize);
-
-  // To paginate while preserving group rowspans, we slice the flattened list and render groups that intersect the slice.
-  const pageSlice = flattened.slice(startIndex, endIndex);
-
-  // helper to find if a group's rows intersect with the page slice indices
-  const renderGroups = () => {
-    const result = [];
-    let globalIndex = 0;
-    for (const g of groups) {
-      const groupSize = g.rows.length;
-      const groupStart = globalIndex;
-      const groupEnd = globalIndex + groupSize; // exclusive
-      // check overlap with [startIndex, endIndex)
-      if (groupEnd > startIndex && groupStart < endIndex) {
-        // determine local slice
-        const sliceFrom = Math.max(0, startIndex - groupStart);
-        const sliceTo = Math.min(groupSize, endIndex - groupStart);
-        for (let i = sliceFrom; i < sliceTo; i += 1) {
-          const row = g.rows[i];
-          result.push({
-            row,
-            showModel: i === sliceFrom,
-            modelRowSpan: sliceTo - sliceFrom,
-          });
-        }
-      }
-      globalIndex += groupSize;
-    }
-    return result;
-  };
-
-  const rowsToRender = renderGroups();
+  const pageRows = rows.slice(startIndex, endIndex);
 
   return (
     <div className="rounded-lg border border-gray-100 bg-white">
@@ -152,13 +103,14 @@ const ConditionPriceTable = ({
             <thead>
               <tr className="text-xs text-gray-500 uppercase bg-[#f8fbfc]">
                 <th className="py-3 px-4 w-48">Model</th>
+                <th className="py-3 px-4 w-28">Storage</th>
                 <th className="py-3 px-4">Condition</th>
-                <th className="py-3 px-4 w-36">Condition</th>
+                <th className="py-3 px-4 w-36">Price</th>
                 <th className="py-3 px-4 w-20">Action</th>
               </tr>
             </thead>
             <tbody>
-              {rowsToRender.map(({ row, showModel, modelRowSpan }, idx) => {
+              {pageRows.map((row, idx) => {
                 const condLabel =
                   row.conditionName ||
                   row.condition?.name ||
@@ -170,39 +122,25 @@ const ConditionPriceTable = ({
                   priceVal != null && !isNaN(priceVal)
                     ? `£${priceVal.toLocaleString()}`
                     : "—";
+
                 return (
                   <tr
-                    key={`${row.deviceModelId || row.modelId || "m"}-${condLabel}-${startIndex + idx}`}
+                    key={row.id || `${row.deviceModelId}-${row.storageOptionId}-${row.conditionId}-${startIndex + idx}`}
                     className="border-t border-gray-100"
                   >
-                    {showModel ? (
-                      <td
-                        className="py-6 px-4 align-top text-gray-700"
-                        rowSpan={modelRowSpan}
-                      >
-                        {(() => {
-                          const candidate =
-                            row.modelName ||
-                            row.deviceModel?.name ||
-                            row.deviceModelName ||
-                            row.deviceModelId;
-                          const visible =
-                            candidate && String(candidate).trim()
-                              ? String(candidate).trim()
-                              : `Unknown model (${row.deviceModelId || row.deviceModel?.id || "no-id"})`;
-                          return (
-                            <div className="whitespace-normal">{visible}</div>
-                          );
-                        })()}
-                      </td>
-                    ) : null}
-                    <td className="py-6 px-4 align-top text-gray-700">
+                    <td className="py-4 px-4 align-top text-gray-700">
+                      <div className="whitespace-normal">{row.modelName}</div>
+                    </td>
+                    <td className="py-4 px-4 align-top text-gray-700">
+                      {row.storageName}
+                    </td>
+                    <td className="py-4 px-4 align-top text-gray-700">
                       {condLabel}
                     </td>
-                    <td className="py-6 px-4 align-top text-gray-700 text-center">
+                    <td className="py-4 px-4 align-top text-gray-700 text-center">
                       {priceLabel}
                     </td>
-                    <td className="py-6 px-4 align-top text-gray-700">
+                    <td className="py-4 px-4 align-top text-gray-700">
                       <div className="inline-flex">
                         <button
                           type="button"

@@ -3,11 +3,13 @@ import Swal from 'sweetalert2';
 import SettingsCard from './components/SettingsCard';
 import Tag from './components/Tag';
 import AddModal from './components/AddModal';
+import BulkConditionPriceModal from './components/BulkConditionPriceModal';
 import ConditionPriceTable from './components/ConditionPriceTable';
 import { INITIAL_SETTINGS, SECTIONS } from './constants';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 import { getColorHex } from '../../../utils/color';
 import { readApiErrorMessage } from '../../../utils/apiError';
+import { sortConditionsForDisplay } from '../../../utils/conditionSort';
 
 const Settings = () => {
     // Start with no fallback categories/series/models/conditions — they'll be loaded from the API
@@ -103,10 +105,12 @@ const Settings = () => {
                 const data = Array.isArray(payload) ? payload : payload?.data || payload?.conditions || [];
                 if (!Array.isArray(data)) return;
 
-                const normalized = data.map((condition) => ({
-                    id: condition.id || condition._id || condition.uuid || null,
-                    name: condition.name || condition.title || String(condition),
-                }));
+                const normalized = sortConditionsForDisplay(
+                    data.map((condition) => ({
+                        id: condition.id || condition._id || condition.uuid || null,
+                        name: condition.name || condition.title || String(condition),
+                    })),
+                );
 
                 setSettings((prev) => ({
                     ...prev,
@@ -201,6 +205,8 @@ const Settings = () => {
                           conditionName: p.condition?.name || p.conditionName || null,
                           deviceModelId: p.deviceModelId || p.deviceModel?.id || null,
                           deviceModelName: p.deviceModel?.name || p.deviceModelName || null,
+                          storageOptionId: p.storageOptionId || p.storageOption?.id || null,
+                          storageOptionName: p.storageOption?.name || p.storageOptionName || null,
                           price: p.price || p.amount || p.value || null,
                       }))
                     : [];
@@ -238,6 +244,7 @@ const Settings = () => {
     }, []);
     const [activeSection, setActiveSection] = useState(null);
     const [modalValues, setModalValues] = useState({});
+    const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
 
     const sections = SECTIONS(settings);
 
@@ -616,13 +623,21 @@ const Settings = () => {
                     const token = localStorage.getItem('token');
                     const conditionId = modalValues.conditionId;
                     const deviceModelId = modalValues.deviceModelId;
+                    const storageOptionId = modalValues.storageOptionId;
                     const price = modalValues.price;
-                    if (!conditionId || !deviceModelId || price == null) return;
+                    if (!conditionId || !deviceModelId || !storageOptionId || price == null) return;
                     const endpoint = isEdit
                         ? `${API_BASE_URL}/api/admin/attributes/condition-model-prices/${modalValues.id}`
                         : `${API_BASE_URL}/api/admin/attributes/condition-model-prices`;
                     const method = isEdit ? 'PATCH' : 'POST';
-                    const body = isEdit ? { price: Number(price) } : { conditionId, deviceModelId, price: Number(price) };
+                    const body = isEdit
+                        ? { price: Number(price) }
+                        : {
+                              conditionId,
+                              deviceModelId,
+                              storageOptionId,
+                              price: Number(price),
+                          };
 
                     const res = await fetch(endpoint, {
                         method,
@@ -650,6 +665,12 @@ const Settings = () => {
                         conditionName: created.conditionName || created.condition?.name || (settings.conditions.find(c => c.id === conditionId)?.name) || null,
                         deviceModelId: created.deviceModelId || created.deviceModel?.id || deviceModelId,
                         deviceModelName: created.deviceModelName || created.deviceModel?.name || (settings.models.find(m => m.id === deviceModelId)?.name) || null,
+                        storageOptionId: created.storageOptionId || created.storageOption?.id || storageOptionId,
+                        storageOptionName:
+                            created.storageOptionName ||
+                            created.storageOption?.name ||
+                            (settings.storage.find((s) => s.id === storageOptionId)?.name) ||
+                            null,
                         price: created.price || created.amount || body.price,
                     };
 
@@ -840,26 +861,115 @@ const Settings = () => {
     );
 
     const openAddPriceModal = () => {
-        const fields = [
-            {
-                name: 'conditionId',
-                label: 'Condition',
-                type: 'select',
-                options: settings.conditions.map((c) => ({ value: c.id, label: c.name })),
-                placeholder: 'Select condition',
-            },
-            {
-                name: 'deviceModelId',
-                label: 'Device Model',
-                type: 'select',
-                options: settings.models.map((m) => ({ value: m.id, label: m.name })),
-                placeholder: 'Select device model',
-            },
-            { name: 'price', label: 'Price', type: 'number', placeholder: '0.00' },
-        ];
+        setShowBulkPriceModal(true);
+    };
 
-        setActiveSection({ key: 'condition-model-prices', modalTitle: 'Add Condition Price', fields });
-        setModalValues({});
+    const handleBulkPriceSave = async ({ deviceModelId, entries }) => {
+        const token = localStorage.getItem('token');
+        const createdOrUpdated = [];
+
+        for (const entry of entries) {
+            const price = Number(entry.price);
+            if (Number.isNaN(price)) continue;
+
+            const conditionId = entry.conditionId;
+            const isEdit = !!entry.entryId;
+            const endpoint = isEdit
+                ? `${API_BASE_URL}/api/admin/attributes/condition-model-prices/${entry.entryId}`
+                : `${API_BASE_URL}/api/admin/attributes/condition-model-prices`;
+            const method = isEdit ? 'PATCH' : 'POST';
+            const body = isEdit
+                ? { price }
+                : {
+                      conditionId,
+                      deviceModelId,
+                      storageOptionId: entry.storageOptionId,
+                      price,
+                  };
+
+            const res = await fetch(endpoint, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                const label = entry.storageName && entry.conditionName
+                    ? `${entry.storageName} / ${entry.conditionName}`
+                    : entry.storageName || 'entry';
+                throw new Error(
+                    await readApiErrorMessage(
+                        res,
+                        `Failed to ${isEdit ? 'update' : 'create'} price for ${label}.`,
+                    ),
+                );
+            }
+
+            const payload = await res.json();
+            const created = payload?.data || payload || {};
+            createdOrUpdated.push({
+                id: created.id || created._id || entry.entryId || null,
+                conditionId: created.conditionId || created.condition?.id || conditionId,
+                conditionName:
+                    created.conditionName ||
+                    created.condition?.name ||
+                    entry.conditionName ||
+                    settings.conditions.find((c) => c.id === conditionId)?.name ||
+                    null,
+                deviceModelId: created.deviceModelId || created.deviceModel?.id || deviceModelId,
+                deviceModelName:
+                    created.deviceModelName ||
+                    created.deviceModel?.name ||
+                    settings.models.find((m) => m.id === deviceModelId)?.name ||
+                    null,
+                storageOptionId:
+                    created.storageOptionId || created.storageOption?.id || entry.storageOptionId,
+                storageOptionName:
+                    created.storageOptionName ||
+                    created.storageOption?.name ||
+                    entry.storageName ||
+                    null,
+                price: created.price || created.amount || price,
+            });
+        }
+
+        setSettings((prev) => {
+            const byId = new Map(prev.conditionModelPrices.map((e) => [e.id, e]));
+            createdOrUpdated.forEach((entry) => {
+                if (entry.id) byId.set(entry.id, entry);
+            });
+            const entries = Array.from(byId.values());
+
+            const byModel = {};
+            entries.forEach((e) => {
+                const mid = e.deviceModelId || 'global';
+                if (!byModel[mid]) byModel[mid] = {};
+                const cname = e.conditionName || e.conditionId || 'unknown';
+                if (e.price != null) byModel[mid][cname] = e.price;
+            });
+
+            const firstModelId = Object.keys(byModel).find((k) => k && k !== 'global');
+            const defaultPrices = firstModelId ? byModel[firstModelId] : byModel['global'] || {};
+
+            return {
+                ...prev,
+                conditionModelPrices: entries,
+                conditionModelPricesMap: byModel,
+                conditionPrices: { ...prev.conditionPrices, ...defaultPrices },
+            };
+        });
+
+        await Swal.fire({
+            icon: 'success',
+            title: 'Success',
+            text: `${createdOrUpdated.length} price(s) saved successfully.`,
+            confirmButtonColor: '#0891b2',
+            timer: 2000,
+            showConfirmButton: false,
+        });
     };
 
     const conditionsSection = sections.find((s) => s.key === 'conditions');
@@ -893,6 +1003,7 @@ const Settings = () => {
                             id: entry.id || entry._id || '',
                             conditionId: entry.conditionId || entry.condition?.id || '',
                             deviceModelId: entry.deviceModelId || entry.deviceModel?.id || '',
+                            storageOptionId: entry.storageOptionId || entry.storageOption?.id || '',
                             price: entry.price != null ? entry.price : '',
                         });
                     }}
@@ -981,6 +1092,16 @@ const Settings = () => {
                 onChange={handleModalChange}
                 onSubmit={handleModalSubmit}
                 onClose={handleCloseModal}
+            />
+
+            <BulkConditionPriceModal
+                isOpen={showBulkPriceModal}
+                onClose={() => setShowBulkPriceModal(false)}
+                conditions={settings.conditions}
+                models={settings.models}
+                storageOptions={settings.storage}
+                existingPrices={settings.conditionModelPrices}
+                onSave={handleBulkPriceSave}
             />
         </div>
     );
