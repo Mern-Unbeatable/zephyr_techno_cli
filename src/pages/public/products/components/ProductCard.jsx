@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import Swal from "sweetalert2";
 import Stars from "./Stars";
 import { useCart } from "../../../../context/CartContext";
 
@@ -24,9 +25,21 @@ export default function ProductCard({ product }) {
         setStatus('added');
       } else {
         setStatus('error');
+        await Swal.fire({
+          icon: 'warning',
+          title: 'Unable to add to cart',
+          text: result?.message || 'This item may be out of stock.',
+          confirmButtonColor: '#47B5C9',
+        });
       }
     } catch {
       setStatus('error');
+      await Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Something went wrong. Please try again.',
+        confirmButtonColor: '#47B5C9',
+      });
     } finally {
       setTimeout(() => setStatus('idle'), 2200);
     }

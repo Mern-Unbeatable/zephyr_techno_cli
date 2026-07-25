@@ -55,20 +55,32 @@ export async function migrateGuestCart(token) {
 // ─── Cart Operations ──────────────────────────────────────────────────────────
 
 export async function addToCart({ productId, colorId, storageOptionId, ramOptionId, quantity }) {
+  const body = { productId, colorId, storageOptionId, ramOptionId, quantity };
+
   if (isLoggedIn()) {
-    return fetch(`${BASE_URL}/api/cart`, {
+    const res = await fetch(`${BASE_URL}/api/cart`, {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ productId, colorId, storageOptionId, ramOptionId, quantity }),
-    }).then((r) => r.json());
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { success: false, message: data?.message || 'Failed to add to cart' };
+    }
+    return data;
   }
 
   const guestSessionId = getOrCreateGuestSessionId();
-  return fetch(`${BASE_URL}/api/cart`, {
+  const res = await fetch(`${BASE_URL}/api/cart`, {
     method: 'POST',
     headers: guestHeaders(),
-    body: JSON.stringify({ guestSessionId, productId, colorId, storageOptionId, ramOptionId, quantity }),
-  }).then((r) => r.json());
+    body: JSON.stringify({ guestSessionId, ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return { success: false, message: data?.message || 'Failed to add to cart' };
+  }
+  return data;
 }
 
 export async function getCart() {

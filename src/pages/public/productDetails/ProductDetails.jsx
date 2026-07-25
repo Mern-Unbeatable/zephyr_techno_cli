@@ -184,6 +184,26 @@ const ProductDetails = () => {
   }
 
   const handleAddToCart = async (redirectAfter = false) => {
+    if (selectedStorageStock <= 0) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Out of stock',
+        text: 'This item is currently out of stock for the selected storage option. Please choose another option or check back later.',
+        confirmButtonColor: '#47B5C9',
+      });
+      return;
+    }
+
+    if (quantity > selectedStorageStock) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Limited stock',
+        text: `Only ${selectedStorageStock} item(s) available in stock.`,
+        confirmButtonColor: '#47B5C9',
+      });
+      return;
+    }
+
     setAddingToCart(true);
     setCartMessage('');
     try {
@@ -194,7 +214,7 @@ const ProductDetails = () => {
         ramOptionId: selectedRam || undefined,
         quantity,
       });
-      if (result.success) {
+      if (result?.success) {
         if (redirectAfter) {
           navigate('/checkout');
         } else {
@@ -204,17 +224,17 @@ const ProductDetails = () => {
       } else {
         Swal.fire({
           icon: 'error',
-          title: 'Oops...',
-          text: result.message || 'Failed to add to cart.',
-          confirmButtonColor: '#47B5C9'
+          title: 'Unable to add to cart',
+          text: result?.message || 'Failed to add to cart.',
+          confirmButtonColor: '#47B5C9',
         });
       }
     } catch {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Something went wrong.',
-        confirmButtonColor: '#47B5C9'
+        text: 'Something went wrong. Please try again.',
+        confirmButtonColor: '#47B5C9',
       });
     } finally {
       setAddingToCart(false);
@@ -430,8 +450,10 @@ const ProductDetails = () => {
               </div>
               <button
                 onClick={() => handleAddToCart(false)}
-                disabled={addingToCart || selectedStorageStock === 0}
-                className="sm:flex-1 bg-[#47B5C9] hover:bg-[#349eab] text-white rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                disabled={addingToCart}
+                className={`sm:flex-1 bg-[#47B5C9] hover:bg-[#349eab] text-white rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  selectedStorageStock === 0 ? 'opacity-60' : ''
+                }`}
               >
                 {addingToCart ? (
                   <span className="loading loading-spinner loading-xs" />
@@ -444,8 +466,10 @@ const ProductDetails = () => {
             </div>
             <button
               onClick={() => handleAddToCart(true)}
-              disabled={addingToCart || selectedStorageStock === 0}
-              className="w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={addingToCart}
+              className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
+                selectedStorageStock === 0 ? 'opacity-60' : ''
+              }`}
             >
               Buy Now
             </button>
