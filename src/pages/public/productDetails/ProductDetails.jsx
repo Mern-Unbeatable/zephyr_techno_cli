@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router";
+import { useParams, Link } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Container from "../../../layout/Container";
 import {
@@ -18,7 +18,7 @@ import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { sortStorageOptionsBySize } from '../../../utils/storageSort';
-import { setBuyNowProduct } from '../../../utils/checkoutSession';
+import { checkout } from '../../../utils/cartApi';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -75,12 +75,12 @@ function getImageIndexForColor(images, colorId) {
 
 const ProductDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { addToCart, cartItems } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
 
   const [selectedImage, setSelectedImage] = useState(0);
@@ -260,7 +260,7 @@ const ProductDetails = () => {
     }
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (selectedStorageStock <= 0) {
       Swal.fire({
         icon: 'warning',
@@ -281,18 +281,28 @@ const ProductDetails = () => {
       return;
     }
 
-    const buyNowPayload = {
-      productId: product.id,
-      colorId: selectedColor || null,
-      storageOptionId: selectedStorage || null,
-      ramOptionId: selectedRam || null,
-      quantity,
-      title: product.title,
-      unitPrice: selectedStoragePrice,
-    };
-
-    setBuyNowProduct(buyNowPayload);
-    navigate('/checkout', { state: { buyNow: buyNowPayload } });
+    setBuyNowLoading(true);
+    try {
+      await checkout({
+        shippingMethod: "Standard Delivery",
+        shippingCost: 0,
+        directProduct: {
+          productId: product.id,
+          colorId: selectedColor || null,
+          storageOptionId: selectedStorage || null,
+          ramOptionId: selectedRam || null,
+          quantity,
+        },
+      });
+    } catch (err) {
+      await Swal.fire({
+        icon: "error",
+        title: "Unable to start checkout",
+        text: err?.message || "Please try again.",
+        confirmButtonColor: "#47B5C9",
+      });
+      setBuyNowLoading(false);
+    }
   };
 
   const highlights = product
@@ -504,7 +514,7 @@ const ProductDetails = () => {
               </div>
               <button
                 onClick={handleAddToCart}
-                disabled={addingToCart}
+                disabled={addingToCart || buyNowLoading}
                 className={`sm:flex-1 bg-[#47B5C9] hover:bg-[#349eab] text-white rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
                   selectedStorageStock === 0 ? 'opacity-60' : ''
                 }`}
@@ -520,12 +530,16 @@ const ProductDetails = () => {
             </div>
             <button
               onClick={handleBuyNow}
-              disabled={addingToCart}
+              disabled={addingToCart || buyNowLoading}
               className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
                 selectedStorageStock === 0 ? 'opacity-60' : ''
               }`}
             >
-              Buy Now
+              {buyNowLoading ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : (
+                "Buy Now"
+              )}
             </button>
           </div>
         </div>

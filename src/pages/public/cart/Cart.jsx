@@ -12,7 +12,7 @@ import {
 } from "react-icons/fi";
 import { Link } from "react-router";
 import { useCart } from "../../../context/CartContext";
-import { clearCheckoutSession } from "../../../utils/checkoutSession";
+import { checkout } from "../../../utils/cartApi";
 import Swal from 'sweetalert2';
 
 const Cart = () => {
@@ -20,6 +20,7 @@ const Cart = () => {
     useCart();
   const [updatingId, setUpdatingId] = useState(null);
   const [removingId, setRemovingId] = useState(null);
+  const [checkingOut, setCheckingOut] = useState(false);
   const updateQuantity = async (id, change) => {
     const item = cartItems.find((i) => i.id === id);
 
@@ -47,6 +48,27 @@ const Cart = () => {
   };
 
   const total = subtotal;
+
+  const handleCheckoutSecurely = async () => {
+    if (cartItems.length === 0) return;
+
+    setCheckingOut(true);
+    try {
+      await checkout({
+        shippingMethod: "Standard Delivery",
+        shippingCost: 0,
+        cartItemIds: cartItems.map((item) => item.id),
+      });
+    } catch (err) {
+      await Swal.fire({
+        icon: "error",
+        title: "Unable to start checkout",
+        text: err?.message || "Please try again.",
+        confirmButtonColor: "#47B5C9",
+      });
+      setCheckingOut(false);
+    }
+  };
 
   return (
     <div className="bg-white min-h-screen pb-20 font-sans">
@@ -210,14 +232,19 @@ const Cart = () => {
                   </div>
                 </div>
 
-                <Link
-                  to={"/checkout"}
-                  onClick={() => clearCheckoutSession()}
-                  className="w-full bg-[#47B5C9] hover:bg-[#349eab] text-white py-3.5 rounded-md text-[15px] font-medium flex justify-center items-center gap-2 transition-colors"
+                <button
+                  type="button"
+                  onClick={handleCheckoutSecurely}
+                  disabled={checkingOut || cartItems.length === 0}
+                  className="w-full bg-[#47B5C9] hover:bg-[#349eab] text-white py-3.5 rounded-md text-[15px] font-medium flex justify-center items-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <FiLock className="w-4.5 h-4.5" />
+                  {checkingOut ? (
+                    <span className="loading loading-spinner loading-xs" />
+                  ) : (
+                    <FiLock className="w-4.5 h-4.5" />
+                  )}
                   Checkout Securely
-                </Link>
+                </button>
               </div>
             </div>
           </div>
