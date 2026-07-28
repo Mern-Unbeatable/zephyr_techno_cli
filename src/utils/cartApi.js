@@ -213,6 +213,27 @@ export async function checkout({
   return data;
 }
 
+// ─── Cancel unpaid checkout draft ─────────────────────────────────────────────
+
+export async function cancelUnpaidCheckout(orderId) {
+  const id = orderId || sessionStorage.getItem('pendingOrderId');
+  if (!id) return { success: true };
+
+  try {
+    const res = await fetch(`${BASE_URL}/api/public/product/checkout/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    sessionStorage.removeItem('stripeSessionId');
+    sessionStorage.removeItem('pendingOrderId');
+    return data;
+  } catch {
+    return { success: false };
+  }
+}
+
 // ─── Payment Confirmation ─────────────────────────────────────────────────────
 
 export async function confirmPayment() {

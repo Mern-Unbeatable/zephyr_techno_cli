@@ -1,9 +1,18 @@
-import React from "react";
-import { Link } from "react-router";
+import React, { useEffect } from "react";
+import { Link, useSearchParams } from "react-router";
 import { FiXCircle, FiShoppingCart, FiArrowLeft } from "react-icons/fi";
 import Container from "../../../layout/Container";
+import { cancelUnpaidCheckout } from "../../../utils/cartApi";
 
 const CheckoutCancel = () => {
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const orderId =
+      searchParams.get("orderId") || sessionStorage.getItem("pendingOrderId");
+    cancelUnpaidCheckout(orderId);
+  }, [searchParams]);
+
   return (
     <div className="min-h-screen bg-white">
       <Container>
