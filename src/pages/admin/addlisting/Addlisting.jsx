@@ -18,7 +18,6 @@ import {
   CONDITION_OPTIONS,
   COLOR_OPTIONS,
   STORAGE_OPTIONS,
-  RAM_OPTIONS,
   INITIAL_FORM,
   INITIAL_FAQS,
 } from "./constants";
@@ -40,7 +39,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     stockQuantity: "",
     colorIds: [],
     storageOptionIds: [],
-    ramOptionIds: [],
     introduction: "",
     listingStatus: "ACTIVE",
   });
@@ -50,8 +48,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     { name: "", value: "" },
   ]);
   const [includedItems, setIncludedItems] = useState([{ label: "" }]);
-  const [storageStocks, setStorageStocks] = useState({});
   const [storagePrices, setStoragePrices] = useState({});
+  const [variantStocks, setVariantStocks] = useState({});
   const [colorImages, setColorImages] = useState({});
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [deletingImageId, setDeletingImageId] = useState(null);
@@ -64,7 +62,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   const [colors, setColors] = useState([]);
   const [storageOptions, setStorageOptions] = useState([]);
   const [storageNameById, setStorageNameById] = useState({});
-  const [ramOptions, setRamOptions] = useState([]);
   const [filteredModels, setFilteredModels] = useState([]);
 
   // Category-condition business rules
@@ -107,7 +104,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           });
           return next;
         });
-        setRamOptions(data.ramOptions || []);
       } catch (err) {
         await Swal.fire({
           icon: "error",
@@ -246,25 +242,49 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             stockQuantity: listing.stockQuantity || "",
             colorIds: listing.availableColors?.map((c) => c.id) || [],
             storageOptionIds: validStorageIds,
-            ramOptionIds: listing.availableRamOptions?.map((r) => r.id) || [],
             introduction: listing.introduction || "",
             listingStatus: listing.listingStatus || "ACTIVE",
           });
-          const nextStorageStocks = {};
           const nextStoragePrices = {};
           listingStorages.forEach((storage) => {
             if (!listingStorageNames[storage.id]) return;
-            nextStorageStocks[storage.id] =
-              Number(storage.stockQuantity) > 0
-                ? String(storage.stockQuantity)
-                : "";
             nextStoragePrices[storage.id] =
               storage.price != null && Number(storage.price) > 0
                 ? String(storage.price)
                 : "";
           });
-          setStorageStocks(nextStorageStocks);
           setStoragePrices(nextStoragePrices);
+          const nextVariantStocks = {};
+          (listing.availableVariantStocks || []).forEach((row) => {
+            if (!row?.colorId || !row?.storageOptionId) return;
+            const key = `${row.colorId}::${row.storageOptionId}`;
+            nextVariantStocks[key] =
+              Number(row.stockQuantity) > 0 ? String(row.stockQuantity) : "";
+          });
+          // Fallback: if matrix empty, seed from flat color/storage stocks
+          if (
+            Object.keys(nextVariantStocks).length === 0 &&
+            (listing.availableColors || []).length &&
+            listingStorages.length
+          ) {
+            (listing.availableColors || []).forEach((color) => {
+              listingStorages.forEach((storage) => {
+                if (!listingStorageNames[storage.id]) return;
+                const colorStock = Number(color.stockQuantity) || 0;
+                const storageStock = Number(storage.stockQuantity) || 0;
+                const cell =
+                  colorStock > 0
+                    ? Math.min(colorStock, storageStock || colorStock)
+                    : Math.floor(
+                        storageStock /
+                          Math.max((listing.availableColors || []).length, 1),
+                      );
+                nextVariantStocks[`${color.id}::${storage.id}`] =
+                  cell > 0 ? String(cell) : "";
+              });
+            });
+          }
+          setVariantStocks(nextVariantStocks);
           if (listing.faqs?.length) setFaqs(listing.faqs);
           if (listing.specifications?.length)
             setSpecifications(listing.specifications);
@@ -343,20 +363,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     }
   };
 
-  const getStorageStockInputValue = (storageId) => {
-    const value = storageStocks[storageId];
-    if (
-      value === undefined ||
-      value === null ||
-      value === "" ||
-      value === 0 ||
-      value === "0"
-    ) {
-      return "";
-    }
-    return String(value);
-  };
-
   const getStoragePriceInputValue = (storageId) => {
     const value = storagePrices[storageId];
     if (value === undefined || value === null || value === "") {
@@ -369,8 +375,27 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     setStoragePrices((prev) => ({ ...prev, [storageId]: value }));
   };
 
-  const handleStorageStockChange = (storageId, value) => {
-    setStorageStocks((prev) => ({ ...prev, [storageId]: value }));
+  const variantStockKey = (colorId, storageId) => `${colorId}::${storageId}`;
+
+  const getVariantStockInputValue = (colorId, storageId) => {
+    const value = variantStocks[variantStockKey(colorId, storageId)];
+    if (
+      value === undefined ||
+      value === null ||
+      value === "" ||
+      value === 0 ||
+      value === "0"
+    ) {
+      return "";
+    }
+    return String(value);
+  };
+
+  const handleVariantStockChange = (colorId, storageId, value) => {
+    setVariantStocks((prev) => ({
+      ...prev,
+      [variantStockKey(colorId, storageId)]: value,
+    }));
   };
 
   const handleChange = (e) => {
@@ -384,15 +409,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       const isRemoving = current.includes(id);
 
       if (field === "storageOptionIds") {
-        setStorageStocks((prevStocks) => {
-          const nextStocks = { ...prevStocks };
-          if (isRemoving) {
-            delete nextStocks[id];
-          } else {
-            nextStocks[id] = prevStocks[id] ?? "";
-          }
-          return nextStocks;
-        });
         setStoragePrices((prevPrices) => {
           const nextPrices = { ...prevPrices };
           if (isRemoving) {
@@ -402,9 +418,37 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           }
           return nextPrices;
         });
+        setVariantStocks((prevStocks) => {
+          const next = { ...prevStocks };
+          if (isRemoving) {
+            Object.keys(next).forEach((key) => {
+              if (key.endsWith(`::${id}`)) delete next[key];
+            });
+          } else {
+            prev.colorIds.forEach((colorId) => {
+              const key = `${colorId}::${id}`;
+              if (next[key] === undefined) next[key] = "";
+            });
+          }
+          return next;
+        });
       }
 
       if (field === "colorIds") {
+        setVariantStocks((prevStocks) => {
+          const next = { ...prevStocks };
+          if (isRemoving) {
+            Object.keys(next).forEach((key) => {
+              if (key.startsWith(`${id}::`)) delete next[key];
+            });
+          } else {
+            prev.storageOptionIds.forEach((storageId) => {
+              const key = `${id}::${storageId}`;
+              if (next[key] === undefined) next[key] = "";
+            });
+          }
+          return next;
+        });
         if (isRemoving) {
           const removedExisting = (colorImages[id] || [])
             .filter((img) => img.id)
@@ -627,7 +671,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         formDataToSend.append("conditionId", formData.conditionId);
       const storageEntries = formData.storageOptionIds.map((storageOptionId) => ({
         storageOptionId,
-        stockQuantity: parseInt(storageStocks[storageOptionId], 10) || 0,
+        // Aggregated on backend from variantStocks; send 0 as placeholder
+        stockQuantity: 0,
         price: parseFloat(storagePrices[storageOptionId]) || 0,
       }));
       const minStoragePrice = storageEntries.length
@@ -636,6 +681,21 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
 
       formDataToSend.append("basePrice", minStoragePrice);
       formDataToSend.append("storageStocks", JSON.stringify(storageEntries));
+      const variantEntries = [];
+      formData.colorIds.forEach((colorId) => {
+        formData.storageOptionIds.forEach((storageOptionId) => {
+          variantEntries.push({
+            colorId,
+            storageOptionId,
+            stockQuantity:
+              parseInt(
+                variantStocks[`${colorId}::${storageOptionId}`],
+                10,
+              ) || 0,
+          });
+        });
+      });
+      formDataToSend.append("variantStocks", JSON.stringify(variantEntries));
       formDataToSend.append("introduction", formData.introduction);
       formDataToSend.append("listingStatus", formData.listingStatus);
 
@@ -644,10 +704,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       formDataToSend.append(
         "storageOptionIds",
         JSON.stringify(formData.storageOptionIds),
-      );
-      formDataToSend.append(
-        "ramOptionIds",
-        JSON.stringify(formData.ramOptionIds),
       );
       formDataToSend.append("faqs", JSON.stringify(faqs));
       formDataToSend.append("specifications", JSON.stringify(specifications));
@@ -894,7 +950,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             {formData.storageOptionIds.length > 0 && (
               <div className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
                 <p className="text-sm font-medium text-gray-700">
-                  Price & Stock by Storage
+                  Price by Storage
                 </p>
                 {sortStorageOptionsBySize(
                   formData.storageOptionIds
@@ -910,7 +966,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                   return (
                     <div
                       key={storageId}
-                      className="grid grid-cols-1 sm:grid-cols-[7rem_1fr_1fr] items-center gap-3"
+                      className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] items-center gap-3"
                     >
                       <span className="text-sm text-gray-600 shrink-0">
                         {storageName}
@@ -923,42 +979,83 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                           handleStoragePriceChange(storageId, e.target.value)
                         }
                       />
-                      <NumberInput
-                        name={`storage-stock-${storageId}`}
-                        placeholder="0"
-                        value={getStorageStockInputValue(storageId)}
-                        onChange={(e) =>
-                          handleStorageStockChange(storageId, e.target.value)
-                        }
-                      />
                     </div>
                   );
                 })}
               </div>
             )}
           </FormField>
-          <FormField label="RAM Options">
-            <div className="flex flex-wrap gap-2">
-              {ramOptions.map((r) => (
-                <label
-                  key={r.id}
-                  className="flex items-center gap-1.5 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.ramOptionIds.includes(r.id)}
-                    onChange={() => handleMultiToggle("ramOptionIds", r.id)}
-                    className="accent-teal-600"
-                  />
-                  <span className="text-base text-gray-700">{r.name}</span>
-                </label>
-              ))}
-              {ramOptions.length === 0 && (
-                <span className="text-sm text-gray-400">No RAM options</span>
-              )}
-            </div>
-          </FormField>
         </div>
+
+        {formData.colorIds.length > 0 &&
+          formData.storageOptionIds.length > 0 && (
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4 overflow-x-auto">
+              <p className="text-sm font-medium text-gray-700 mb-1">
+                Stock by Color × Storage
+              </p>
+              <p className="text-xs text-gray-500 mb-3">
+                Each cell is stock for that exact color and storage combination.
+              </p>
+              <table className="min-w-full text-sm border-collapse">
+                <thead>
+                  <tr>
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200">
+                      Storage
+                    </th>
+                    {formData.colorIds.map((colorId) => (
+                      <th
+                        key={colorId}
+                        className="p-2 text-gray-600 font-medium border-b border-gray-200 text-center whitespace-nowrap"
+                      >
+                        {colors.find((c) => c.id === colorId)?.name || colorId}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortStorageOptionsBySize(
+                    formData.storageOptionIds
+                      .map((storageId) => {
+                        const storageName = storageOptions.find(
+                          (s) => s.id === storageId,
+                        )?.name;
+                        if (!storageName) return null;
+                        return { id: storageId, name: storageName };
+                      })
+                      .filter(Boolean),
+                  ).map(({ id: storageId, name: storageName }) => (
+                    <tr key={storageId}>
+                      <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100">
+                        {storageName}
+                      </td>
+                      {formData.colorIds.map((colorId) => (
+                        <td
+                          key={`${colorId}-${storageId}`}
+                          className="p-2 border-b border-gray-100 min-w-[5.5rem]"
+                        >
+                          <NumberInput
+                            name={`variant-stock-${colorId}-${storageId}`}
+                            placeholder="0"
+                            value={getVariantStockInputValue(
+                              colorId,
+                              storageId,
+                            )}
+                            onChange={(e) =>
+                              handleVariantStockChange(
+                                colorId,
+                                storageId,
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
         <div className="mb-6">
           <FormField label="Introduction">

@@ -19,7 +19,6 @@ export default function ProductCard({ product }) {
         quantity: 1,
         ...(product.colorIds?.length && { colorId: product.colorIds[0] }),
         ...(product.storageOptionIds?.length && { storageOptionId: product.storageOptionIds[0] }),
-        ...(product.ramOptionIds?.length && { ramOptionId: product.ramOptionIds[0] }),
       });
       if (result?.success) {
         setStatus('added');

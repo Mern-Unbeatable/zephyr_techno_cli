@@ -10,8 +10,6 @@ export const COLOR_OPTIONS = ['Black', 'White', 'Silver', 'Gray / Space Gray', '
 
 export const STORAGE_OPTIONS = ['128GB', '256GB', '512GB', '1TB'];
 
-export const RAM_OPTIONS = ['2GB', '4GB', '8GB', '16GB'];
-
 export const INITIAL_FORM = {
     productTitle: '',
     category: 'New',
@@ -22,7 +20,6 @@ export const INITIAL_FORM = {
     color: 'Black',
     stockQuantity: '',
     storageOptions: '',
-    ramOption: '',
     introduction: '',
 };
 

@@ -177,14 +177,12 @@ const Listings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {listings.map((listing) => {
                         const storageOpt = listing.availableStorageOptions?.[0]?.name || '';
-                        const ramOpt = listing.availableRamOptions?.[0]?.name || '';
                         return (
                             <Card
                                 key={listing.id}
                                 image={listing.thumbnail || ''}
                                 title={listing.title}
                                 storage={storageOpt}
-                                ram={ramOpt}
                                 originalPrice={parseFloat(listing.basePrice) || 0}
                                 discountedPrice={parseFloat(listing.basePrice) || 0}
                                 stock={listing.stockQuantity > 0 ? 'In Stock' : 'Out of Stock'}

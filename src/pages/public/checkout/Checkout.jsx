@@ -131,6 +131,10 @@ const Checkout = () => {
     const handlePlaceOrder = async () => {
         setError('');
 
+        if (!form.fullName || !form.street || !form.city || !form.zipCode || !form.phone) {
+            setError('Please fill in all required shipping address fields.');
+            return;
+        }
         if (!isAuthenticated && !form.email) {
             setError('Please enter your email address.');
             return;
@@ -142,37 +146,31 @@ const Checkout = () => {
 
         try {
             setSubmitting(true);
+            const streetLine = form.street.trim();
+            const addressLine2 = form.addressLine2.trim();
+            const street = addressLine2 ? `${streetLine}, ${addressLine2}` : streetLine;
+
             const checkoutPayload = {
                 guestEmail: isAuthenticated ? undefined : form.email,
+                shippingAddress: {
+                    fullName: form.fullName.trim(),
+                    phone: form.phone.trim(),
+                    street,
+                    city: form.city.trim(),
+                    state: form.state.trim() || undefined,
+                    zipCode: form.zipCode.trim().toUpperCase(),
+                    country: form.country,
+                },
                 shippingMethod: shippingMethod === 'express' ? 'Express Delivery' : 'Standard Delivery',
                 shippingCost,
                 promoCode: isBuyNowCheckout ? null : promoCode || null,
             };
-
-            // Optional prefilled shipping address; Stripe checkout remains the source of truth.
-            const fullName = form.fullName.trim();
-            const streetLine = form.street.trim();
-            const city = form.city.trim();
-            const zipCode = form.zipCode.trim().toUpperCase();
-            if (fullName && streetLine && city && zipCode) {
-                const addressLine2 = form.addressLine2.trim();
-                checkoutPayload.shippingAddress = {
-                    fullName,
-                    phone: form.phone.trim() || undefined,
-                    street: addressLine2 ? `${streetLine}, ${addressLine2}` : streetLine,
-                    city,
-                    state: form.state.trim() || undefined,
-                    zipCode,
-                    country: form.country,
-                };
-            }
 
             if (isBuyNowCheckout) {
                 checkoutPayload.directProduct = {
                     productId: buyNowProduct.productId,
                     colorId: buyNowProduct.colorId,
                     storageOptionId: buyNowProduct.storageOptionId,
-                    ramOptionId: buyNowProduct.ramOptionId,
                     quantity: buyNowProduct.quantity,
                 };
             } else {
@@ -195,11 +193,6 @@ const Checkout = () => {
         <div className="flex flex-col lg:flex-row gap-16 py-10 lg:py-14">
           {/* LEFT COLUMN */}
           <div className="flex-1 flex flex-col gap-16">
-            <section className="rounded-lg border border-[#BDE7EF] bg-[#F0FBFD] p-4">
-              <p className="text-sm text-[#155E75]">
-                You can complete your billing and shipping information securely on Stripe checkout.
-              </p>
-            </section>
             {/* Contact Information — only shown for guests */}
             {!isAuthenticated && (
             <section className="flex flex-col gap-6">
@@ -226,9 +219,9 @@ const Checkout = () => {
             </section>
             )}
 
-            {/* Optional prefill for Stripe */}
+            {/* Shipping Address */}
             <section className="flex flex-col gap-6">
-              <h2 className="text-3xl font-bold text-[#151A2A]">Shipping Address (Optional)</h2>
+              <h2 className="text-3xl font-bold text-[#151A2A]">Shipping Address</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Full Name — full width */}

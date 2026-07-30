@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useNavigate } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Container from "../../../layout/Container";
 import {
@@ -18,7 +18,7 @@ import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { sortStorageOptionsBySize } from '../../../utils/storageSort';
-import { checkout } from '../../../utils/cartApi';
+import { setBuyNowProduct } from '../../../utils/checkoutSession';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -75,18 +75,17 @@ function getImageIndexForColor(images, colorId) {
 
 const ProductDetails = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addToCart, cartItems } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
-  const [buyNowLoading, setBuyNowLoading] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedStorage, setSelectedStorage] = useState(null);
-  const [selectedRam, setSelectedRam] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
@@ -109,7 +108,6 @@ const ProductDetails = () => {
         setProduct({ ...data, availableStorageOptions: sortedStorages });
         setSelectedColor(firstColorId);
         setSelectedStorage(sortedStorages[0]?.id ?? null);
-        setSelectedRam(data.availableRamOptions?.[0]?.id ?? null);
         setSelectedImage(getImageIndexForColor(data.images, firstColorId));
       })
       .catch((err) => setError(err.message))
@@ -136,16 +134,52 @@ const ProductDetails = () => {
     }));
   }, [allImages, selectedColor]);
 
-  const selectedStorageStock = useMemo(() => {
+  const selectedVariantStock = useMemo(() => {
     if (!product) return 0;
-    const option = product.availableStorageOptions?.find(
-      (storage) => storage.id === selectedStorage,
-    );
-    if (option?.stockQuantity != null) {
-      return Math.max(0, Number(option.stockQuantity) || 0);
+    if (selectedColor && selectedStorage) {
+      const cell = product.availableVariantStocks?.find(
+        (row) =>
+          row.colorId === selectedColor &&
+          row.storageOptionId === selectedStorage,
+      );
+      if (cell?.stockQuantity != null) {
+        return Math.max(0, Number(cell.stockQuantity) || 0);
+      }
+      // Legacy fallback before matrix existed
+      const colorStock = product.availableColors?.find(
+        (c) => c.id === selectedColor,
+      )?.stockQuantity;
+      const storageStock = product.availableStorageOptions?.find(
+        (s) => s.id === selectedStorage,
+      )?.stockQuantity;
+      if (colorStock != null && storageStock != null) {
+        return Math.min(
+          Math.max(0, Number(colorStock) || 0),
+          Math.max(0, Number(storageStock) || 0),
+        );
+      }
+      return Math.max(0, Number(storageStock ?? product.stockQuantity) || 0);
+    }
+    if (selectedStorage) {
+      const option = product.availableStorageOptions?.find(
+        (storage) => storage.id === selectedStorage,
+      );
+      return Math.max(
+        0,
+        Number(option?.stockQuantity ?? product.stockQuantity) || 0,
+      );
+    }
+    if (selectedColor) {
+      const option = product.availableColors?.find(
+        (color) => color.id === selectedColor,
+      );
+      return Math.max(
+        0,
+        Number(option?.stockQuantity ?? product.stockQuantity) || 0,
+      );
     }
     return Math.max(0, Number(product.stockQuantity) || 0);
-  }, [product, selectedStorage]);
+  }, [product, selectedColor, selectedStorage]);
 
   const selectedStoragePrice = useMemo(() => {
     if (!product) return 0;
@@ -191,13 +225,11 @@ const ProductDetails = () => {
         !selectedColor || item.selectedOptions?.color?.id === selectedColor;
       const storageMatch =
         !selectedStorage || item.selectedOptions?.storage?.id === selectedStorage;
-      const ramMatch =
-        !selectedRam || item.selectedOptions?.ram?.id === selectedRam;
-      return colorMatch && storageMatch && ramMatch;
+      return colorMatch && storageMatch;
     });
 
   const handleAddToCart = async () => {
-    if (selectedStorageStock <= 0) {
+    if (selectedVariantStock <= 0) {
       await Swal.fire({
         icon: 'warning',
         title: 'Out of stock',
@@ -207,11 +239,11 @@ const ProductDetails = () => {
       return;
     }
 
-    if (quantity > selectedStorageStock) {
+    if (quantity > selectedVariantStock) {
       await Swal.fire({
         icon: 'warning',
         title: 'Limited stock',
-        text: `Only ${selectedStorageStock} item(s) available in stock.`,
+        text: `Only ${selectedVariantStock} item(s) available in stock.`,
         confirmButtonColor: '#47B5C9',
       });
       return;
@@ -234,7 +266,6 @@ const ProductDetails = () => {
         productId: product.id,
         colorId: selectedColor || undefined,
         storageOptionId: selectedStorage || undefined,
-        ramOptionId: selectedRam || undefined,
         quantity,
       });
       if (result?.success) {
@@ -260,8 +291,8 @@ const ProductDetails = () => {
     }
   };
 
-  const handleBuyNow = async () => {
-    if (selectedStorageStock <= 0) {
+  const handleBuyNow = () => {
+    if (selectedVariantStock <= 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Out of stock',
@@ -271,38 +302,27 @@ const ProductDetails = () => {
       return;
     }
 
-    if (quantity > selectedStorageStock) {
+    if (quantity > selectedVariantStock) {
       Swal.fire({
         icon: 'warning',
         title: 'Limited stock',
-        text: `Only ${selectedStorageStock} item(s) available in stock.`,
+        text: `Only ${selectedVariantStock} item(s) available in stock.`,
         confirmButtonColor: '#47B5C9',
       });
       return;
     }
 
-    setBuyNowLoading(true);
-    try {
-      await checkout({
-        shippingMethod: "Standard Delivery",
-        shippingCost: 0,
-        directProduct: {
-          productId: product.id,
-          colorId: selectedColor || null,
-          storageOptionId: selectedStorage || null,
-          ramOptionId: selectedRam || null,
-          quantity,
-        },
-      });
-    } catch (err) {
-      await Swal.fire({
-        icon: "error",
-        title: "Unable to start checkout",
-        text: err?.message || "Please try again.",
-        confirmButtonColor: "#47B5C9",
-      });
-      setBuyNowLoading(false);
-    }
+    const buyNowPayload = {
+      productId: product.id,
+      colorId: selectedColor || null,
+      storageOptionId: selectedStorage || null,
+      quantity,
+      title: product.title,
+      unitPrice: selectedStoragePrice,
+    };
+
+    setBuyNowProduct(buyNowPayload);
+    navigate('/checkout', { state: { buyNow: buyNowPayload } });
   };
 
   const highlights = product
@@ -374,12 +394,12 @@ const ProductDetails = () => {
               <p className="text-xl md:text-2xl lg:text-3xl font-bold text-[#151A2A]">
                 £{Number(selectedStoragePrice).toLocaleString()}
               </p>
-              {selectedStorageStock <= 5 && selectedStorageStock > 0 && (
+              {selectedVariantStock <= 5 && selectedVariantStock > 0 && (
                 <p className="text-sm text-orange-500 mt-1">
-                  Only {selectedStorageStock} left in stock
+                  Only {selectedVariantStock} left in stock
                 </p>
               )}
-              {selectedStorageStock === 0 && (
+              {selectedVariantStock === 0 && (
                 <p className="text-sm text-red-500 mt-1">Out of stock</p>
               )}
 
@@ -468,30 +488,6 @@ const ProductDetails = () => {
               </div>
             )}
 
-            {/* RAM */}
-            {/* {product.availableRamOptions?.length > 0 && (
-              <div className="mb-8">
-                <p className="text-[11px] font-bold tracking-widest text-[#151A2A] uppercase mb-2">
-                  RAM
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {product.availableRamOptions.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => setSelectedRam(r.id)}
-                      className={`px-4 py-2 rounded-sm text-[13px] border transition-colors ${
-                        selectedRam === r.id
-                          ? "bg-custom border-custom text-white"
-                          : "border-gray-300 text-gray-500 hover:border-gray-400 bg-white"
-                      }`}
-                    >
-                      {r.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )} */}
-
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-3 mb-3 mt-auto">
               <div className="flex items-center border border-gray-300 rounded-sm px-3 py-2 w-full sm:w-24 justify-between shrink-0 h-11">
@@ -507,16 +503,16 @@ const ProductDetails = () => {
                 <button
                   onClick={() => setQuantity(quantity + 1)}
                   className="text-gray-500 hover:text-[#151A2A]"
-                  disabled={selectedStorageStock !== null && quantity >= selectedStorageStock}
+                  disabled={selectedVariantStock !== null && quantity >= selectedVariantStock}
                 >
                   <FiPlus size={14} />
                 </button>
               </div>
               <button
                 onClick={handleAddToCart}
-                disabled={addingToCart || buyNowLoading}
+                disabled={addingToCart}
                 className={`sm:flex-1 bg-[#47B5C9] hover:bg-[#349eab] text-white rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
-                  selectedStorageStock === 0 ? 'opacity-60' : ''
+                  selectedVariantStock === 0 ? 'opacity-60' : ''
                 }`}
               >
                 {addingToCart ? (
@@ -530,16 +526,12 @@ const ProductDetails = () => {
             </div>
             <button
               onClick={handleBuyNow}
-              disabled={addingToCart || buyNowLoading}
+              disabled={addingToCart}
               className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
-                selectedStorageStock === 0 ? 'opacity-60' : ''
+                selectedVariantStock === 0 ? 'opacity-60' : ''
               }`}
             >
-              {buyNowLoading ? (
-                <span className="loading loading-spinner loading-xs" />
-              ) : (
-                "Buy Now"
-              )}
+              Buy Now
             </button>
           </div>
         </div>

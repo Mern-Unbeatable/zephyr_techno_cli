@@ -146,27 +146,6 @@ const Settings = () => {
             }
         };
 
-        const loadRamOptions = async () => {
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/admin/attributes/ram-options`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                if (!res.ok) return;
-                const payload = await res.json();
-                const data = Array.isArray(payload) ? payload : payload?.data || payload?.ramOptions || [];
-                if (!Array.isArray(data)) return;
-
-                const normalized = data.map((ram) => ({
-                    id: ram.id || ram._id || ram.uuid || null,
-                    name: ram.name || ram.title || String(ram),
-                }));
-
-                setSettings((prev) => ({ ...prev, ram: normalized }));
-            } catch (err) {
-                // ignore load errors
-            }
-        };
-
         const loadColors = async () => {
             try {
                 const res = await fetch(`${API_BASE_URL}/api/admin/attributes/colors`, {
@@ -238,7 +217,6 @@ const Settings = () => {
         loadModels();
         loadConditions();
         loadStorageOptions();
-        loadRamOptions();
         loadColors();
         loadConditionPrices();
     }, []);
@@ -505,59 +483,6 @@ const Settings = () => {
             return;
         }
 
-        if (activeSection.key === 'ram') {
-            (async () => {
-                try {
-                    const token = localStorage.getItem('token');
-                    const res = await fetch(`${API_BASE_URL}/api/admin/attributes/ram-options`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                        },
-                        body: JSON.stringify({ name: newValue }),
-                    });
-
-                    if (!res.ok) {
-                        throw new Error(
-                            await readApiErrorMessage(res, 'Failed to create RAM option.'),
-                        );
-                    }
-
-                    const payload = await res.json();
-                    const created = payload?.data || payload || {};
-                    const item = {
-                        id: created.id || created._id || created.uuid || null,
-                        name: created.name || created.title || newValue,
-                    };
-
-                    setSettings((prev) => ({
-                        ...prev,
-                        ram: [...prev.ram, item],
-                    }));
-
-                    await Swal.fire({
-                        icon: 'success',
-                        title: 'Success',
-                        text: 'RAM option added successfully.',
-                        confirmButtonColor: '#0891b2',
-                        timer: 2000,
-                        showConfirmButton: false,
-                    });
-                } catch (err) {
-                    await Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: err.message || 'Failed to add RAM option.',
-                        confirmButtonColor: '#0891b2',
-                    });
-                } finally {
-                    handleCloseModal();
-                }
-            })();
-            return;
-        }
-
         if (activeSection.key === 'colors') {
             (async () => {
                 try {
@@ -756,7 +681,6 @@ const Settings = () => {
             models: 'models',
             conditions: 'conditions',
             storage: 'storage-options',
-            ram: 'ram-options',
             colors: 'colors',
         };
 

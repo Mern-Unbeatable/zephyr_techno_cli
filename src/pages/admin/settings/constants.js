@@ -29,7 +29,6 @@ export const INITIAL_SETTINGS = {
         'Broken': '£100.00',
     },
     storage: ['256 gb', '64 gb', '128 gb'],
-    ram: ['8 gb', '12 gb', '64 gb'],
     colors: ['Black', 'White', 'Magenta', 'Pink', 'Blue', 'Gray', 'Green', 'Phantom Black', 'Sunset Gold', 'Rose Gold'],
 };
 
@@ -82,13 +81,6 @@ export const SECTIONS = (settings) => [
         addLabel: 'Add Storage',
         modalTitle: 'Storage name',
         fields: [{ name: 'value', label: 'Storage name', placeholder: 'Storage name' }],
-    },
-    {
-        key: 'ram',
-        title: 'Ram',
-        addLabel: 'Add Ram',
-        modalTitle: 'Ram name',
-        fields: [{ name: 'value', label: 'Ram name', placeholder: 'Ram name' }],
     },
     {
         key: 'colors',

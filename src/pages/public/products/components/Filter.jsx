@@ -1,5 +1,5 @@
 // import React, { useState } from "react";
-// import { CONDITIONS, SERIES_LIST, STORAGES, RAM_OPTIONS, COLORS_LIST } from "../constants";
+// import { CONDITIONS, SERIES_LIST, STORAGES, COLORS_LIST } from "../constants";
 
 // // ── Sidebar Filters ───────────────────────────────────────────────────────────
 // function FilterSection({ title, children }) {
@@ -58,8 +58,6 @@
 //   setConditionId,
 //   storageId,
 //   setStorageId,
-//   ramId,
-//   setRamId,
 //   colorId,
 //   setColorId,
 //   priceMin,
@@ -105,7 +103,6 @@
 //   const categoryFilters = attributes?.categoryFilters || [];
 //   const seriesList = attributes?.series || [];
 //   const storageOptions = attributes?.storageOptions || [];
-//   const ramOptions = attributes?.ramOptions || [];
 //   const colorsList = attributes?.colors || [];
 
 //   // Find filter types from categoryFilters
@@ -318,31 +315,6 @@
 //           </FilterSection>
 //         )}
 
-//         {/* RAM */}
-//         {ramOptions.length > 0 && (
-//           <FilterSection title="RAM">
-//             <div className="grid grid-cols-2 gap-2">
-//               {ramOptions.map((r) => (
-//                 <button
-//                   key={r.id}
-//                   onClick={() => {
-//                     setRamId(ramId === r.id ? null : r.id);
-//                     apply();
-//                   }}
-//                   className={`py-1.5 rounded-lg text-[14px] leading-5 font-medium border transition-all
-//                         ${
-//                           ramId === r.id
-//                             ? "bg-custom border-custom text-white"
-//                             : "bg-white border-gray-200 text-gray-600 hover:border-custom"
-//                         }`}
-//                 >
-//                   {r.name}
-//                 </button>
-//               ))}
-//             </div>
-//           </FilterSection>
-//         )}
-
 //         {/* Color */}
 //         {colorsList.length > 0 && (
 //           <FilterSection title="Color">
@@ -423,7 +395,6 @@ const Filter = ({
   seriesId, setSeriesId,
   conditionId, setConditionId,
   storageId, setStorageId,
-  ramId, setRamId,
   colorId, setColorId,
   priceMin, setPriceMin,
   priceMax, setPriceMax,
@@ -441,7 +412,6 @@ const Filter = ({
   const categoryFilters = attributes?.categoryFilters || [];
   const seriesList = attributes?.series || [];
   const storageOptions = sortStorageOptionsBySize(attributes?.storageOptions || []);
-  const ramOptions = attributes?.ramOptions || [];
   const colorsList = attributes?.colors || [];
 
   const allFilter = categoryFilters.find(c => c.key === "ALL");
@@ -605,20 +575,6 @@ const Filter = ({
                     <button key={s.id} onClick={() => { setStorageId(storageId === s.id ? null : s.id); apply(); }}
                       className={`py-1.5 rounded-lg text-[14px] leading-5 font-medium border transition-all ${storageId === s.id ? "bg-custom border-custom text-white" : "bg-white border-gray-200 text-gray-600 hover:border-custom"}`}>
                       {s.name}
-                    </button>
-                  ))}
-                </div>
-              </FilterSection>
-            )}
-
-            {/* RAM */}
-            {ramOptions.length > 0 && (
-              <FilterSection title="RAM">
-                <div className="grid grid-cols-2 gap-2">
-                  {ramOptions.map((r) => (
-                    <button key={r.id} onClick={() => { setRamId(ramId === r.id ? null : r.id); apply(); }}
-                      className={`py-1.5 rounded-lg text-[14px] leading-5 font-medium border transition-all ${ramId === r.id ? "bg-custom border-custom text-white" : "bg-white border-gray-200 text-gray-600 hover:border-custom"}`}>
-                      {r.name}
                     </button>
                   ))}
                 </div>

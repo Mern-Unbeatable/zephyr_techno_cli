@@ -14,7 +14,6 @@
 //   const [seriesId, setSeriesId] = useState(null);
 //   const [conditionId, setConditionId] = useState(null);
 //   const [storageId, setStorageId] = useState(null);
-//   const [ramId, setRamId] = useState(null);
 //   const [colorId, setColorId] = useState(null);
 //   const [priceMin, setPriceMin] = useState(0);
 //   const [priceMax, setPriceMax] = useState(2000);
@@ -135,7 +134,6 @@
 //         if (conditionId) params.append('conditionId', conditionId);
 //         if (colorId) params.append('colorId', colorId);
 //         if (storageId) params.append('storageOptionId', storageId);
-//         if (ramId) params.append('ramOptionId', ramId);
 //         if (priceMin > 0) params.append('priceMin', priceMin);
 //         if (priceMax < 2000) params.append('priceMax', priceMax);
 //         if (search) params.append('search', search);
@@ -174,7 +172,7 @@
 //     if (!isLoadingAttributes) {
 //       fetchProducts();
 //     }
-//   }, [categoryId, seriesId, conditionId, colorId, storageId, ramId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
+//   }, [categoryId, seriesId, conditionId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
 
 //   const closeFilterPanel = () => setIsFilterOpen(false);
 
@@ -184,7 +182,6 @@
 //     setSeriesId(null);
 //     setConditionId(null);
 //     setStorageId(null);
-//     setRamId(null);
 //     setColorId(null);
 //     setPriceMin(0);
 //     setPriceMax(2000);
@@ -314,8 +311,6 @@
 //                 setConditionId={setConditionId}
 //                 storageId={storageId}
 //                 setStorageId={setStorageId}
-//                 ramId={ramId}
-//                 setRamId={setRamId}
 //                 colorId={colorId}
 //                 setColorId={setColorId}
 //                 priceMin={priceMin}
@@ -342,8 +337,6 @@
 //                 setConditionId={setConditionId}
 //                 storageId={storageId}
 //                 setStorageId={setStorageId}
-//                 ramId={ramId}
-//                 setRamId={setRamId}
 //                 colorId={colorId}
 //                 setColorId={setColorId}
 //                 priceMin={priceMin}
@@ -414,7 +407,6 @@ export default function Products() {
   const [seriesId, setSeriesId] = useState(null);
   const [conditionId, setConditionId] = useState(null);
   const [storageId, setStorageId] = useState(null);
-  const [ramId, setRamId] = useState(null);
   const [colorId, setColorId] = useState(null);
   const [priceMin, setPriceMin] = useState(0);
   const [priceMax, setPriceMax] = useState(2000);
@@ -470,7 +462,6 @@ export default function Products() {
       images: apiProduct.thumbnail ? [apiProduct.thumbnail] : [],
       colorIds: apiProduct.colorIds || [],
       storageOptionIds: apiProduct.storageOptionIds || [],
-      ramOptionIds: apiProduct.ramOptionIds || [],
     };
   };
 
@@ -515,7 +506,6 @@ export default function Products() {
         if (conditionId) params.append('conditionId', conditionId);
         if (colorId) params.append('colorId', colorId);
         if (storageId) params.append('storageOptionId', storageId);
-        if (ramId) params.append('ramOptionId', ramId);
         if (priceMin > 0) params.append('priceMin', priceMin);
         if (priceMax < 2000) params.append('priceMax', priceMax);
         if (search) params.append('search', search);
@@ -543,7 +533,7 @@ export default function Products() {
       }
     };
     if (!isLoadingAttributes) fetchProducts();
-  }, [categoryId, seriesId, conditionId, colorId, storageId, ramId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
+  }, [categoryId, seriesId, conditionId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
 
   const closeFilterPanel = () => setIsFilterOpen(false);
 
@@ -552,7 +542,6 @@ export default function Products() {
     setSeriesId(null);
     setConditionId(null);
     setStorageId(null);
-    setRamId(null);
     setColorId(null);
     setPriceMin(0);
     setPriceMax(2000);
@@ -566,7 +555,6 @@ export default function Products() {
     seriesId, setSeriesId,
     conditionId, setConditionId,
     storageId, setStorageId,
-    ramId, setRamId,
     colorId, setColorId,
     priceMin, setPriceMin,
     priceMax, setPriceMax,

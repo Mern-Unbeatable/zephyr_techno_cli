@@ -20,7 +20,6 @@ const Card = ({
     image,
     title,
     storage,
-    ram,
     originalPrice,
     discountedPrice,
     stock,
@@ -67,10 +66,9 @@ const Card = ({
                 {/* Title */}
                 <h3 className="text-base font-semibold text-gray-900 mb-1">{title}</h3>
 
-                {/* Specs - Storage & RAM */}
+                {/* Specs - Storage */}
                 <div className="flex gap-8 text-sm text-gray-500 mb-3">
                     {storage && <span>{storage}</span>}
-                    {ram && <span>{ram}</span>}
                 </div>
 
                 {/* Price + Stock row */}

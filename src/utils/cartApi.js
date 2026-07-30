@@ -55,8 +55,8 @@ export async function migrateGuestCart(token) {
 
 // ─── Cart Operations ──────────────────────────────────────────────────────────
 
-export async function addToCart({ productId, colorId, storageOptionId, ramOptionId, quantity }) {
-  const body = { productId, colorId, storageOptionId, ramOptionId, quantity };
+export async function addToCart({ productId, colorId, storageOptionId, quantity }) {
+  const body = { productId, colorId, storageOptionId, quantity };
 
   if (isLoggedIn()) {
     const res = await fetch(`${BASE_URL}/api/cart`, {
@@ -176,7 +176,6 @@ export async function checkout({
       productId: directProduct.productId,
       colorId: directProduct.colorId || null,
       storageOptionId: directProduct.storageOptionId || null,
-      ramOptionId: directProduct.ramOptionId || null,
       quantity: directProduct.quantity || 1,
     });
   } else {

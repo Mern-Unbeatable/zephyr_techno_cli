@@ -106,7 +106,6 @@ export const PRODUCTS = [
 export const CONDITIONS = ["All", "New", "Excellent (Like New)", "Very Good"];
 export const SERIES_LIST = ["All", "SAMSUNG Series", "iPhone Series", "iPad Series"];
 export const STORAGES = ["128GB", "256GB", "512GB", "1TB"];
-export const RAM_OPTIONS = ["4 GB", "8 GB", "16 GB", "32 GB"];
 export const COLORS_LIST = [
   { hex: "#1a1a1a", label: "Black" },
   { hex: "#f0ede8", label: "White" },
