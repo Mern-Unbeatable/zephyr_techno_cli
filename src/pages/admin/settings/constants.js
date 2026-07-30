@@ -80,7 +80,7 @@ export const SECTIONS = (settings) => [
         title: 'Storage',
         addLabel: 'Add Storage',
         modalTitle: 'Storage name',
-        fields: [{ name: 'value', label: 'Storage name', placeholder: 'Storage name' }],
+        fields: [{ name: 'value', label: 'Storage name', placeholder: 'e.g. 64' }],
     },
     {
         key: 'colors',

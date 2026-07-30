@@ -5,6 +5,7 @@ import Tabs from './components/Tabs';
 import Card from './components/Card';
 import Pagination from './components/Pagination';
 import { Link, useNavigate } from 'react-router';
+import { formatStorageLabel } from '../../../utils/storageSort';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -176,7 +177,9 @@ const Listings = () => {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                     {listings.map((listing) => {
-                        const storageOpt = listing.availableStorageOptions?.[0]?.name || '';
+                        const storageOpt = formatStorageLabel(
+                            listing.availableStorageOptions?.[0]?.name || '',
+                        );
                         return (
                             <Card
                                 key={listing.id}

@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useState } from "react";
 import { conditionDisplayRank, sortConditionsForDisplay } from "../../../../utils/conditionSort";
-import { storageSizeInGb } from "../../../../utils/storageSort";
+import { storageSizeInGb, formatStorageLabel } from "../../../../utils/storageSort";
 
 const ConditionPriceTable = ({
   models = [],
@@ -49,8 +49,9 @@ const ConditionPriceTable = ({
           r.deviceModelName ||
           models.find((m) => m.id === r.deviceModelId)?.name ||
           "Unknown Model";
-        const storageName =
-          r.storageOption?.name || r.storageOptionName || "—";
+        const storageName = formatStorageLabel(
+          r.storageOption?.name || r.storageOptionName || "—",
+        );
         return {
           ...r,
           modelName: String(modelName).trim(),

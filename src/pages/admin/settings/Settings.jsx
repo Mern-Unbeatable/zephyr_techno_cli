@@ -10,6 +10,7 @@ import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTi
 import { getColorHex } from '../../../utils/color';
 import { readApiErrorMessage } from '../../../utils/apiError';
 import { sortConditionsForDisplay } from '../../../utils/conditionSort';
+import { formatStorageLabel } from '../../../utils/storageSort';
 
 const Settings = () => {
     // Start with no fallback categories/series/models/conditions — they'll be loaded from the API
@@ -137,7 +138,7 @@ const Settings = () => {
 
                 const normalized = data.map((storage) => ({
                     id: storage.id || storage._id || storage.uuid || null,
-                    name: storage.name || storage.title || String(storage),
+                    name: formatStorageLabel(storage.name || storage.title || String(storage)),
                 }));
 
                 setSettings((prev) => ({ ...prev, storage: normalized }));
@@ -453,7 +454,7 @@ const Settings = () => {
                     const created = payload?.data || payload || {};
                     const item = {
                         id: created.id || created._id || created.uuid || null,
-                        name: created.name || created.title || newValue,
+                        name: formatStorageLabel(created.name || created.title || newValue),
                     };
 
                     setSettings((prev) => ({
@@ -762,7 +763,9 @@ const Settings = () => {
             <div className="flex flex-wrap gap-2">
                 {settings[section.key].map((item, index) => {
                     const isString = typeof item === 'string';
-                    const label = isString ? item : item?.name || item?.label || String(item);
+                    const rawLabel = isString ? item : item?.name || item?.label || String(item);
+                    const label =
+                        section.key === 'storage' ? formatStorageLabel(rawLabel) : rawLabel;
                     const id = isString
                         ? null
                         : item?.id || item?.value || item?._id || null;

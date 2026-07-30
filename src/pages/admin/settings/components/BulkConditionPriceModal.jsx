@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FormField, SelectInput, Modal } from '../../../../components/shared/form';
 import { sortConditionsForDisplay } from '../../../../utils/conditionSort';
-import { sortStorageOptionsBySize } from '../../../../utils/storageSort';
+import { sortStorageOptionsBySize, formatStorageLabel } from '../../../../utils/storageSort';
 
 const cellKey = (storageId, conditionId) => `${storageId}::${conditionId}`;
 
@@ -157,7 +157,7 @@ const BulkConditionPriceModal = ({
                                     {sortedStorage.map((storage) => (
                                         <tr key={storage.id} className="border-t border-gray-100">
                                             <td className="py-1 pl-2 pr-1 font-medium text-gray-800 whitespace-nowrap">
-                                                {storage.name}
+                                                {formatStorageLabel(storage.name)}
                                             </td>
                                             {orderedConditions.map((condition) => {
                                                 const key = cellKey(storage.id, condition.id);
@@ -172,7 +172,7 @@ const BulkConditionPriceModal = ({
                                                                 min="0"
                                                                 step="0.01"
                                                                 placeholder="—"
-                                                                title={`${storage.name} · ${condition.name}`}
+                                                                title={`${formatStorageLabel(storage.name)} · ${condition.name}`}
                                                                 value={matrixPrices[key]?.price || ''}
                                                                 onChange={(e) =>
                                                                     handlePriceChange(
