@@ -69,10 +69,10 @@ const Footer = () => {
                 Sell Your Phone
               </Link>
               <Link
-                to="/contact"
+                to="/track-request"
                 className="text-[#6A6A6A] text-base hover:underline text-left"
               >
-                Contact
+                Track Sell phone Request
               </Link>
             </div>
           </div>

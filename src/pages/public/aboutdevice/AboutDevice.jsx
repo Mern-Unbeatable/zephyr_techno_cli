@@ -217,23 +217,13 @@ const AboutDevice = () => {
                 const id = cond.id;
                 const name = cond.name || cond.title;
                 const isActive = selectedCondition === id;
-                const isBroken = (cond.name && cond.name.toLowerCase().includes('broken')) || id === 'broken';
-
                 let borderClass = "border-[#BDC9CC] hover:border-custom";
                 let bgClass = "bg-white";
                 let textIconClass = "text-gray-500";
 
                 if (isActive) {
-                  if (isBroken) {
-                    borderClass = "border-red-500 border-2";
-                    textIconClass = "text-red-500";
-                  } else {
-                    borderClass = "border-custom border-2";
-                    textIconClass = "text-custom";
-                  }
-                } else if (isBroken) {
-                  borderClass = "border-[#D98F90] hover:border-red-500";
-                  bgClass = "bg-[#FEFAFA]";
+                  borderClass = "border-custom border-2";
+                  textIconClass = "text-custom";
                 }
 
                 return (
@@ -242,7 +232,7 @@ const AboutDevice = () => {
                     onClick={() => setSelectedCondition(id)}
                     className={`relative rounded-xl p-6 border transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col ${bgClass} ${borderClass}`}
                   >
-                    {isActive && !isBroken && (
+                    {isActive && (
                       <div className="absolute top-4 right-4 text-custom">
                         <CheckCircle className="w-5 h-5" />
                       </div>
@@ -256,7 +246,9 @@ const AboutDevice = () => {
                     <h4 className="text-sm font-bold text-[#171C1E] mb-4">{name}</h4>
 
                     <ul className="space-y-3 mt-auto">
-                      <li className="text-sm text-[#3D494C] leading-tight">Select this condition to get an estimated price.</li>
+                      <li className={`text-sm leading-tight ${isActive ? 'text-custom font-semibold' : 'text-[#3D494C]'}`}>
+                        {isActive ? 'Selected' : 'Select this condition to get an estimated price.'}
+                      </li>
                     </ul>
                   </div>
                 );

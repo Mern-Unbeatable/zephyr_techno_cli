@@ -206,6 +206,7 @@ const CellPhoneMange = () => {
                     <table className="w-full">
                         <thead className="border-b border-gray-200 bg-gray-50">
                             <tr>
+                                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Request ID</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Customer</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Device</th>
                                 <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Storage</th>
@@ -219,6 +220,7 @@ const CellPhoneMange = () => {
                         <tbody>
                             {sellRequests.map((request) => (
                                 <tr key={request.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                                    <td className="px-6 py-4 text-sm font-medium text-gray-700">{request.stringId || '—'}</td>
                                     <td className="px-6 py-4">
                                         <div className="text-sm font-medium text-gray-800">{request.fullName}</div>
                                         <div className="mt-0.5 text-xs text-gray-500">{request.email}</div>
@@ -339,6 +341,10 @@ const CellPhoneMange = () => {
                         </div>
                         <div className="space-y-4 text-sm text-gray-700">
                             <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <p className="text-xs font-semibold uppercase text-gray-400">Request ID</p>
+                                    <p className="mt-0.5 font-medium text-gray-800">{selectedRequest.stringId || '—'}</p>
+                                </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Full Name</p>
                                     <p className="mt-0.5">{selectedRequest.fullName}</p>

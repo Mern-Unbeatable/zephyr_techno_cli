@@ -249,3 +249,15 @@ button, a {
         text-shadow: 0 0 15px rgba(61, 180, 204, 0.8);
     }
 }
+
+/* Override browser autofill yellow/olive background */
+.input-autofill-safe {
+    background-color: #ffffff;
+}
+.input-autofill-safe:-webkit-autofill,
+.input-autofill-safe:-webkit-autofill:hover,
+.input-autofill-safe:-webkit-autofill:focus {
+    -webkit-text-fill-color: #171C1E;
+    -webkit-box-shadow: 0 0 0px 1000px #ffffff inset;
+    transition: background-color 5000s ease-in-out 0s;
+}

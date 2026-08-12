@@ -31,10 +31,6 @@ const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, currency, 
 
       {/* Info */}
       <div className="px-4 pt-3 pb-4 info-hover">
-        <div className="flex items-center gap-1.5 mb-1">
-          <Stars rating={rating} />
-          <span className="text-xs md:text-sm text-gray-400">({reviews})</span>
-        </div>
         <h3 className="text-sm md:text-base font-semibold text-gray-900 leading-tight">
           {title}
         </h3>

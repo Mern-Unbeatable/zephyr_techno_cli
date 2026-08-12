@@ -43,6 +43,7 @@ import Privacy from "../pages/public/privacy-policy/Privacy";
 import Terms from "../pages/public/terms-condition/Terms";
 import Refund from "../pages/public/refund-policy/Refund";
 import Shipping from "../pages/public/shipping-policy/Shipping";
+import TrackRequest from "../pages/public/trackRequest/TrackRequest";
 
 const router = createBrowserRouter([
   {
@@ -118,6 +119,7 @@ const router = createBrowserRouter([
         element: <AboutDevice />,
       },
       { path: "finalize-sale", element: <FinalizeSale /> },
+      { path: "track-request", element: <TrackRequest /> },
     ],
   },
 

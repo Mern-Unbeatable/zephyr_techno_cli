@@ -10,11 +10,11 @@ const MainLayout = () => {
     return (
         <>
             <ScrollToTop />
-            <div>
+            <div className="flex flex-col min-h-screen">
                 <div className="sticky top-0 z-50 bg-white shadow-sm">
                     <Navbar/>
                 </div>
-                <main>
+                <main className="flex-1">
                     <Outlet/>
                 </main>
                 <Footer/>

@@ -457,8 +457,6 @@ export default function Products() {
       color: apiProduct.category?.name || "",
       price: parseFloat(apiProduct.basePrice),
       oldPrice: null,
-      rating: 4.5,
-      reviews: 0,
       images: apiProduct.thumbnail ? [apiProduct.thumbnail] : [],
       colorIds: apiProduct.colorIds || [],
       storageOptionIds: apiProduct.storageOptionIds || [],

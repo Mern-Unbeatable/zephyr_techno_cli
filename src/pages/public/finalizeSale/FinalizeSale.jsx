@@ -53,7 +53,13 @@ const FinalizeSale = () => {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.message || 'Request failed');
 
-      Swal.fire({ icon: 'success', title: json.message || 'Submitted' });
+      Swal.fire({
+        icon: 'success',
+        title: json.message || 'Submitted',
+        html: json.data?.stringId
+          ? `<p>Your request has been received.</p><p style="margin-top:12px;font-weight:600;">Reference: ${json.data.stringId}</p><p style="margin-top:8px;color:#6b7280;font-size:13px;">We will contact you via email with your shipping label shortly.</p>`
+          : undefined,
+      });
       localStorage.removeItem(STORAGE_KEY);
       setFormData({ fullName: '', email: '', phone: '' });
     } catch (err) {
@@ -103,14 +109,42 @@ const FinalizeSale = () => {
         </div>
 
         {/* Header Content */}
-        <div className="text-center max-w-3xl mx-auto mb-16">
+        <div className="text-center max-w-3xl mx-auto mb-10">
           <h1 className="text-3xl md:text-5xl lg:text-[56px] font-bold text-[#171C1E] mb-6 leading-tight">
-            Finalize Your Sale
+            Summary
           </h1>
           <p className="text-[#3D494C] text-base md:text-lg">
-            Complete your details to secure your trade-in price of {flow?.baseOfferPrice ? `£${flow.baseOfferPrice}` : '—'}.
+            Complete your details to finalise your trade-in.
           </p>
         </div>
+
+        {/* Device Recap Card */}
+        {(flow?.deviceName || flow?.storageName || flow?.conditionName) && (
+          <div className="max-w-4xl mx-auto mb-10">
+            <div className="bg-white border border-[#BDC9CC] rounded-xl p-4 flex items-center justify-between shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center p-1.5 shrink-0">
+                  <img
+                    src="/Device_Preview.png"
+                    alt={flow?.deviceName || 'Device'}
+                    className="object-contain h-full w-full"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[#171C1E]">
+                    {[flow?.deviceName, flow?.storageName].filter(Boolean).join(' ')}
+                  </p>
+                  {flow?.conditionName && (
+                    <p className="text-xs text-[#6D797C] mt-0.5">{flow.conditionName}</p>
+                  )}
+                </div>
+              </div>
+              {flow?.baseOfferPrice && (
+                <p className="text-lg font-bold text-custom shrink-0">£{flow.baseOfferPrice}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="max-w-4xl mx-auto">
           <form onSubmit={handleSubmit} className="space-y-12">
@@ -131,7 +165,7 @@ const FinalizeSale = () => {
                     value={formData.fullName}
                     onChange={handleInputChange}
                     placeholder="e.g. James Wilson"
-                    className="w-full bg-white border border-[#BDC9CC] rounded-lg py-4 px-5 text-[#171C1E] outline-none focus:border-custom focus:ring-1 focus:ring-custom transition-all"
+                    className="input-autofill-safe w-full bg-white border border-[#BDC9CC] rounded-lg py-4 px-5 text-[#171C1E] outline-none focus:border-custom focus:ring-1 focus:ring-custom transition-all"
                   />
                 </div>
 
@@ -146,7 +180,7 @@ const FinalizeSale = () => {
                       value={formData.email}
                       onChange={handleInputChange}
                       placeholder="james@example.com"
-                      className="w-full bg-white border border-[#BDC9CC] rounded-lg py-4 px-5 text-[#171C1E] outline-none focus:border-custom focus:ring-1 focus:ring-custom transition-all"
+                      className="input-autofill-safe w-full bg-white border border-[#BDC9CC] rounded-lg py-4 px-5 text-[#171C1E] outline-none focus:border-custom focus:ring-1 focus:ring-custom transition-all"
                     />
                   </div>
                   <div>
@@ -162,7 +196,7 @@ const FinalizeSale = () => {
                       autoComplete="tel"
                       pattern="[0-9()+\-\s]*"
                       placeholder="07123 456789"
-                      className="w-full bg-white border border-[#BDC9CC] rounded-lg py-4 px-5 text-[#171C1E] outline-none focus:border-custom focus:ring-1 focus:ring-custom transition-all"
+                      className="input-autofill-safe w-full bg-white border border-[#BDC9CC] rounded-lg py-4 px-5 text-[#171C1E] outline-none focus:border-custom focus:ring-1 focus:ring-custom transition-all"
                     />
                   </div>
                 </div>
@@ -200,8 +234,11 @@ const FinalizeSale = () => {
               >
                 Submit Request
               </button>
+              <p className="text-center text-[#6D797C] text-xs mb-3">
+                We'll verify the condition within 24 hours of receiving your device and pay you within 24 hours of verification.
+              </p>
               <p className="text-center text-[#6D797C] text-xs">
-                By clicking confirm, you agree to our Terms of Sale and Privacy
+                By clicking Submit Request, you agree to our Terms of Sale and Privacy
                 Policy.
               </p>
             </div>

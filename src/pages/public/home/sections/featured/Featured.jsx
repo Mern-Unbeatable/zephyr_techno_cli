@@ -57,8 +57,6 @@ const Featured = () => {
               price={item.basePrice}
               oldPrice={null}
               currency={'£'}
-              rating={0}
-              reviews={0}
               images={[item.thumbnail].filter(Boolean)}
             />
           ))}
