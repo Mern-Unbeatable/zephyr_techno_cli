@@ -15,6 +15,7 @@ const conditions = [
   {
     id: "brand-new",
     title: "Brand New (sealed)",
+    match: ["brand new", "sealed", "new"],
     icon: <Sparkles className="w-6 h-6 mb-4" strokeWidth={1.5} />,
     bullets: [
       "Original factory seal intact",
@@ -26,6 +27,7 @@ const conditions = [
   {
     id: "excellent",
     title: "Excellent",
+    match: ["excellent"],
     icon: <Medal className="w-6 h-6 mb-4" strokeWidth={1.5} />,
     bullets: [
       "Fully working with no faults",
@@ -37,6 +39,7 @@ const conditions = [
   {
     id: "good",
     title: "Good",
+    match: ["good", "very good"],
     icon: <ThumbsUp className="w-6 h-6 mb-4" strokeWidth={1.5} />,
     bullets: [
       "Fully working device",
@@ -48,6 +51,7 @@ const conditions = [
   {
     id: "broken",
     title: "Broken/Faulty",
+    match: ["broken", "faulty"],
     icon: <Wrench className="w-6 h-6 mb-4" strokeWidth={1.5} />,
     bullets: [
       "Device has faults or damage",
@@ -58,7 +62,23 @@ const conditions = [
   },
 ];
 
-const STORAGE_KEY = 'sellFlow';
+function getConditionMeta(cond) {
+  const name = (cond.name || cond.title || "").toLowerCase();
+  const byId = conditions.find((c) => c.id === cond.id);
+  if (byId) return byId;
+
+  // Prefer more specific matches first (e.g. "brand new" before "new")
+  const sorted = [...conditions].sort(
+    (a, b) =>
+      Math.max(...b.match.map((m) => m.length)) -
+      Math.max(...a.match.map((m) => m.length)),
+  );
+  return (
+    sorted.find((c) => c.match.some((token) => name.includes(token))) || null
+  );
+}
+
+const STORAGE_KEY = "sellFlow";
 
 const AboutDevice = () => {
   const [selectedCondition, setSelectedCondition] = useState("excellent");
@@ -76,13 +96,13 @@ const AboutDevice = () => {
 
     const fetchConditions = async () => {
       try {
-        const base = import.meta.env.VITE_BASE_URL || '';
+        const base = import.meta.env.VITE_BASE_URL || "";
         const res = await fetch(`${base}/api/sell/conditions`);
         const json = await res.json();
         if (json?.success && Array.isArray(json.data)) {
           setApiConditions(json.data);
           const excellent = json.data.find((c) =>
-            c.name?.toLowerCase().includes('excellent'),
+            c.name?.toLowerCase().includes("excellent"),
           );
           if (excellent?.id) setSelectedCondition(excellent.id);
           else if (json.data[0]?.id) setSelectedCondition(json.data[0].id);
@@ -97,10 +117,11 @@ const AboutDevice = () => {
 
   useEffect(() => {
     const fetchPrice = async () => {
-      if (!selectedCondition || !device?.deviceModelId || !device?.storageOptionId) return;
+      if (!selectedCondition || !device?.deviceModelId || !device?.storageOptionId)
+        return;
       setLoadingPrice(true);
       try {
-        const base = import.meta.env.VITE_BASE_URL || '';
+        const base = import.meta.env.VITE_BASE_URL || "";
         const params = new URLSearchParams({
           conditionId: selectedCondition,
           deviceModelId: device.deviceModelId,
@@ -109,7 +130,9 @@ const AboutDevice = () => {
         const res = await fetch(`${base}/api/sell/price?${params}`);
         const json = await res.json();
         if (json?.success && json.data) {
-          const configured = Boolean(json.data.hasConfiguredPrice && json.data.price != null);
+          const configured = Boolean(
+            json.data.hasConfiguredPrice && json.data.price != null,
+          );
           setHasConfiguredPrice(configured);
           setPrice(configured ? json.data.price : null);
 
@@ -134,7 +157,12 @@ const AboutDevice = () => {
     };
 
     fetchPrice();
-  }, [selectedCondition, device?.deviceModelId, device?.storageOptionId, apiConditions]);
+  }, [
+    selectedCondition,
+    device?.deviceModelId,
+    device?.storageOptionId,
+    apiConditions,
+  ]);
 
   return (
     <div className="bg-[#FBFDFF] min-h-screen py-10 lg:py-16">
@@ -180,7 +208,8 @@ const AboutDevice = () => {
             Tell us about your device
           </h1>
           <p className="text-[#3D494C] text-sm md:text-base">
-            Select your category to begin. We offer the UK's most competitive rates for
+            Select your category to begin. We offer the UK's most competitive
+            rates for
             <br className="hidden md:block" /> premium consumer electronics.
           </p>
         </div>
@@ -192,18 +221,25 @@ const AboutDevice = () => {
               <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center p-2">
                 <img
                   src="/Device_Preview.png"
-                  alt={device?.deviceName || 'Device'}
+                  alt={device?.deviceName || "Device"}
                   className="object-contain h-full w-full"
                 />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-[#171C1E]">{device?.deviceName || 'Select Device'}</h2>
+                <h2 className="text-xl font-bold text-[#171C1E]">
+                  {device?.deviceName || "Select Device"}
+                </h2>
                 {device?.storageName && (
-                  <p className="text-sm font-medium text-[#3D494C] mt-1">{device.storageName}</p>
+                  <p className="text-sm font-medium text-[#3D494C] mt-1">
+                    {device.storageName}
+                  </p>
                 )}
               </div>
             </div>
-            <Link to="/sell-worth" className="flex items-center gap-2 text-custom font-bold text-sm hover:underline cursor-pointer">
+            <Link
+              to="/sell-worth"
+              className="flex items-center gap-2 text-custom font-bold text-sm hover:underline cursor-pointer"
+            >
               Change
               <PenLine className="w-4 h-4" />
             </Link>
@@ -211,54 +247,78 @@ const AboutDevice = () => {
 
           {/* Condition Selection */}
           <div>
-            <h3 className="text-lg sm:text-xl font-semibold text-[#171C1E] mb-6">What is the condition?</h3>
+            <h3 className="text-lg sm:text-xl font-semibold text-[#171C1E] mb-6">
+              What is the condition?
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {(apiConditions.length ? apiConditions : conditions).map((cond) => {
-                const id = cond.id;
-                const name = cond.name || cond.title;
-                const isActive = selectedCondition === id;
-                let borderClass = "border-[#BDC9CC] hover:border-custom";
-                let bgClass = "bg-white";
-                let textIconClass = "text-gray-500";
+              {(apiConditions.length ? apiConditions : conditions).map(
+                (cond) => {
+                  const id = cond.id;
+                  const name = cond.name || cond.title;
+                  const meta = getConditionMeta(cond);
+                  const bullets = meta?.bullets || cond.bullets || [];
+                  const icon = meta?.icon || cond.icon || null;
+                  const isActive = selectedCondition === id;
+                  let borderClass = "border-[#BDC9CC] hover:border-custom";
+                  let bgClass = "bg-white";
+                  let textIconClass = "text-gray-500";
 
-                if (isActive) {
-                  borderClass = "border-custom border-2";
-                  textIconClass = "text-custom";
-                }
+                  if (isActive) {
+                    borderClass = "border-custom border-2";
+                    textIconClass = "text-custom";
+                  }
 
-                return (
-                  <div
-                    key={id}
-                    onClick={() => setSelectedCondition(id)}
-                    className={`relative rounded-xl p-6 border transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col ${bgClass} ${borderClass}`}
-                  >
-                    {isActive && (
-                      <div className="absolute top-4 right-4 text-custom">
-                        <CheckCircle className="w-5 h-5" />
+                  return (
+                    <div
+                      key={id}
+                      onClick={() => setSelectedCondition(id)}
+                      className={`relative rounded-xl p-6 border transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col ${bgClass} ${borderClass}`}
+                    >
+                      {isActive && (
+                        <div className="absolute top-4 right-4 text-custom">
+                          <CheckCircle className="w-5 h-5" />
+                        </div>
+                      )}
+
+                      <div
+                        className={isActive ? textIconClass : "text-gray-500"}
+                      >
+                        {icon}
                       </div>
-                    )}
 
-                    <div className={isActive ? textIconClass : "text-gray-500"}>
-                      {/* show static icon if present */}
-                      {cond.icon || null}
+                      <h4
+                        className={`text-sm font-bold text-[#171C1E] ${
+                          bullets.length ? "mb-2" : "mb-0"
+                        }`}
+                      >
+                        {name}
+                      </h4>
+
+                      {bullets.length > 0 && (
+                        <ul className="mt-auto list-disc space-y-2 pl-4">
+                          {bullets.map((point) => (
+                            <li
+                              key={point}
+                              className={`text-xs leading-snug ${
+                                isActive
+                                  ? "text-custom font-medium"
+                                  : "text-[#3D494C]"
+                              }`}
+                            >
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-
-                    <h4 className="text-sm font-bold text-[#171C1E] mb-4">{name}</h4>
-
-                    <ul className="space-y-3 mt-auto">
-                      <li className={`text-sm leading-tight ${isActive ? 'text-custom font-semibold' : 'text-[#3D494C]'}`}>
-                        {isActive ? 'Selected' : 'Select this condition to get an estimated price.'}
-                      </li>
-                    </ul>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           </div>
 
           {/* Quote Section */}
           <div className="relative bg-white rounded-2xl border border-[#BDC9CC33] shadow-sm overflow-hidden p-8 sm:p-12 text-center mt-16">
-            {/* Decorative background blobs */}
             <div className="absolute top-0 left-0 w-64 h-40 bg-[#88EDFC] opacity-10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
             <div className="absolute bottom-0 right-0 w-64 h-64 bg-[#88EDFC] opacity-10 rounded-full blur-3xl translate-x-1/3 translate-y-1/3 pointer-events-none"></div>
 
@@ -268,10 +328,10 @@ const AboutDevice = () => {
               </p>
               <div className="text-4xl sm:text-5xl text-custom font-light mb-4">
                 {loadingPrice
-                  ? '…'
+                  ? "…"
                   : hasConfiguredPrice && price != null
                     ? `£${price}`
-                    : 'Contact us for a quote'}
+                    : "Contact us for a quote"}
               </div>
               <p className="text-[#3D494C] text-sm mb-6 max-w-md mx-auto">
                 {hasConfiguredPrice && price != null
@@ -280,7 +340,10 @@ const AboutDevice = () => {
               </p>
 
               {hasConfiguredPrice && price != null ? (
-                <Link to={"/finalize-sale"} className="inline-flex items-center gap-2 bg-custom text-white font-bold py-3 px-6 text-sm md:text-base rounded-lg hover:brightness-110 transition-all shadow-md cursor-pointer">
+                <Link
+                  to={"/finalize-sale"}
+                  className="inline-flex items-center gap-2 bg-custom text-white font-bold py-3 px-6 text-sm md:text-base rounded-lg hover:brightness-110 transition-all shadow-md cursor-pointer"
+                >
                   Next Step: Handover
                   <ArrowRight className="w-5 h-5" />
                 </Link>
