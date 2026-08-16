@@ -69,7 +69,7 @@ const ImageUpload = ({ images, onFilesAdded, onRemove, deletingImageId = null })
                 <div className="flex items-center gap-3 text-xs text-gray-400">
                     <span>⊕ JPEG, PNG</span>
                     <span>⊕ Max 20 photos</span>
-                    <span>⊕ 1920×1080px recommended</span>
+                    <span>⊕ Auto-fit to 1080×1080 (square)</span>
                 </div>
                 {images.length > 0 && (
                     <p className="text-xs text-teal-600 mt-1">{images.length} file(s) selected</p>
