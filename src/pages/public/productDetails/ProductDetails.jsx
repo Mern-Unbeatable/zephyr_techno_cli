@@ -13,12 +13,14 @@ import {
   FiHeadphones,
   FiCreditCard,
 } from "react-icons/fi";
+import { FaApple } from "react-icons/fa";
 import RelatedProducts from "./sections/relatedProduct/RelatedProducts";
 import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { sortStorageOptionsBySize } from '../../../utils/storageSort';
 import { setBuyNowProduct } from '../../../utils/checkoutSession';
+import { checkout } from '../../../utils/cartApi';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -82,6 +84,7 @@ const ProductDetails = () => {
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
+  const [payingWithApple, setPayingWithApple] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
@@ -291,7 +294,7 @@ const ProductDetails = () => {
     }
   };
 
-  const handleBuyNow = () => {
+  const assertCanBuy = () => {
     if (selectedVariantStock <= 0) {
       Swal.fire({
         icon: 'warning',
@@ -299,7 +302,7 @@ const ProductDetails = () => {
         text: 'This item is currently out of stock for the selected storage option. Please choose another option or check back later.',
         confirmButtonColor: '#47B5C9',
       });
-      return;
+      return false;
     }
 
     if (quantity > selectedVariantStock) {
@@ -309,8 +312,14 @@ const ProductDetails = () => {
         text: `Only ${selectedVariantStock} item(s) available in stock.`,
         confirmButtonColor: '#47B5C9',
       });
-      return;
+      return false;
     }
+
+    return true;
+  };
+
+  const handleBuyNow = () => {
+    if (!assertCanBuy()) return;
 
     const buyNowPayload = {
       productId: product.id,
@@ -323,6 +332,44 @@ const ProductDetails = () => {
 
     setBuyNowProduct(buyNowPayload);
     navigate('/checkout', { state: { buyNow: buyNowPayload } });
+  };
+
+  const handleApplePay = async () => {
+    if (!assertCanBuy()) return;
+
+    setPayingWithApple(true);
+    try {
+      const result = await checkout({
+        collectAddressOnStripe: true,
+        shippingMethod: 'Standard Delivery',
+        shippingCost: 0,
+        promoCode: null,
+        directProduct: {
+          productId: product.id,
+          colorId: selectedColor || null,
+          storageOptionId: selectedStorage || null,
+          quantity,
+        },
+      });
+
+      if (!result?.success) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Unable to start Apple Pay',
+          text: result?.message || 'Please try again.',
+          confirmButtonColor: '#47B5C9',
+        });
+      }
+    } catch {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Something went wrong. Please try again.',
+        confirmButtonColor: '#47B5C9',
+      });
+    } finally {
+      setPayingWithApple(false);
+    }
   };
 
   const highlights = product
@@ -524,15 +571,32 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            <button
-              onClick={handleBuyNow}
-              disabled={addingToCart}
-              className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
-                selectedVariantStock === 0 ? 'opacity-60' : ''
-              }`}
-            >
-              Buy Now
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={handleBuyNow}
+                disabled={addingToCart || payingWithApple}
+                className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
+                  selectedVariantStock === 0 ? 'opacity-60' : ''
+                }`}
+              >
+                Buy Now
+              </button>
+              <button
+                type="button"
+                onClick={handleApplePay}
+                disabled={addingToCart || payingWithApple}
+                className={`w-full bg-black text-white hover:bg-[#1a1a1a] rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  selectedVariantStock === 0 ? 'opacity-60' : ''
+                }`}
+              >
+                {payingWithApple ? (
+                  <span className="loading loading-spinner loading-xs" />
+                ) : (
+                  <FaApple className="h-5 w-5" />
+                )}
+                {payingWithApple ? 'Redirecting…' : 'Apple Pay'}
+              </button>
+            </div>
           </div>
         </div>
 

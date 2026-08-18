@@ -163,13 +163,18 @@ export async function checkout({
   promoCode,
   cartItemIds,
   directProduct,
+  collectAddressOnStripe = false,
 } = {}) {
   const shared = {
-    shippingAddress,
     shippingMethod: shippingMethod || 'Standard Delivery',
     shippingCost: shippingCost || 0,
     promoCode: promoCode || null,
+    collectAddressOnStripe: Boolean(collectAddressOnStripe),
   };
+
+  if (shippingAddress) {
+    shared.shippingAddress = shippingAddress;
+  }
 
   if (directProduct?.productId) {
     Object.assign(shared, {
