@@ -13,14 +13,13 @@ import {
   FiHeadphones,
   FiCreditCard,
 } from "react-icons/fi";
-import { FaApple } from "react-icons/fa";
 import RelatedProducts from "./sections/relatedProduct/RelatedProducts";
 import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { sortStorageOptionsBySize } from '../../../utils/storageSort';
 import { setBuyNowProduct } from '../../../utils/checkoutSession';
-import { checkout } from '../../../utils/cartApi';
+import ProductExpressCheckout from './ProductExpressCheckout';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -75,6 +74,14 @@ function getImageIndexForColor(images, colorId) {
   return sharedIdx >= 0 ? sharedIdx : 0;
 }
 
+function isIosDevice() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const iPhoneOrIPad = /iPad|iPhone|iPod/.test(ua);
+  const iPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  return iPhoneOrIPad || iPadOs;
+}
+
 const ProductDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -84,12 +91,12 @@ const ProductDetails = () => {
   const [error, setError] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
-  const [payingWithApple, setPayingWithApple] = useState(false);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [showApplePay, setShowApplePay] = useState(() => isIosDevice());
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -334,44 +341,6 @@ const ProductDetails = () => {
     navigate('/checkout', { state: { buyNow: buyNowPayload } });
   };
 
-  const handleApplePay = async () => {
-    if (!assertCanBuy()) return;
-
-    setPayingWithApple(true);
-    try {
-      const result = await checkout({
-        collectAddressOnStripe: true,
-        shippingMethod: 'Standard Delivery',
-        shippingCost: 0,
-        promoCode: null,
-        directProduct: {
-          productId: product.id,
-          colorId: selectedColor || null,
-          storageOptionId: selectedStorage || null,
-          quantity,
-        },
-      });
-
-      if (!result?.success) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Unable to start Apple Pay',
-          text: result?.message || 'Please try again.',
-          confirmButtonColor: '#47B5C9',
-        });
-      }
-    } catch {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Something went wrong. Please try again.',
-        confirmButtonColor: '#47B5C9',
-      });
-    } finally {
-      setPayingWithApple(false);
-    }
-  };
-
   const highlights = product
     ? [...product.highlights].sort((a, b) => a.displayOrder - b.displayOrder)
     : [];
@@ -571,31 +540,26 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className={showApplePay ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''}>
               <button
                 onClick={handleBuyNow}
-                disabled={addingToCart || payingWithApple}
+                disabled={addingToCart}
                 className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
                   selectedVariantStock === 0 ? 'opacity-60' : ''
                 }`}
               >
                 Buy Now
               </button>
-              <button
-                type="button"
-                onClick={handleApplePay}
-                disabled={addingToCart || payingWithApple}
-                className={`w-full bg-black text-white hover:bg-[#1a1a1a] rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
-                  selectedVariantStock === 0 ? 'opacity-60' : ''
-                }`}
-              >
-                {payingWithApple ? (
-                  <span className="loading loading-spinner loading-xs" />
-                ) : (
-                  <FaApple className="h-5 w-5" />
-                )}
-                {payingWithApple ? 'Redirecting…' : 'Apple Pay'}
-              </button>
+              {showApplePay && (
+                <ProductExpressCheckout
+                  productId={product.id}
+                  colorId={selectedColor}
+                  storageOptionId={selectedStorage}
+                  quantity={quantity}
+                  disabled={addingToCart || selectedVariantStock === 0}
+                  onAvailabilityChange={setShowApplePay}
+                />
+              )}
             </div>
           </div>
         </div>

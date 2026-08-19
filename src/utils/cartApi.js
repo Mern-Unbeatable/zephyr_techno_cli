@@ -217,6 +217,65 @@ export async function checkout({
   return data;
 }
 
+// ─── Express Checkout (Apple Pay / Google Pay on-page) ───────────────────────
+
+export async function createExpressCheckoutIntent({
+  productId,
+  colorId,
+  storageOptionId,
+  quantity,
+  shippingMethod,
+  shippingCost,
+}) {
+  const body = {
+    productId,
+    colorId: colorId || null,
+    storageOptionId: storageOptionId || null,
+    quantity: quantity || 1,
+    shippingMethod,
+    shippingCost,
+  };
+
+  let headers;
+  if (isLoggedIn()) {
+    headers = authHeaders();
+  } else {
+    headers = guestHeaders();
+    body.guestSessionId = getOrCreateGuestSessionId();
+  }
+
+  const res = await fetch(`${BASE_URL}/api/public/product/express-checkout/intent`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  return res.json();
+}
+
+export async function confirmExpressPayment(paymentIntentId) {
+  const id = paymentIntentId || sessionStorage.getItem('stripePaymentIntentId');
+  if (!id) throw new Error('No pending payment intent found');
+
+  const res = await fetch(`${BASE_URL}/api/public/product/express-checkout/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paymentIntentId: id }),
+  });
+
+  const data = await res.json();
+
+  if (data.success) {
+    sessionStorage.removeItem('stripePaymentIntentId');
+    sessionStorage.removeItem('pendingOrderId');
+    if (!isLoggedIn()) {
+      clearGuestSessionId();
+    }
+  }
+
+  return data;
+}
+
 // ─── Cancel unpaid checkout draft ─────────────────────────────────────────────
 
 export async function cancelUnpaidCheckout(orderId) {
@@ -241,6 +300,11 @@ export async function cancelUnpaidCheckout(orderId) {
 // ─── Payment Confirmation ─────────────────────────────────────────────────────
 
 export async function confirmPayment() {
+  const paymentIntentId = sessionStorage.getItem('stripePaymentIntentId');
+  if (paymentIntentId) {
+    return confirmExpressPayment(paymentIntentId);
+  }
+
   const sessionId = sessionStorage.getItem('stripeSessionId');
   if (!sessionId) throw new Error('No pending Stripe session found');
 

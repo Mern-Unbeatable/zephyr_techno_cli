@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useLocation, useSearchParams } from 'react-router';
 import { FiCheckCircle, FiPackage, FiAlertCircle } from 'react-icons/fi';
 import Container from '../../../layout/Container';
 import { confirmPayment } from '../../../utils/cartApi';
@@ -12,8 +12,17 @@ const CheckoutSuccess = () => {
     const [error, setError] = useState('');
     const { fetchCart } = useCart();
     const [searchParams] = useSearchParams();
+    const location = useLocation();
 
     useEffect(() => {
+        if (location.state?.order) {
+            clearCheckoutSession();
+            setOrder(location.state.order);
+            fetchCart();
+            setLoading(false);
+            return undefined;
+        }
+
         const confirm = async () => {
             try {
                 const data = await confirmPayment();
@@ -32,7 +41,9 @@ const CheckoutSuccess = () => {
         };
 
         confirm();
-    }, []);
+    }, [location.state]);
+
+    const orderLineItems = order?.orderItems || order?.items || [];
 
     if (loading) {
         return (
@@ -81,17 +92,19 @@ const CheckoutSuccess = () => {
                     </div>
 
                     {/* Order Items */}
-                    {order?.orderItems?.length > 0 && (
+                    {orderLineItems.length > 0 && (
                         <div className="border border-gray-200 rounded-xl overflow-hidden mb-8">
                             <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
                                 <FiPackage className="w-5 h-5 text-custom" />
                                 <h2 className="text-base font-semibold text-gray-900">Items Ordered</h2>
                             </div>
                             <div className="divide-y divide-gray-100">
-                                {order.orderItems.map((item, idx) => (
+                                {orderLineItems.map((item, idx) => (
                                     <div key={idx} className="px-6 py-4 flex justify-between items-center">
                                         <div>
-                                            <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {item.title || item.product?.title}
+                                            </p>
                                             <p className="text-xs text-gray-500 mt-0.5">Qty: {item.quantity}</p>
                                         </div>
                                         <span className="text-sm font-medium text-gray-700">
