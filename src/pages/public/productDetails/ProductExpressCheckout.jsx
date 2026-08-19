@@ -6,50 +6,8 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
-import { FaApple } from 'react-icons/fa';
 import { getStripe } from '../../../utils/stripe';
-import { checkout, confirmExpressPayment, createExpressCheckoutIntent } from '../../../utils/cartApi';
-
-function FallbackApplePayButton({ productId, colorId, storageOptionId, quantity, disabled }) {
-  const [paying, setPaying] = useState(false);
-
-  const handleClick = async () => {
-    if (disabled || paying) return;
-    setPaying(true);
-    try {
-      await checkout({
-        collectAddressOnStripe: true,
-        shippingMethod: 'Standard Delivery',
-        shippingCost: 0,
-        promoCode: null,
-        directProduct: {
-          productId,
-          colorId: colorId || null,
-          storageOptionId: storageOptionId || null,
-          quantity,
-        },
-      });
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={disabled || paying}
-      className="w-full bg-black text-white hover:bg-[#1a1a1a] rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-    >
-      {paying ? (
-        <span className="loading loading-spinner loading-xs" />
-      ) : (
-        <FaApple className="h-5 w-5" />
-      )}
-      {paying ? 'Redirecting…' : 'Apple Pay'}
-    </button>
-  );
-}
+import { confirmExpressPayment, createExpressCheckoutIntent } from '../../../utils/cartApi';
 
 function ExpressCheckoutForm({
   productId,
@@ -70,8 +28,21 @@ function ExpressCheckoutForm({
     elements.update({ amount: amountPence }).catch(() => {});
   }, [elements, amountPence]);
 
+  const handleClick = (event) => {
+    event.resolve({
+      emailRequired: true,
+      phoneNumberRequired: true,
+      shippingAddressRequired: true,
+      allowedShippingCountries: ['GB'],
+      lineItems: [{ name: 'Order total', amount: amountPence }],
+    });
+  };
+
   const handleConfirm = async (event) => {
-    if (!stripe || !elements || processing || disabled) return;
+    if (!stripe || !elements || processing || disabled) {
+      event.paymentFailed({ reason: 'fail' });
+      return;
+    }
 
     setProcessing(true);
     try {
@@ -96,7 +67,6 @@ function ExpressCheckoutForm({
       }
 
       const { clientSecret, paymentIntentId } = intent.data;
-
       const confirmParams = {
         return_url: `${window.location.origin}/checkout/success`,
       };
@@ -142,6 +112,7 @@ function ExpressCheckoutForm({
   return (
     <div className={`min-h-11 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       <ExpressCheckoutElement
+        onClick={handleClick}
         onConfirm={handleConfirm}
         onReady={({ availablePaymentMethods }) => {
           onAvailabilityChange?.(Boolean(availablePaymentMethods?.applePay));
@@ -162,10 +133,6 @@ function ExpressCheckoutForm({
             applePay: 'black',
           },
           buttonHeight: 44,
-          shippingAddressRequired: true,
-          allowedShippingCountries: ['GB'],
-          emailRequired: true,
-          phoneNumberRequired: true,
           layout: {
             maxColumns: 1,
             maxRows: 1,
@@ -186,31 +153,21 @@ export default function ProductExpressCheckout({
   onAvailabilityChange,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
-  const [useFallback, setUseFallback] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const amountPence = Math.max(50, Math.round((Number(amount) || 0) * 100));
 
   useEffect(() => {
     getStripe()
       .then(setStripePromise)
       .catch(() => {
-        setUseFallback(true);
-        onAvailabilityChange?.(true);
+        setLoadError(true);
+        onAvailabilityChange?.(false);
       });
   }, [onAvailabilityChange]);
 
-  if (useFallback || !stripePromise) {
-    if (useFallback) {
-      return (
-        <FallbackApplePayButton
-          productId={productId}
-          colorId={colorId}
-          storageOptionId={storageOptionId}
-          quantity={quantity}
-          disabled={disabled}
-        />
-      );
-    }
+  if (loadError) return null;
 
+  if (!stripePromise) {
     return (
       <div className="h-11 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
         <span className="loading loading-spinner loading-xs text-gray-400" />
@@ -234,14 +191,7 @@ export default function ProductExpressCheckout({
         quantity={quantity}
         amountPence={amountPence}
         disabled={disabled}
-        onAvailabilityChange={(available) => {
-          if (available) {
-            onAvailabilityChange?.(true);
-            return;
-          }
-          setUseFallback(true);
-          onAvailabilityChange?.(true);
-        }}
+        onAvailabilityChange={onAvailabilityChange}
       />
     </Elements>
   );
