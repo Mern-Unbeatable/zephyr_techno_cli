@@ -13,10 +13,11 @@ cacheDirectories = ["/root/.npm"]
 [phases.build]
 dependsOn = ["install"]
 cmds = [
+  "rm -rf node_modules/.cache || true",
   "npm run build",
   "npm prune --omit=dev"
 ]
-cacheDirectories = ["node_modules/.cache"]
+cacheDirectories = []
 
 [start]
-cmd = "npx --yes serve@14.2.4 dist -s -l ${PORT:-3000}"
+cmd = "npx --yes serve@14.2.4 dist -s -l 3000"
