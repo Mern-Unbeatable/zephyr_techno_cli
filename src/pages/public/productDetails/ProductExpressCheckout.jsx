@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Elements,
@@ -6,18 +6,69 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
+import { FaApple } from 'react-icons/fa';
 import { getStripe } from '../../../utils/stripe';
-import {
-  cancelUnpaidCheckout,
-  confirmExpressPayment,
-  createExpressCheckoutIntent,
-} from '../../../utils/cartApi';
+import { checkout, confirmExpressPayment, createExpressCheckoutIntent } from '../../../utils/cartApi';
 
-function ExpressCheckoutForm({ paymentIntentId, disabled, onAvailabilityChange }) {
+function FallbackApplePayButton({ productId, colorId, storageOptionId, quantity, disabled }) {
+  const [paying, setPaying] = useState(false);
+
+  const handleClick = async () => {
+    if (disabled || paying) return;
+    setPaying(true);
+    try {
+      await checkout({
+        collectAddressOnStripe: true,
+        shippingMethod: 'Standard Delivery',
+        shippingCost: 0,
+        promoCode: null,
+        directProduct: {
+          productId,
+          colorId: colorId || null,
+          storageOptionId: storageOptionId || null,
+          quantity,
+        },
+      });
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={disabled || paying}
+      className="w-full bg-black text-white hover:bg-[#1a1a1a] rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+    >
+      {paying ? (
+        <span className="loading loading-spinner loading-xs" />
+      ) : (
+        <FaApple className="h-5 w-5" />
+      )}
+      {paying ? 'Redirecting…' : 'Apple Pay'}
+    </button>
+  );
+}
+
+function ExpressCheckoutForm({
+  productId,
+  colorId,
+  storageOptionId,
+  quantity,
+  amountPence,
+  disabled,
+  onAvailabilityChange,
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    if (!elements || !amountPence) return;
+    elements.update({ amount: amountPence }).catch(() => {});
+  }, [elements, amountPence]);
 
   const handleConfirm = async (event) => {
     if (!stripe || !elements || processing || disabled) return;
@@ -29,6 +80,22 @@ function ExpressCheckoutForm({ paymentIntentId, disabled, onAvailabilityChange }
         event.paymentFailed({ reason: 'fail' });
         return;
       }
+
+      const intent = await createExpressCheckoutIntent({
+        productId,
+        colorId,
+        storageOptionId,
+        quantity,
+        shippingMethod: 'Standard Delivery',
+        shippingCost: 0,
+      });
+
+      if (!intent?.success || !intent.data?.clientSecret) {
+        event.paymentFailed({ reason: 'fail' });
+        return;
+      }
+
+      const { clientSecret, paymentIntentId } = intent.data;
 
       const confirmParams = {
         return_url: `${window.location.origin}/checkout/success`,
@@ -47,6 +114,7 @@ function ExpressCheckoutForm({ paymentIntentId, disabled, onAvailabilityChange }
 
       const { error } = await stripe.confirmPayment({
         elements,
+        clientSecret,
         confirmParams,
         redirect: 'if_required',
       });
@@ -72,7 +140,7 @@ function ExpressCheckoutForm({ paymentIntentId, disabled, onAvailabilityChange }
   };
 
   return (
-    <div className={`min-h-11 ${processing ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`min-h-11 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       <ExpressCheckoutElement
         onConfirm={handleConfirm}
         onReady={({ availablePaymentMethods }) => {
@@ -113,88 +181,36 @@ export default function ProductExpressCheckout({
   colorId,
   storageOptionId,
   quantity,
+  amount,
   disabled,
   onAvailabilityChange,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
-  const [clientSecret, setClientSecret] = useState(null);
-  const [paymentIntentId, setPaymentIntentId] = useState(null);
-  const previousOrderIdRef = useRef(null);
-  const [loading, setLoading] = useState(true);
-  const [stripeError, setStripeError] = useState('');
-  const [walletAvailable, setWalletAvailable] = useState(null);
+  const [useFallback, setUseFallback] = useState(false);
+  const amountPence = Math.max(50, Math.round((Number(amount) || 0) * 100));
 
   useEffect(() => {
     getStripe()
       .then(setStripePromise)
-      .catch((err) => {
-        setStripeError(err.message || 'Stripe unavailable');
-        onAvailabilityChange?.(false);
+      .catch(() => {
+        setUseFallback(true);
+        onAvailabilityChange?.(true);
       });
-  }, []);
+  }, [onAvailabilityChange]);
 
-  useEffect(() => {
-    if (disabled || !productId) {
-      setLoading(false);
-      return undefined;
+  if (useFallback || !stripePromise) {
+    if (useFallback) {
+      return (
+        <FallbackApplePayButton
+          productId={productId}
+          colorId={colorId}
+          storageOptionId={storageOptionId}
+          quantity={quantity}
+          disabled={disabled}
+        />
+      );
     }
 
-    let cancelled = false;
-    setStripeError('');
-
-    const loadIntent = async () => {
-      setLoading(true);
-      setWalletAvailable(null);
-
-      try {
-        const result = await createExpressCheckoutIntent({
-          productId,
-          colorId,
-          storageOptionId,
-          quantity,
-          shippingMethod: 'Standard Delivery',
-          shippingCost: 0,
-        });
-
-        if (cancelled) return;
-
-        if (!result?.success) {
-          setStripeError(result?.message || 'Unable to start express checkout');
-          setClientSecret(null);
-          onAvailabilityChange?.(false);
-          return;
-        }
-
-        if (previousOrderIdRef.current && previousOrderIdRef.current !== result.data.orderId) {
-          cancelUnpaidCheckout(previousOrderIdRef.current);
-        }
-
-        previousOrderIdRef.current = result.data.orderId;
-        setClientSecret(result.data.clientSecret);
-        setPaymentIntentId(result.data.paymentIntentId);
-        sessionStorage.setItem('pendingOrderId', result.data.orderId);
-        sessionStorage.setItem('stripePaymentIntentId', result.data.paymentIntentId);
-        setStripeError('');
-      } catch (err) {
-        if (!cancelled) {
-          setStripeError(err.message || 'Unable to start express checkout');
-          onAvailabilityChange?.(false);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    loadIntent();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [productId, colorId, storageOptionId, quantity, disabled]);
-
-  if (stripeError || walletAvailable === false) return null;
-
-  if (!stripePromise || loading || !clientSecret) {
     return (
       <div className="h-11 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
         <span className="loading loading-spinner loading-xs text-gray-400" />
@@ -203,13 +219,28 @@ export default function ProductExpressCheckout({
   }
 
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }} key={clientSecret}>
+    <Elements
+      stripe={stripePromise}
+      options={{
+        mode: 'payment',
+        amount: amountPence,
+        currency: 'gbp',
+      }}
+    >
       <ExpressCheckoutForm
-        paymentIntentId={paymentIntentId}
+        productId={productId}
+        colorId={colorId}
+        storageOptionId={storageOptionId}
+        quantity={quantity}
+        amountPence={amountPence}
         disabled={disabled}
         onAvailabilityChange={(available) => {
-          setWalletAvailable(available);
-          onAvailabilityChange?.(available);
+          if (available) {
+            onAvailabilityChange?.(true);
+            return;
+          }
+          setUseFallback(true);
+          onAvailabilityChange?.(true);
         }}
       />
     </Elements>

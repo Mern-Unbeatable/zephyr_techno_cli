@@ -563,6 +563,7 @@ const ProductDetails = () => {
                   colorId={selectedColor}
                   storageOptionId={selectedStorage}
                   quantity={quantity}
+                  amount={selectedStoragePrice * quantity}
                   disabled={addingToCart || selectedVariantStock === 0}
                   onAvailabilityChange={setShowApplePay}
                 />

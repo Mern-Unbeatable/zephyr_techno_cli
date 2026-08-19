@@ -13,12 +13,23 @@ export async function getStripe() {
     return stripePromise;
   }
 
-  const res = await fetch(`${BASE_URL}/api/public/product/stripe-config`);
-  const data = await res.json();
-  if (!data.success || !data.data?.publishableKey) {
-    throw new Error(data.message || 'Stripe is not configured');
+  const endpoints = [
+    `${BASE_URL}/api/public/stripe-config`,
+    `${BASE_URL}/api/public/product/stripe-config`,
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success && data.data?.publishableKey) {
+        stripePromise = loadStripe(data.data.publishableKey);
+        return stripePromise;
+      }
+    } catch {
+      // try next endpoint
+    }
   }
 
-  stripePromise = loadStripe(data.data.publishableKey);
-  return stripePromise;
+  throw new Error('Stripe is not configured');
 }
