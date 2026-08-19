@@ -20,4 +20,4 @@ cmds = [
 cacheDirectories = []
 
 [start]
-cmd = "npx --yes serve@14.2.4 dist -s -l 3000"
+cmd = "serve dist -s -l 3000"
