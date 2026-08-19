@@ -74,12 +74,19 @@ function getImageIndexForColor(images, colorId) {
   return sharedIdx >= 0 ? sharedIdx : 0;
 }
 
-function isIosDevice() {
-  if (typeof navigator === 'undefined') return false;
+function canUseApplePay() {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.ApplePaySession === 'function') return true;
+
   const ua = navigator.userAgent || '';
-  const iPhoneOrIPad = /iPad|iPhone|iPod/.test(ua);
-  const iPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  return iPhoneOrIPad || iPadOs;
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isIPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+  const isMacSafari =
+    /Macintosh/.test(ua) &&
+    /Safari/.test(ua) &&
+    !/Chrome|Chromium|CriOS|Edg|EdgiOS|FxiOS|Firefox|Android/.test(ua);
+
+  return isIOS || isIPadOs || isMacSafari;
 }
 
 const ProductDetails = () => {
@@ -96,7 +103,7 @@ const ProductDetails = () => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [showApplePay, setShowApplePay] = useState(() => isIosDevice());
+  const [showApplePay, setShowApplePay] = useState(() => canUseApplePay());
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
 

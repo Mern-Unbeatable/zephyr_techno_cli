@@ -80,7 +80,7 @@ function ExpressCheckoutForm({ paymentIntentId, disabled, onAvailabilityChange }
         }}
         options={{
           paymentMethods: {
-            applePay: 'auto',
+            applePay: 'always',
             googlePay: 'never',
             link: 'never',
             paypal: 'never',
