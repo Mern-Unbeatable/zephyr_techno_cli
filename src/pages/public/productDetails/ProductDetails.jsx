@@ -74,11 +74,16 @@ function getImageIndexForColor(images, colorId) {
   return sharedIdx >= 0 ? sharedIdx : 0;
 }
 
-function canUseApplePay() {
-  if (typeof window === 'undefined') return false;
-  if (typeof window.ApplePaySession === 'function') return true;
+/** @returns {'apple' | 'google' | null} */
+function getWalletType() {
+  if (typeof window === 'undefined') return null;
 
   const ua = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(ua);
+  if (isAndroid) return 'google';
+
+  if (typeof window.ApplePaySession === 'function') return 'apple';
+
   const isIOS = /iPad|iPhone|iPod/.test(ua);
   const isIPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
   const isMacSafari =
@@ -86,7 +91,8 @@ function canUseApplePay() {
     /Safari/.test(ua) &&
     !/Chrome|Chromium|CriOS|Edg|EdgiOS|FxiOS|Firefox|Android/.test(ua);
 
-  return isIOS || isIPadOs || isMacSafari;
+  if (isIOS || isIPadOs || isMacSafari) return 'apple';
+  return null;
 }
 
 const ProductDetails = () => {
@@ -103,7 +109,8 @@ const ProductDetails = () => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [showApplePay, setShowApplePay] = useState(() => canUseApplePay());
+  const [walletType] = useState(() => getWalletType());
+  const [showWalletPay, setShowWalletPay] = useState(() => Boolean(getWalletType()));
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -547,7 +554,7 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            <div className={showApplePay ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''}>
+            <div className={showWalletPay ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''}>
               <button
                 onClick={handleBuyNow}
                 disabled={addingToCart}
@@ -557,7 +564,7 @@ const ProductDetails = () => {
               >
                 Buy Now
               </button>
-              {showApplePay && (
+              {showWalletPay && walletType && (
                 <ProductExpressCheckout
                   productId={product.id}
                   colorId={selectedColor}
@@ -565,7 +572,8 @@ const ProductDetails = () => {
                   quantity={quantity}
                   amount={selectedStoragePrice * quantity}
                   disabled={addingToCart || selectedVariantStock === 0}
-                  onAvailabilityChange={setShowApplePay}
+                  walletType={walletType}
+                  onAvailabilityChange={setShowWalletPay}
                 />
               )}
             </div>

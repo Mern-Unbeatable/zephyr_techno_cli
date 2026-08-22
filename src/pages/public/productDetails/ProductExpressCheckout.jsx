@@ -16,6 +16,7 @@ function ExpressCheckoutForm({
   quantity,
   amountPence,
   disabled,
+  walletType,
   onAvailabilityChange,
 }) {
   const stripe = useStripe();
@@ -115,12 +116,16 @@ function ExpressCheckoutForm({
         onClick={handleClick}
         onConfirm={handleConfirm}
         onReady={({ availablePaymentMethods }) => {
-          onAvailabilityChange?.(Boolean(availablePaymentMethods?.applePay));
+          const available =
+            walletType === 'google'
+              ? Boolean(availablePaymentMethods?.googlePay)
+              : Boolean(availablePaymentMethods?.applePay);
+          onAvailabilityChange?.(available);
         }}
         options={{
           paymentMethods: {
-            applePay: 'always',
-            googlePay: 'never',
+            applePay: walletType === 'apple' ? 'always' : 'never',
+            googlePay: walletType === 'google' ? 'always' : 'never',
             link: 'never',
             paypal: 'never',
             amazonPay: 'never',
@@ -128,9 +133,11 @@ function ExpressCheckoutForm({
           },
           buttonType: {
             applePay: 'buy',
+            googlePay: 'buy',
           },
           buttonTheme: {
             applePay: 'black',
+            googlePay: 'black',
           },
           buttonHeight: 44,
           layout: {
@@ -150,6 +157,7 @@ export default function ProductExpressCheckout({
   quantity,
   amount,
   disabled,
+  walletType = 'apple',
   onAvailabilityChange,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
@@ -191,6 +199,7 @@ export default function ProductExpressCheckout({
         quantity={quantity}
         amountPence={amountPence}
         disabled={disabled}
+        walletType={walletType}
         onAvailabilityChange={onAvailabilityChange}
       />
     </Elements>
