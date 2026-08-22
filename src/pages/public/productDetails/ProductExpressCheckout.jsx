@@ -16,14 +16,47 @@ const STANDARD_SHIPPING = {
   amount: 0,
 };
 
+const EXPRESS_SHIPPING = {
+  id: 'express',
+  displayName: 'Express Delivery',
+  amount: 1500,
+};
+
+const WALLET_SHIPPING_RATES = [STANDARD_SHIPPING, EXPRESS_SHIPPING];
+
 const PR_SHIPPING_OPTIONS = [
   {
     id: 'standard',
     label: 'Standard Delivery',
-    detail: 'UK delivery',
+    detail: '3-5 working days',
     amount: 0,
   },
+  {
+    id: 'express',
+    label: 'Express Delivery',
+    detail: '1-2 working days',
+    amount: 1500,
+  },
 ];
+
+function shippingFromWalletRate(rate) {
+  const amountPence = Number(rate?.amount || 0);
+  const isExpress = rate?.id === 'express' || amountPence >= 1500;
+  return {
+    shippingMethod: isExpress ? 'Express Delivery' : 'Standard Delivery',
+    shippingCost: amountPence / 100,
+  };
+}
+
+function lineItemsFor(amountPence, shippingPence = 0) {
+  const items = [{ name: 'Subtotal', amount: amountPence }];
+  if (shippingPence > 0) {
+    items.push({ name: 'Express Delivery', amount: shippingPence });
+  } else {
+    items.push({ name: 'Standard Delivery', amount: 0 });
+  }
+  return items;
+}
 
 function mapWalletAddressToOrder(event) {
   const shipping = event.shippingAddress;
@@ -111,6 +144,14 @@ function WalletCheckoutForm({
       ev.updateWith({ status: 'success', shippingOptions: PR_SHIPPING_OPTIONS });
     };
 
+    const onShippingOptionChange = (ev) => {
+      const shippingPence = Number(ev.shippingOption?.amount || 0);
+      ev.updateWith({
+        status: 'success',
+        total: { label: 'Zephyr Technology', amount: amountPence + shippingPence },
+      });
+    };
+
     const onPaymentMethod = async (ev) => {
       if (payLock.current) {
         ev.complete('fail');
@@ -119,13 +160,14 @@ function WalletCheckoutForm({
       payLock.current = true;
       setProcessing(true);
       try {
+        const shipping = shippingFromWalletRate(ev.shippingOption);
         const intent = await createExpressCheckoutIntent({
           productId,
           colorId,
           storageOptionId,
           quantity,
-          shippingMethod: 'Standard Delivery',
-          shippingCost: 0,
+          shippingMethod: shipping.shippingMethod,
+          shippingCost: shipping.shippingCost,
           shippingAddress: mapPaymentRequestShipping(ev),
           guestEmail: ev.payerEmail || null,
         });
@@ -161,9 +203,11 @@ function WalletCheckoutForm({
     };
 
     pr.on('shippingaddresschange', onShippingAddressChange);
+    pr.on('shippingoptionchange', onShippingOptionChange);
     pr.on('paymentmethod', onPaymentMethod);
     return () => {
       pr.off('shippingaddresschange', onShippingAddressChange);
+      pr.off('shippingoptionchange', onShippingOptionChange);
       pr.off('paymentmethod', onPaymentMethod);
     };
   }, [
@@ -187,8 +231,8 @@ function WalletCheckoutForm({
 
   const handleClick = (event) => {
     event.resolve({
-      lineItems: [{ name: 'Order total', amount: amountPence }],
-      shippingRates: [STANDARD_SHIPPING],
+      lineItems: lineItemsFor(amountPence, 0),
+      shippingRates: WALLET_SHIPPING_RATES,
     });
   };
 
@@ -200,6 +244,10 @@ function WalletCheckoutForm({
 
     setProcessing(true);
     try {
+      const shipping = shippingFromWalletRate(event.shippingRate);
+      const totalPence = amountPence + Math.round(shipping.shippingCost * 100);
+      await elements.update({ amount: totalPence }).catch(() => {});
+
       const { error: submitError } = await elements.submit();
       if (submitError) {
         event.paymentFailed({ reason: 'fail' });
@@ -211,8 +259,8 @@ function WalletCheckoutForm({
         colorId,
         storageOptionId,
         quantity,
-        shippingMethod: 'Standard Delivery',
-        shippingCost: 0,
+        shippingMethod: shipping.shippingMethod,
+        shippingCost: shipping.shippingCost,
         shippingAddress: mapWalletAddressToOrder(event),
         guestEmail: event.billingDetails?.email || null,
       });
@@ -297,13 +345,13 @@ function WalletCheckoutForm({
           onConfirm={handleConfirm}
           onShippingAddressChange={(event) => {
             event.resolve({
-              lineItems: [{ name: 'Order total', amount: amountPence }],
-              shippingRates: [STANDARD_SHIPPING],
+              lineItems: lineItemsFor(amountPence, 0),
+              shippingRates: WALLET_SHIPPING_RATES,
             });
           }}
           onShippingRateChange={(event) => {
             event.resolve({
-              lineItems: [{ name: 'Order total', amount: amountPence }],
+              lineItems: lineItemsFor(amountPence, Number(event.shippingRate?.amount || 0)),
             });
           }}
           onLoadError={() => {}}
@@ -318,8 +366,8 @@ function WalletCheckoutForm({
             billingAddressRequired: true,
             shippingAddressRequired: true,
             allowedShippingCountries: ['GB'],
-            lineItems: [{ name: 'Order total', amount: amountPence }],
-            shippingRates: [STANDARD_SHIPPING],
+            lineItems: lineItemsFor(amountPence, 0),
+            shippingRates: WALLET_SHIPPING_RATES,
             paymentMethods: {
               applePay: isApple ? 'always' : 'never',
               googlePay: isApple ? 'never' : 'always',
