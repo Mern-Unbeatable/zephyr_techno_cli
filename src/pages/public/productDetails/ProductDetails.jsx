@@ -126,7 +126,6 @@ const ProductDetails = () => {
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [walletType] = useState(() => getWalletType());
-  const [showExpressPay, setShowExpressPay] = useState(true);
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -530,18 +529,15 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            {showExpressPay && (
-              <ProductExpressCheckout
-                productId={product.id}
-                colorId={selectedColor}
-                storageOptionId={selectedStorage}
-                quantity={quantity}
-                amount={selectedStoragePrice * quantity}
-                disabled={addingToCart || selectedVariantStock === 0}
-                walletType={walletType}
-                onAvailabilityChange={setShowExpressPay}
-              />
-            )}
+            <ProductExpressCheckout
+              productId={product.id}
+              colorId={selectedColor}
+              storageOptionId={selectedStorage}
+              quantity={quantity}
+              amount={selectedStoragePrice * quantity}
+              disabled={addingToCart || selectedVariantStock === 0}
+              walletType={walletType}
+            />
           </div>
         </div>
 

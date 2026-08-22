@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Elements,
   ExpressCheckoutElement,
+  PaymentRequestButtonElement,
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
@@ -15,21 +16,18 @@ const STANDARD_SHIPPING = {
   amount: 0,
 };
 
+const PR_SHIPPING_OPTIONS = [
+  {
+    id: 'standard',
+    label: 'Standard Delivery',
+    detail: 'UK delivery',
+    amount: 0,
+  },
+];
+
 function methodAvailable(methods, key) {
   const value = methods?.[key];
   return Boolean(value?.available ?? value);
-}
-
-function isExpressMethodAvailable(walletType, methods) {
-  if (!methods) return null;
-  const googlePay = methodAvailable(methods, 'googlePay');
-  const applePay = methodAvailable(methods, 'applePay');
-  return (
-    methodAvailable(methods, 'paypal') ||
-    methodAvailable(methods, 'klarna') ||
-    googlePay ||
-    applePay
-  );
 }
 
 function mapWalletAddressToOrder(event) {
@@ -49,6 +47,24 @@ function mapWalletAddressToOrder(event) {
   };
 }
 
+function mapPaymentRequestShipping(ev) {
+  const addr = ev.shippingAddress;
+  if (!addr) return null;
+  const line1 = addr.addressLine?.[0] || addr.address?.line1;
+  const line2 = addr.addressLine?.[1] || addr.address?.line2;
+  const street = [line1, line2].filter(Boolean).join(', ');
+  if (!street) return null;
+  return {
+    fullName: addr.recipient || ev.payerName || 'Customer',
+    phone: addr.phone || ev.payerPhone || null,
+    street,
+    city: addr.city || 'To be confirmed',
+    state: addr.region || null,
+    zipCode: addr.postalCode || 'TBC',
+    country: addr.country === 'GB' ? 'United Kingdom' : addr.country || 'United Kingdom',
+  };
+}
+
 function ExpressCheckoutForm({
   productId,
   colorId,
@@ -57,17 +73,117 @@ function ExpressCheckoutForm({
   amountPence,
   disabled,
   walletType,
-  onAvailabilityChange,
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
+  const [googlePayRequest, setGooglePayRequest] = useState(null);
+  const [showExpressWallets, setShowExpressWallets] = useState(true);
+  const payLock = useRef(false);
 
   useEffect(() => {
     if (!elements || !amountPence) return;
     elements.update({ amount: amountPence }).catch(() => {});
   }, [elements, amountPence]);
+
+  useEffect(() => {
+    if (!stripe || walletType === 'apple') return undefined;
+
+    const pr = stripe.paymentRequest({
+      country: 'GB',
+      currency: 'gbp',
+      total: { label: 'Zephyr Technology', amount: amountPence },
+      requestPayerName: true,
+      requestPayerEmail: true,
+      requestPayerPhone: true,
+      requestShipping: true,
+      shippingOptions: PR_SHIPPING_OPTIONS,
+      disableWallets: ['applePay', 'link', 'browserCard'],
+    });
+
+    pr.canMakePayment()
+      .then((result) => {
+        if (result?.googlePay) setGooglePayRequest(pr);
+      })
+      .catch(() => {});
+
+    const onShippingAddressChange = (ev) => {
+      ev.updateWith({ status: 'success', shippingOptions: PR_SHIPPING_OPTIONS });
+    };
+
+    const onPaymentMethod = async (ev) => {
+      if (payLock.current) {
+        ev.complete('fail');
+        return;
+      }
+      payLock.current = true;
+      setProcessing(true);
+      try {
+        const intent = await createExpressCheckoutIntent({
+          productId,
+          colorId,
+          storageOptionId,
+          quantity,
+          shippingMethod: 'Standard Delivery',
+          shippingCost: 0,
+          shippingAddress: mapPaymentRequestShipping(ev),
+          guestEmail: ev.payerEmail || null,
+        });
+
+        if (!intent?.success || !intent.data?.clientSecret) {
+          ev.complete('fail');
+          return;
+        }
+
+        const { error } = await stripe.confirmCardPayment(
+          intent.data.clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false },
+        );
+
+        if (error) {
+          ev.complete('fail');
+          return;
+        }
+
+        ev.complete('success');
+        sessionStorage.setItem('stripePaymentIntentId', intent.data.paymentIntentId);
+        const result = await confirmExpressPayment(intent.data.paymentIntentId);
+        if (result?.success) {
+          navigate('/checkout/success', { state: { order: result.data } });
+        }
+      } catch {
+        ev.complete('fail');
+      } finally {
+        payLock.current = false;
+        setProcessing(false);
+      }
+    };
+
+    pr.on('shippingaddresschange', onShippingAddressChange);
+    pr.on('paymentmethod', onPaymentMethod);
+    return () => {
+      pr.off('shippingaddresschange', onShippingAddressChange);
+      pr.off('paymentmethod', onPaymentMethod);
+    };
+  }, [
+    stripe,
+    walletType,
+    amountPence,
+    productId,
+    colorId,
+    storageOptionId,
+    quantity,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (!googlePayRequest || googlePayRequest.isShowing()) return;
+    googlePayRequest.update({
+      total: { label: 'Zephyr Technology', amount: amountPence },
+    });
+  }, [googlePayRequest, amountPence]);
 
   const handleClick = (event) => {
     event.resolve({
@@ -92,12 +208,6 @@ function ExpressCheckoutForm({
     event.resolve({
       lineItems: [{ name: 'Order total', amount: amountPence }],
     });
-  };
-
-  const handleWalletAvailability = (methods) => {
-    const available = isExpressMethodAvailable(walletType, methods);
-    if (available === null) return;
-    onAvailabilityChange?.(available);
   };
 
   const handleConfirm = async (event) => {
@@ -174,61 +284,90 @@ function ExpressCheckoutForm({
   };
 
   return (
-    <div className={`min-h-11 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      <ExpressCheckoutElement
-        onClick={handleClick}
-        onConfirm={handleConfirm}
-        onShippingAddressChange={handleShippingAddressChange}
-        onShippingRateChange={handleShippingRateChange}
-        onLoadError={() => onAvailabilityChange?.(false)}
-        onReady={({ availablePaymentMethods }) => {
-          if (availablePaymentMethods) {
-            handleWalletAvailability(availablePaymentMethods);
-          }
-        }}
-        onAvailablePaymentMethodsChange={({ paymentMethods }) => {
-          handleWalletAvailability(paymentMethods);
-        }}
-        options={{
-          emailRequired: true,
-          phoneNumberRequired: true,
-          billingAddressRequired: true,
-          shippingAddressRequired: true,
-          allowedShippingCountries: ['GB'],
-          lineItems: [{ name: 'Order total', amount: amountPence }],
-          shippingRates: [STANDARD_SHIPPING],
-          paymentMethodOrder:
-            walletType === 'google'
-              ? ['google_pay', 'paypal', 'klarna', 'apple_pay']
-              : walletType === 'apple'
-                ? ['apple_pay', 'paypal', 'klarna', 'google_pay']
-                : ['paypal', 'klarna', 'google_pay', 'apple_pay'],
-          paymentMethods: {
-            applePay: walletType === 'apple' ? 'always' : 'never',
-            googlePay: walletType === 'apple' ? 'never' : 'always',
-            paypal: 'auto',
-            klarna: 'auto',
-            link: 'never',
-            amazonPay: 'never',
-          },
-          buttonType: {
-            applePay: 'buy',
-            googlePay: 'buy',
-            paypal: 'buynow',
-          },
-          buttonTheme: {
-            applePay: 'black',
-            googlePay: 'black',
-            paypal: 'gold',
-          },
-          buttonHeight: 48,
-          layout: {
-            maxColumns: 1,
-            maxRows: 4,
-            overflow: 'auto',
-          },
-        }}
-      />
+    <div className={`space-y-3 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+      {googlePayRequest ? (
+        <div className="h-12 overflow-hidden rounded-sm">
+          <PaymentRequestButtonElement
+            options={{
+              paymentRequest: googlePayRequest,
+              style: {
+                paymentRequestButton: {
+                  type: 'buy',
+                  theme: 'dark',
+                  height: '48px',
+                },
+              },
+            }}
+          />
+        </div>
+      ) : null}
+
+      {showExpressWallets ? (
+        <ExpressCheckoutElement
+          onClick={handleClick}
+          onConfirm={handleConfirm}
+          onShippingAddressChange={handleShippingAddressChange}
+          onShippingRateChange={handleShippingRateChange}
+          onReady={({ availablePaymentMethods }) => {
+            if (!availablePaymentMethods) return;
+            const available =
+              methodAvailable(availablePaymentMethods, 'applePay') ||
+              methodAvailable(availablePaymentMethods, 'paypal') ||
+              methodAvailable(availablePaymentMethods, 'klarna') ||
+              (walletType !== 'apple' && methodAvailable(availablePaymentMethods, 'googlePay'));
+            setShowExpressWallets(available || walletType === 'apple');
+          }}
+          onAvailablePaymentMethodsChange={({ paymentMethods }) => {
+            if (!paymentMethods) return;
+            const available =
+              methodAvailable(paymentMethods, 'applePay') ||
+              methodAvailable(paymentMethods, 'paypal') ||
+              methodAvailable(paymentMethods, 'klarna');
+            if (walletType === 'apple') {
+              setShowExpressWallets(available || methodAvailable(paymentMethods, 'applePay'));
+            } else {
+              setShowExpressWallets(available);
+            }
+          }}
+          options={{
+            emailRequired: true,
+            phoneNumberRequired: true,
+            billingAddressRequired: true,
+            shippingAddressRequired: true,
+            allowedShippingCountries: ['GB'],
+            lineItems: [{ name: 'Order total', amount: amountPence }],
+            shippingRates: [STANDARD_SHIPPING],
+            paymentMethodOrder:
+              walletType === 'apple'
+                ? ['apple_pay', 'paypal', 'klarna']
+                : ['paypal', 'klarna', 'google_pay'],
+            paymentMethods: {
+              applePay: walletType === 'apple' ? 'always' : 'never',
+              googlePay: 'never',
+              paypal: 'auto',
+              klarna: 'auto',
+              link: 'never',
+              amazonPay: 'never',
+            },
+            buttonType: {
+              applePay: 'buy',
+              googlePay: 'buy',
+              paypal: 'buynow',
+            },
+            buttonTheme: {
+              applePay: 'black',
+              googlePay: 'black',
+              paypal: 'gold',
+            },
+            buttonHeight: 48,
+            layout: {
+              maxColumns: 1,
+              maxRows: 4,
+              overflow: 'auto',
+            },
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -241,22 +380,13 @@ export default function ProductExpressCheckout({
   amount,
   disabled,
   walletType = null,
-  onAvailabilityChange,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
-  const [loadError, setLoadError] = useState(false);
   const amountPence = Math.max(50, Math.round((Number(amount) || 0) * 100));
 
   useEffect(() => {
-    getStripe()
-      .then(setStripePromise)
-      .catch(() => {
-        setLoadError(true);
-        onAvailabilityChange?.(false);
-      });
-  }, [onAvailabilityChange]);
-
-  if (loadError) return null;
+    getStripe().then(setStripePromise).catch(() => setStripePromise(null));
+  }, []);
 
   if (!stripePromise) {
     return (
@@ -283,7 +413,6 @@ export default function ProductExpressCheckout({
         amountPence={amountPence}
         disabled={disabled}
         walletType={walletType}
-        onAvailabilityChange={onAvailabilityChange}
       />
     </Elements>
   );
