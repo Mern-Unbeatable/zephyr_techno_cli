@@ -187,11 +187,6 @@ function WalletCheckoutForm({
 
   const handleClick = (event) => {
     event.resolve({
-      emailRequired: true,
-      phoneNumberRequired: true,
-      billingAddressRequired: true,
-      shippingAddressRequired: true,
-      allowedShippingCountries: ['GB'],
       lineItems: [{ name: 'Order total', amount: amountPence }],
       shippingRates: [STANDARD_SHIPPING],
     });
