@@ -25,11 +25,6 @@ const PR_SHIPPING_OPTIONS = [
   },
 ];
 
-function methodAvailable(methods, key) {
-  const value = methods?.[key];
-  return Boolean(value?.available ?? value);
-}
-
 function mapWalletAddressToOrder(event) {
   const shipping = event.shippingAddress;
   if (!shipping?.address) return null;
@@ -65,7 +60,7 @@ function mapPaymentRequestShipping(ev) {
   };
 }
 
-function ExpressCheckoutForm({
+function WalletCheckoutForm({
   productId,
   colorId,
   storageOptionId,
@@ -73,14 +68,15 @@ function ExpressCheckoutForm({
   amountPence,
   disabled,
   walletType,
+  onAvailabilityChange,
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
   const [googlePayRequest, setGooglePayRequest] = useState(null);
-  const [showExpressWallets, setShowExpressWallets] = useState(true);
   const payLock = useRef(false);
+  const isApple = walletType === 'apple';
 
   useEffect(() => {
     if (!elements || !amountPence) return;
@@ -88,7 +84,7 @@ function ExpressCheckoutForm({
   }, [elements, amountPence]);
 
   useEffect(() => {
-    if (!stripe || walletType === 'apple') return undefined;
+    if (!stripe || isApple) return undefined;
 
     const pr = stripe.paymentRequest({
       country: 'GB',
@@ -104,7 +100,10 @@ function ExpressCheckoutForm({
 
     pr.canMakePayment()
       .then((result) => {
-        if (result?.googlePay) setGooglePayRequest(pr);
+        if (result?.googlePay) {
+          setGooglePayRequest(pr);
+          onAvailabilityChange?.(true);
+        }
       })
       .catch(() => {});
 
@@ -169,13 +168,14 @@ function ExpressCheckoutForm({
     };
   }, [
     stripe,
-    walletType,
+    isApple,
     amountPence,
     productId,
     colorId,
     storageOptionId,
     quantity,
     navigate,
+    onAvailabilityChange,
   ]);
 
   useEffect(() => {
@@ -194,19 +194,6 @@ function ExpressCheckoutForm({
       allowedShippingCountries: ['GB'],
       lineItems: [{ name: 'Order total', amount: amountPence }],
       shippingRates: [STANDARD_SHIPPING],
-    });
-  };
-
-  const handleShippingAddressChange = (event) => {
-    event.resolve({
-      lineItems: [{ name: 'Order total', amount: amountPence }],
-      shippingRates: [STANDARD_SHIPPING],
-    });
-  };
-
-  const handleShippingRateChange = (event) => {
-    event.resolve({
-      lineItems: [{ name: 'Order total', amount: amountPence }],
     });
   };
 
@@ -283,6 +270,14 @@ function ExpressCheckoutForm({
     }
   };
 
+  const walletAvailable = (methods) => {
+    if (!methods) return;
+    const available = isApple
+      ? Boolean(methods.applePay?.available ?? methods.applePay)
+      : Boolean(methods.googlePay?.available ?? methods.googlePay);
+    onAvailabilityChange?.(available || Boolean(googlePayRequest));
+  };
+
   return (
     <div className={`space-y-3 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
       {googlePayRequest ? (
@@ -302,33 +297,26 @@ function ExpressCheckoutForm({
         </div>
       ) : null}
 
-      {showExpressWallets ? (
+      {isApple || !googlePayRequest ? (
         <ExpressCheckoutElement
           onClick={handleClick}
           onConfirm={handleConfirm}
-          onShippingAddressChange={handleShippingAddressChange}
-          onShippingRateChange={handleShippingRateChange}
-          onReady={({ availablePaymentMethods }) => {
-            if (!availablePaymentMethods) return;
-            const available =
-              methodAvailable(availablePaymentMethods, 'applePay') ||
-              methodAvailable(availablePaymentMethods, 'paypal') ||
-              methodAvailable(availablePaymentMethods, 'klarna') ||
-              (walletType !== 'apple' && methodAvailable(availablePaymentMethods, 'googlePay'));
-            setShowExpressWallets(available || walletType === 'apple');
+          onShippingAddressChange={(event) => {
+            event.resolve({
+              lineItems: [{ name: 'Order total', amount: amountPence }],
+              shippingRates: [STANDARD_SHIPPING],
+            });
           }}
-          onAvailablePaymentMethodsChange={({ paymentMethods }) => {
-            if (!paymentMethods) return;
-            const available =
-              methodAvailable(paymentMethods, 'applePay') ||
-              methodAvailable(paymentMethods, 'paypal') ||
-              methodAvailable(paymentMethods, 'klarna');
-            if (walletType === 'apple') {
-              setShowExpressWallets(available || methodAvailable(paymentMethods, 'applePay'));
-            } else {
-              setShowExpressWallets(available);
-            }
+          onShippingRateChange={(event) => {
+            event.resolve({
+              lineItems: [{ name: 'Order total', amount: amountPence }],
+            });
           }}
+          onLoadError={() => {
+            if (!googlePayRequest) onAvailabilityChange?.(false);
+          }}
+          onReady={({ availablePaymentMethods }) => walletAvailable(availablePaymentMethods)}
+          onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
           options={{
             emailRequired: true,
             phoneNumberRequired: true,
@@ -337,34 +325,24 @@ function ExpressCheckoutForm({
             allowedShippingCountries: ['GB'],
             lineItems: [{ name: 'Order total', amount: amountPence }],
             shippingRates: [STANDARD_SHIPPING],
-            paymentMethodOrder:
-              walletType === 'apple'
-                ? ['apple_pay', 'paypal', 'klarna']
-                : ['paypal', 'klarna', 'google_pay'],
             paymentMethods: {
-              applePay: walletType === 'apple' ? 'always' : 'never',
-              googlePay: 'never',
-              paypal: 'auto',
-              klarna: 'auto',
+              applePay: isApple ? 'always' : 'never',
+              googlePay: isApple ? 'never' : 'always',
+              paypal: 'never',
+              klarna: 'never',
               link: 'never',
               amazonPay: 'never',
             },
             buttonType: {
               applePay: 'buy',
               googlePay: 'buy',
-              paypal: 'buynow',
             },
             buttonTheme: {
               applePay: 'black',
               googlePay: 'black',
-              paypal: 'gold',
             },
             buttonHeight: 48,
-            layout: {
-              maxColumns: 1,
-              maxRows: 4,
-              overflow: 'auto',
-            },
+            layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
           }}
         />
       ) : null}
@@ -379,18 +357,27 @@ export default function ProductExpressCheckout({
   quantity,
   amount,
   disabled,
-  walletType = null,
+  walletType,
+  onAvailabilityChange,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
+  const [loadError, setLoadError] = useState(false);
   const amountPence = Math.max(50, Math.round((Number(amount) || 0) * 100));
 
   useEffect(() => {
-    getStripe().then(setStripePromise).catch(() => setStripePromise(null));
-  }, []);
+    getStripe()
+      .then(setStripePromise)
+      .catch(() => {
+        setLoadError(true);
+        onAvailabilityChange?.(false);
+      });
+  }, [onAvailabilityChange]);
+
+  if (loadError) return null;
 
   if (!stripePromise) {
     return (
-      <div className="h-11 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
+      <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
         <span className="loading loading-spinner loading-xs text-gray-400" />
       </div>
     );
@@ -405,7 +392,7 @@ export default function ProductExpressCheckout({
         currency: 'gbp',
       }}
     >
-      <ExpressCheckoutForm
+      <WalletCheckoutForm
         productId={productId}
         colorId={colorId}
         storageOptionId={storageOptionId}
@@ -413,6 +400,7 @@ export default function ProductExpressCheckout({
         amountPence={amountPence}
         disabled={disabled}
         walletType={walletType}
+        onAvailabilityChange={onAvailabilityChange}
       />
     </Elements>
   );

@@ -19,6 +19,9 @@ import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { sortStorageOptionsBySize } from '../../../utils/storageSort';
 import ProductExpressCheckout from './ProductExpressCheckout';
+import ProductPaymentMessaging from './ProductPaymentMessaging';
+import InfoTooltip from './InfoTooltip';
+import { checkout } from '../../../utils/cartApi';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -73,12 +76,6 @@ function getImageIndexForColor(images, colorId) {
   return sharedIdx >= 0 ? sharedIdx : 0;
 }
 
-function isAndroidDevice() {
-  if (typeof navigator === 'undefined') return false;
-  if (/Android/i.test(navigator.userAgent || '')) return true;
-  return /android/i.test(navigator.userAgentData?.platform || '');
-}
-
 function isAppleDevice() {
   if (typeof window === 'undefined') return false;
   if (typeof window.ApplePaySession === 'function') return true;
@@ -94,21 +91,20 @@ function isAppleDevice() {
   return isIOS || isIPadOs || isMacSafari;
 }
 
-function isGooglePayBrowser() {
+function isGooglePayDevice() {
   if (typeof navigator === 'undefined') return false;
-  if (isAndroidDevice()) return true;
-
   const ua = navigator.userAgent || '';
-  if (/iPad|iPhone|iPod|CriOS|EdgiOS|FxiOS/.test(ua)) return false;
-
-  return /Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua);
+  if (/Android/i.test(ua)) return true;
+  if (/android/i.test(navigator.userAgentData?.platform || '')) return true;
+  if (isAppleDevice()) return false;
+  return /Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua) && !/CriOS|EdgiOS|FxiOS/.test(ua);
 }
 
 /** @returns {'apple' | 'google' | null} */
 function getWalletType() {
   if (typeof window === 'undefined') return null;
   if (isAppleDevice()) return 'apple';
-  if (isGooglePayBrowser()) return 'google';
+  if (isGooglePayDevice()) return 'google';
   return null;
 }
 
@@ -126,6 +122,8 @@ const ProductDetails = () => {
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [walletType] = useState(() => getWalletType());
+  const [showWalletPay, setShowWalletPay] = useState(() => Boolean(getWalletType()));
+  const [startingStripeCheckout, setStartingStripeCheckout] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -330,6 +328,64 @@ const ProductDetails = () => {
     }
   };
 
+  const assertCanBuy = () => {
+    if (selectedVariantStock <= 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Out of stock',
+        text: 'This item is currently out of stock for the selected storage option.',
+        confirmButtonColor: '#47B5C9',
+      });
+      return false;
+    }
+    if (quantity > selectedVariantStock) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Limited stock',
+        text: `Only ${selectedVariantStock} item(s) available in stock.`,
+        confirmButtonColor: '#47B5C9',
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const handleMorePaymentOptions = async () => {
+    if (!assertCanBuy()) return;
+
+    setStartingStripeCheckout(true);
+    try {
+      const result = await checkout({
+        collectAddressOnStripe: true,
+        shippingMethod: 'Standard Delivery',
+        shippingCost: 0,
+        directProduct: {
+          productId: product.id,
+          colorId: selectedColor || null,
+          storageOptionId: selectedStorage || null,
+          quantity,
+        },
+      });
+      if (!result?.success) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Unable to start checkout',
+          text: result?.message || 'Please try again.',
+          confirmButtonColor: '#47B5C9',
+        });
+      }
+    } catch {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Something went wrong. Please try again.',
+        confirmButtonColor: '#47B5C9',
+      });
+    } finally {
+      setStartingStripeCheckout(false);
+    }
+  };
+
   const highlights = product
     ? [...product.highlights].sort((a, b) => a.displayOrder - b.displayOrder)
     : [];
@@ -399,6 +455,13 @@ const ProductDetails = () => {
               <p className="text-xl md:text-2xl lg:text-3xl font-bold text-[#151A2A]">
                 £{Number(selectedStoragePrice).toLocaleString()}
               </p>
+              <div className="mt-2">
+                <InfoTooltip
+                  label="Sold on VAT margin scheme"
+                  text="VAT is not shown on the invoice and cannot be reclaimed by business customers."
+                />
+              </div>
+              <ProductPaymentMessaging amount={selectedStoragePrice * quantity} />
               {selectedVariantStock <= 5 && selectedVariantStock > 0 && (
                 <p className="text-sm text-orange-500 mt-1">
                   Only {selectedVariantStock} left in stock
@@ -529,15 +592,31 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            <ProductExpressCheckout
-              productId={product.id}
-              colorId={selectedColor}
-              storageOptionId={selectedStorage}
-              quantity={quantity}
-              amount={selectedStoragePrice * quantity}
-              disabled={addingToCart || selectedVariantStock === 0}
-              walletType={walletType}
-            />
+            {showWalletPay && walletType && (
+              <div className="mt-3">
+                <ProductExpressCheckout
+                  productId={product.id}
+                  colorId={selectedColor}
+                  storageOptionId={selectedStorage}
+                  quantity={quantity}
+                  amount={selectedStoragePrice * quantity}
+                  disabled={addingToCart || startingStripeCheckout || selectedVariantStock === 0}
+                  walletType={walletType}
+                  onAvailabilityChange={(available) => {
+                    if (walletType === 'google' && !available) return;
+                    setShowWalletPay(available);
+                  }}
+                />
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleMorePaymentOptions}
+              disabled={addingToCart || startingStripeCheckout || selectedVariantStock === 0}
+              className="mt-3 w-full text-center text-sm font-medium text-[#151A2A] underline underline-offset-4 hover:text-custom disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {startingStripeCheckout ? 'Opening checkout…' : 'More Payment Options'}
+            </button>
           </div>
         </div>
 

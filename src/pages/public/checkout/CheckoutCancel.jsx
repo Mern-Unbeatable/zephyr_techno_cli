@@ -36,7 +36,7 @@ const CheckoutCancel = () => {
 
           <div className="flex flex-col sm:flex-row gap-4">
             <Link
-              to="/checkout"
+              to="/cart"
               className="flex-1 text-center bg-custom hover:bg-[#349eab] text-white py-3 rounded-md text-[15px] font-medium transition-colors"
             >
               Retry Payment

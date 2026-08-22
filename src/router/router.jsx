@@ -1,5 +1,5 @@
 import React from "react";
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import MainLayout from "../layout/MainLayout";
 import AdminLayout from "../layout/AdminLayout";
 import UserDashboardLayout from "../layout/UserDashboardLayout";
@@ -33,7 +33,6 @@ import Sell from "../pages/public/sellYourPhone/Sell";
 import SellWorth from "../pages/public/sellWorth/SellWorth";
 import AboutDevice from "../pages/public/aboutdevice/AboutDevice";
 import FinalizeSale from "../pages/public/finalizeSale/FinalizeSale";
-import Checkout from "../pages/public/checkout/Checkout";
 import CheckoutSuccess from "../pages/public/checkout/CheckoutSuccess";
 import CheckoutCancel from "../pages/public/checkout/CheckoutCancel";
 import BusinessQuery from "../pages/admin/businessQuery/BusinessQuery";
@@ -72,7 +71,7 @@ const router = createBrowserRouter([
       },
       {
         path: "checkout",
-        element: <Checkout />,
+        element: <Navigate to="/cart" replace />,
       },
       {
         path: "checkout/success",
