@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
+  AddressElement,
   Elements,
   ExpressCheckoutElement,
   useElements,
@@ -15,12 +16,62 @@ const STANDARD_SHIPPING = {
   amount: 0,
 };
 
-function isWalletAvailable(walletType, methods) {
+const ADDRESS_ELEMENT_OPTIONS = {
+  mode: 'shipping',
+  allowedCountries: ['GB'],
+  autocomplete: { mode: 'automatic' },
+  blockPoBox: false,
+  fields: { phone: 'always' },
+  validation: { phone: { required: 'always' } },
+  display: { name: 'full' },
+  defaultValues: {
+    address: { country: 'GB' },
+  },
+};
+
+function methodAvailable(methods, key) {
+  const value = methods?.[key];
+  return Boolean(value?.available ?? value);
+}
+
+function isExpressMethodAvailable(walletType, methods) {
   if (!methods) return false;
-  if (walletType === 'google') {
-    return Boolean(methods.googlePay?.available ?? methods.googlePay);
-  }
-  return Boolean(methods.applePay?.available ?? methods.applePay);
+  return (
+    methodAvailable(methods, 'paypal') ||
+    methodAvailable(methods, 'klarna') ||
+    (walletType === 'google' && methodAvailable(methods, 'googlePay')) ||
+    (walletType === 'apple' && methodAvailable(methods, 'applePay'))
+  );
+}
+
+function mapAddressToOrder(value) {
+  if (!value?.address?.line1) return null;
+  const street = [value.address.line1, value.address.line2].filter(Boolean).join(', ');
+  return {
+    fullName: value.name || 'Customer',
+    phone: value.phone || null,
+    street,
+    city: value.address.city || 'To be confirmed',
+    state: value.address.state || null,
+    zipCode: value.address.postal_code || 'TBC',
+    country: value.address.country === 'GB' ? 'United Kingdom' : value.address.country || 'United Kingdom',
+  };
+}
+
+function mapAddressToStripeShipping(value) {
+  if (!value?.address?.line1) return null;
+  return {
+    name: value.name,
+    phone: value.phone || undefined,
+    address: {
+      line1: value.address.line1,
+      line2: value.address.line2 || undefined,
+      city: value.address.city,
+      state: value.address.state || undefined,
+      postal_code: value.address.postal_code,
+      country: value.address.country,
+    },
+  };
 }
 
 function ExpressCheckoutForm({
@@ -37,6 +88,8 @@ function ExpressCheckoutForm({
   const elements = useElements();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
+  const [addressError, setAddressError] = useState('');
+  const [typedAddress, setTypedAddress] = useState(null);
 
   useEffect(() => {
     if (!elements || !amountPence) return;
@@ -44,27 +97,21 @@ function ExpressCheckoutForm({
   }, [elements, amountPence]);
 
   const handleClick = (event) => {
+    if (!typedAddress?.address?.line1) {
+      setAddressError('Enter your shipping address to continue. Start typing for suggestions.');
+      event.reject();
+      return;
+    }
+
+    setAddressError('');
     event.resolve({
       lineItems: [{ name: 'Order total', amount: amountPence }],
       shippingRates: [STANDARD_SHIPPING],
-    });
-  };
-
-  const handleShippingAddressChange = (event) => {
-    event.resolve({
-      lineItems: [{ name: 'Order total', amount: amountPence }],
-      shippingRates: [STANDARD_SHIPPING],
-    });
-  };
-
-  const handleShippingRateChange = (event) => {
-    event.resolve({
-      lineItems: [{ name: 'Order total', amount: amountPence }],
     });
   };
 
   const handleWalletAvailability = (methods) => {
-    onAvailabilityChange?.(isWalletAvailable(walletType, methods));
+    onAvailabilityChange?.(isExpressMethodAvailable(walletType, methods));
   };
 
   const handleConfirm = async (event) => {
@@ -75,12 +122,19 @@ function ExpressCheckoutForm({
 
     setProcessing(true);
     try {
+      if (!typedAddress?.address?.line1) {
+        setAddressError('Enter your shipping address to continue.');
+        event.paymentFailed({ reason: 'fail' });
+        return;
+      }
+
       const { error: submitError } = await elements.submit();
       if (submitError) {
         event.paymentFailed({ reason: 'fail' });
         return;
       }
 
+      const shippingAddress = mapAddressToOrder(typedAddress);
       const intent = await createExpressCheckoutIntent({
         productId,
         colorId,
@@ -88,6 +142,8 @@ function ExpressCheckoutForm({
         quantity,
         shippingMethod: 'Standard Delivery',
         shippingCost: 0,
+        shippingAddress,
+        guestEmail: event.billingDetails?.email || null,
       });
 
       if (!intent?.success || !intent.data?.clientSecret) {
@@ -98,14 +154,8 @@ function ExpressCheckoutForm({
       const { clientSecret, paymentIntentId } = intent.data;
       const confirmParams = {
         return_url: `${window.location.origin}/checkout/success`,
+        shipping: mapAddressToStripeShipping(typedAddress),
       };
-
-      if (event.shippingAddress) {
-        confirmParams.shipping = {
-          name: event.shippingAddress.name,
-          address: event.shippingAddress.address,
-        };
-      }
 
       if (event.billingDetails?.email) {
         confirmParams.receipt_email = event.billingDetails.email;
@@ -139,57 +189,84 @@ function ExpressCheckoutForm({
   };
 
   return (
-    <div className={`min-h-11 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      <ExpressCheckoutElement
-        onClick={handleClick}
-        onConfirm={handleConfirm}
-        onShippingAddressChange={handleShippingAddressChange}
-        onShippingRateChange={handleShippingRateChange}
-        onLoadError={() => onAvailabilityChange?.(false)}
-        onReady={({ availablePaymentMethods }) => {
-          // Google Pay is detected asynchronously. onReady often fires first
-          // with no methods; unmounting here hides the Android button.
-          if (availablePaymentMethods) {
-            handleWalletAvailability(availablePaymentMethods);
-          }
-        }}
-        onAvailablePaymentMethodsChange={({ paymentMethods }) => {
-          handleWalletAvailability(paymentMethods);
-        }}
-        options={{
-          emailRequired: true,
-          phoneNumberRequired: true,
-          billingAddressRequired: true,
-          shippingAddressRequired: true,
-          allowedShippingCountries: ['GB'],
-          lineItems: [{ name: 'Order total', amount: amountPence }],
-          shippingRates: [STANDARD_SHIPPING],
-          paymentMethodOrder:
-            walletType === 'google' ? ['google_pay', 'apple_pay'] : ['apple_pay', 'google_pay'],
-          paymentMethods: {
-            applePay: walletType === 'apple' ? 'always' : 'never',
-            googlePay: walletType === 'google' ? 'always' : 'never',
-            link: 'never',
-            paypal: 'never',
-            amazonPay: 'never',
-            klarna: 'never',
-          },
-          buttonType: {
-            applePay: 'buy',
-            googlePay: 'buy',
-          },
-          buttonTheme: {
-            applePay: 'black',
-            googlePay: 'black',
-          },
-          buttonHeight: 48,
-          layout: {
-            maxColumns: 1,
-            maxRows: 1,
-            overflow: 'never',
-          },
-        }}
-      />
+    <div className="space-y-3">
+      <div className={processing || disabled ? 'opacity-60 pointer-events-none' : ''}>
+        <p className="text-xs font-bold uppercase tracking-[0.55px] text-[#6B7280] mb-2">
+          Shipping address
+        </p>
+        <p className="text-xs text-[#64748B] mb-3">
+          Start typing your house or street name — matching UK addresses will appear as suggestions.
+        </p>
+        <div className="rounded-sm border border-[#E5E7EB] bg-white px-3 py-3">
+          <AddressElement
+            options={ADDRESS_ELEMENT_OPTIONS}
+            onChange={(event) => {
+              if (event.complete) {
+                setTypedAddress(event.value);
+                setAddressError('');
+                return;
+              }
+              setTypedAddress(null);
+            }}
+          />
+        </div>
+        {addressError ? (
+          <p className="text-xs text-red-500 mt-2">{addressError}</p>
+        ) : null}
+      </div>
+
+      <div className={`min-h-11 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+        <ExpressCheckoutElement
+          onClick={handleClick}
+          onConfirm={handleConfirm}
+          onLoadError={() => onAvailabilityChange?.(false)}
+          onReady={({ availablePaymentMethods }) => {
+            if (availablePaymentMethods) {
+              handleWalletAvailability(availablePaymentMethods);
+            }
+          }}
+          onAvailablePaymentMethodsChange={({ paymentMethods }) => {
+            handleWalletAvailability(paymentMethods);
+          }}
+          options={{
+            emailRequired: true,
+            phoneNumberRequired: false,
+            billingAddressRequired: false,
+            shippingAddressRequired: false,
+            lineItems: [{ name: 'Order total', amount: amountPence }],
+            paymentMethodOrder:
+              walletType === 'google'
+                ? ['google_pay', 'paypal', 'klarna', 'apple_pay']
+                : walletType === 'apple'
+                  ? ['apple_pay', 'paypal', 'klarna', 'google_pay']
+                  : ['paypal', 'klarna', 'google_pay', 'apple_pay'],
+            paymentMethods: {
+              applePay: walletType === 'apple' ? 'always' : 'never',
+              googlePay: walletType === 'google' ? 'always' : 'never',
+              paypal: 'auto',
+              klarna: 'auto',
+              link: 'never',
+              amazonPay: 'never',
+            },
+            buttonType: {
+              applePay: 'buy',
+              googlePay: 'buy',
+              paypal: 'buynow',
+            },
+            buttonTheme: {
+              applePay: 'black',
+              googlePay: 'black',
+              paypal: 'gold',
+            },
+            buttonHeight: 48,
+            layout: {
+              maxColumns: 1,
+              maxRows: 4,
+              overflow: 'auto',
+            },
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -201,7 +278,7 @@ export default function ProductExpressCheckout({
   quantity,
   amount,
   disabled,
-  walletType = 'apple',
+  walletType = null,
   onAvailabilityChange,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
@@ -234,6 +311,14 @@ export default function ProductExpressCheckout({
         mode: 'payment',
         amount: amountPence,
         currency: 'gbp',
+        appearance: {
+          theme: 'stripe',
+          variables: {
+            borderRadius: '2px',
+            fontFamily: 'Manrope, system-ui, sans-serif',
+            colorPrimary: '#47B5C9',
+          },
+        },
       }}
     >
       <ExpressCheckoutForm

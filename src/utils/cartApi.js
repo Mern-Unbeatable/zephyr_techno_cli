@@ -217,7 +217,7 @@ export async function checkout({
   return data;
 }
 
-// ─── Express Checkout (Apple Pay / Google Pay on-page) ───────────────────────
+// ─── Express Checkout (Apple Pay / Google Pay / PayPal / Klarna) ─────────────
 
 export async function createExpressCheckoutIntent({
   productId,
@@ -226,6 +226,8 @@ export async function createExpressCheckoutIntent({
   quantity,
   shippingMethod,
   shippingCost,
+  shippingAddress,
+  guestEmail,
 }) {
   const body = {
     productId,
@@ -234,6 +236,8 @@ export async function createExpressCheckoutIntent({
     quantity: quantity || 1,
     shippingMethod,
     shippingCost,
+    shippingAddress: shippingAddress || null,
+    guestEmail: guestEmail || undefined,
   };
 
   let headers;
@@ -300,7 +304,12 @@ export async function cancelUnpaidCheckout(orderId) {
 // ─── Payment Confirmation ─────────────────────────────────────────────────────
 
 export async function confirmPayment() {
-  const paymentIntentId = sessionStorage.getItem('stripePaymentIntentId');
+  const redirectedIntentId =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('payment_intent')
+      : null;
+  const paymentIntentId =
+    redirectedIntentId || sessionStorage.getItem('stripePaymentIntentId');
   if (paymentIntentId) {
     return confirmExpressPayment(paymentIntentId);
   }

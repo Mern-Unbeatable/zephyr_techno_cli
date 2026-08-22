@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, Link, useNavigate } from "react-router";
+import { useParams, Link } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Container from "../../../layout/Container";
 import {
@@ -18,7 +18,6 @@ import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { sortStorageOptionsBySize } from '../../../utils/storageSort';
-import { setBuyNowProduct } from '../../../utils/checkoutSession';
 import ProductExpressCheckout from './ProductExpressCheckout';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -77,17 +76,12 @@ function getImageIndexForColor(images, colorId) {
 function isAndroidDevice() {
   if (typeof navigator === 'undefined') return false;
   if (/Android/i.test(navigator.userAgent || '')) return true;
-  // Chrome "Desktop site" spoofs a Linux UA but still reports Android here.
   return /android/i.test(navigator.userAgentData?.platform || '');
 }
 
-/** @returns {'apple' | 'google' | null} */
-function getWalletType() {
-  if (typeof window === 'undefined') return null;
-
-  if (isAndroidDevice()) return 'google';
-
-  if (typeof window.ApplePaySession === 'function') return 'apple';
+function isAppleDevice() {
+  if (typeof window === 'undefined') return false;
+  if (typeof window.ApplePaySession === 'function') return true;
 
   const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua);
@@ -97,13 +91,29 @@ function getWalletType() {
     /Safari/.test(ua) &&
     !/Chrome|Chromium|CriOS|Edg|EdgiOS|FxiOS|Firefox|Android/.test(ua);
 
-  if (isIOS || isIPadOs || isMacSafari) return 'apple';
+  return isIOS || isIPadOs || isMacSafari;
+}
+
+function isGooglePayBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  if (isAndroidDevice()) return true;
+
+  const ua = navigator.userAgent || '';
+  if (/iPad|iPhone|iPod|CriOS|EdgiOS|FxiOS/.test(ua)) return false;
+
+  return /Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua);
+}
+
+/** @returns {'apple' | 'google' | null} */
+function getWalletType() {
+  if (typeof window === 'undefined') return null;
+  if (isAppleDevice()) return 'apple';
+  if (isGooglePayBrowser()) return 'google';
   return null;
 }
 
 const ProductDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { addToCart, cartItems } = useCart();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,7 +126,7 @@ const ProductDetails = () => {
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [walletType] = useState(() => getWalletType());
-  const [showWalletPay, setShowWalletPay] = useState(() => Boolean(getWalletType()));
+  const [showExpressPay, setShowExpressPay] = useState(true);
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
 
@@ -321,46 +331,6 @@ const ProductDetails = () => {
     }
   };
 
-  const assertCanBuy = () => {
-    if (selectedVariantStock <= 0) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Out of stock',
-        text: 'This item is currently out of stock for the selected storage option. Please choose another option or check back later.',
-        confirmButtonColor: '#47B5C9',
-      });
-      return false;
-    }
-
-    if (quantity > selectedVariantStock) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Limited stock',
-        text: `Only ${selectedVariantStock} item(s) available in stock.`,
-        confirmButtonColor: '#47B5C9',
-      });
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleBuyNow = () => {
-    if (!assertCanBuy()) return;
-
-    const buyNowPayload = {
-      productId: product.id,
-      colorId: selectedColor || null,
-      storageOptionId: selectedStorage || null,
-      quantity,
-      title: product.title,
-      unitPrice: selectedStoragePrice,
-    };
-
-    setBuyNowProduct(buyNowPayload);
-    navigate('/checkout', { state: { buyNow: buyNowPayload } });
-  };
-
   const highlights = product
     ? [...product.highlights].sort((a, b) => a.displayOrder - b.displayOrder)
     : [];
@@ -560,29 +530,18 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            <div className={showWalletPay ? 'grid grid-cols-1 sm:grid-cols-2 gap-3' : ''}>
-              <button
-                onClick={handleBuyNow}
-                disabled={addingToCart}
-                className={`w-full border border-gray-800 text-[#151A2A] hover:bg-gray-50 rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed ${
-                  selectedVariantStock === 0 ? 'opacity-60' : ''
-                }`}
-              >
-                Buy Now
-              </button>
-              {showWalletPay && walletType && (
-                <ProductExpressCheckout
-                  productId={product.id}
-                  colorId={selectedColor}
-                  storageOptionId={selectedStorage}
-                  quantity={quantity}
-                  amount={selectedStoragePrice * quantity}
-                  disabled={addingToCart || selectedVariantStock === 0}
-                  walletType={walletType}
-                  onAvailabilityChange={setShowWalletPay}
-                />
-              )}
-            </div>
+            {showExpressPay && (
+              <ProductExpressCheckout
+                productId={product.id}
+                colorId={selectedColor}
+                storageOptionId={selectedStorage}
+                quantity={quantity}
+                amount={selectedStoragePrice * quantity}
+                disabled={addingToCart || selectedVariantStock === 0}
+                walletType={walletType}
+                onAvailabilityChange={setShowExpressPay}
+              />
+            )}
           </div>
         </div>
 
