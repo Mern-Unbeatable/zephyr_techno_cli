@@ -74,16 +74,22 @@ function getImageIndexForColor(images, colorId) {
   return sharedIdx >= 0 ? sharedIdx : 0;
 }
 
+function isAndroidDevice() {
+  if (typeof navigator === 'undefined') return false;
+  if (/Android/i.test(navigator.userAgent || '')) return true;
+  // Chrome "Desktop site" spoofs a Linux UA but still reports Android here.
+  return /android/i.test(navigator.userAgentData?.platform || '');
+}
+
 /** @returns {'apple' | 'google' | null} */
 function getWalletType() {
   if (typeof window === 'undefined') return null;
 
-  const ua = navigator.userAgent || '';
-  const isAndroid = /Android/i.test(ua);
-  if (isAndroid) return 'google';
+  if (isAndroidDevice()) return 'google';
 
   if (typeof window.ApplePaySession === 'function') return 'apple';
 
+  const ua = navigator.userAgent || '';
   const isIOS = /iPad|iPhone|iPod/.test(ua);
   const isIPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
   const isMacSafari =

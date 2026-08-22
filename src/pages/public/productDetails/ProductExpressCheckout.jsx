@@ -9,6 +9,20 @@ import {
 import { getStripe } from '../../../utils/stripe';
 import { confirmExpressPayment, createExpressCheckoutIntent } from '../../../utils/cartApi';
 
+const STANDARD_SHIPPING = {
+  id: 'standard',
+  displayName: 'Standard Delivery',
+  amount: 0,
+};
+
+function isWalletAvailable(walletType, methods) {
+  if (!methods) return false;
+  if (walletType === 'google') {
+    return Boolean(methods.googlePay?.available ?? methods.googlePay);
+  }
+  return Boolean(methods.applePay?.available ?? methods.applePay);
+}
+
 function ExpressCheckoutForm({
   productId,
   colorId,
@@ -31,12 +45,26 @@ function ExpressCheckoutForm({
 
   const handleClick = (event) => {
     event.resolve({
-      emailRequired: true,
-      phoneNumberRequired: true,
-      shippingAddressRequired: true,
-      allowedShippingCountries: ['GB'],
+      lineItems: [{ name: 'Order total', amount: amountPence }],
+      shippingRates: [STANDARD_SHIPPING],
+    });
+  };
+
+  const handleShippingAddressChange = (event) => {
+    event.resolve({
+      lineItems: [{ name: 'Order total', amount: amountPence }],
+      shippingRates: [STANDARD_SHIPPING],
+    });
+  };
+
+  const handleShippingRateChange = (event) => {
+    event.resolve({
       lineItems: [{ name: 'Order total', amount: amountPence }],
     });
+  };
+
+  const handleWalletAvailability = (methods) => {
+    onAvailabilityChange?.(isWalletAvailable(walletType, methods));
   };
 
   const handleConfirm = async (event) => {
@@ -115,14 +143,29 @@ function ExpressCheckoutForm({
       <ExpressCheckoutElement
         onClick={handleClick}
         onConfirm={handleConfirm}
+        onShippingAddressChange={handleShippingAddressChange}
+        onShippingRateChange={handleShippingRateChange}
+        onLoadError={() => onAvailabilityChange?.(false)}
         onReady={({ availablePaymentMethods }) => {
-          const available =
-            walletType === 'google'
-              ? Boolean(availablePaymentMethods?.googlePay)
-              : Boolean(availablePaymentMethods?.applePay);
-          onAvailabilityChange?.(available);
+          // Google Pay is detected asynchronously. onReady often fires first
+          // with no methods; unmounting here hides the Android button.
+          if (availablePaymentMethods) {
+            handleWalletAvailability(availablePaymentMethods);
+          }
+        }}
+        onAvailablePaymentMethodsChange={({ paymentMethods }) => {
+          handleWalletAvailability(paymentMethods);
         }}
         options={{
+          emailRequired: true,
+          phoneNumberRequired: true,
+          billingAddressRequired: true,
+          shippingAddressRequired: true,
+          allowedShippingCountries: ['GB'],
+          lineItems: [{ name: 'Order total', amount: amountPence }],
+          shippingRates: [STANDARD_SHIPPING],
+          paymentMethodOrder:
+            walletType === 'google' ? ['google_pay', 'apple_pay'] : ['apple_pay', 'google_pay'],
           paymentMethods: {
             applePay: walletType === 'apple' ? 'always' : 'never',
             googlePay: walletType === 'google' ? 'always' : 'never',
@@ -139,10 +182,11 @@ function ExpressCheckoutForm({
             applePay: 'black',
             googlePay: 'black',
           },
-          buttonHeight: 44,
+          buttonHeight: 48,
           layout: {
             maxColumns: 1,
             maxRows: 1,
+            overflow: 'never',
           },
         }}
       />
