@@ -75,9 +75,7 @@ function WalletCheckoutForm({
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
   const [walletRequest, setWalletRequest] = useState(null);
-  const [appleError, setAppleError] = useState('');
   const payLock = useRef(false);
-  const applePrRef = useRef(null);
   const isApple = walletType === 'apple';
 
   useEffect(() => {
@@ -86,7 +84,7 @@ function WalletCheckoutForm({
   }, [elements, amountPence]);
 
   useEffect(() => {
-    if (!stripe) return undefined;
+    if (!stripe || isApple) return undefined;
 
     const pr = stripe.paymentRequest({
       country: 'GB',
@@ -97,22 +95,11 @@ function WalletCheckoutForm({
       requestPayerPhone: true,
       requestShipping: true,
       shippingOptions: PR_SHIPPING_OPTIONS,
-      disableWallets: isApple
-        ? ['googlePay', 'link', 'browserCard']
-        : ['applePay', 'link', 'browserCard'],
+      disableWallets: ['applePay', 'link', 'browserCard'],
     });
-
-    if (isApple) {
-      applePrRef.current = pr;
-      onAvailabilityChange?.(true);
-    }
 
     pr.canMakePayment()
       .then((result) => {
-        if (isApple) {
-          onAvailabilityChange?.(true);
-          return;
-        }
         if (result?.googlePay) {
           setWalletRequest(pr);
           onAvailabilityChange?.(true);
@@ -176,7 +163,6 @@ function WalletCheckoutForm({
     pr.on('shippingaddresschange', onShippingAddressChange);
     pr.on('paymentmethod', onPaymentMethod);
     return () => {
-      if (applePrRef.current === pr) applePrRef.current = null;
       pr.off('shippingaddresschange', onShippingAddressChange);
       pr.off('paymentmethod', onPaymentMethod);
     };
@@ -198,22 +184,6 @@ function WalletCheckoutForm({
       total: { label: 'Zephyr Technology', amount: amountPence },
     });
   }, [walletRequest, amountPence]);
-
-  const startApplePay = () => {
-    setAppleError('');
-    const pr = applePrRef.current;
-    if (!pr || disabled) return;
-    const result = pr.show();
-    if (result && typeof result.catch === 'function') {
-      result.catch((err) => {
-        const message = String(err?.message || err || '');
-        if (/cancel/i.test(message)) return;
-        setAppleError(
-          'Apple Pay could not start. Use Safari on iPhone/Mac with a card in Wallet, on the live site (not Windows).',
-        );
-      });
-    }
-  };
 
   const handleClick = (event) => {
     event.resolve({
@@ -310,19 +280,7 @@ function WalletCheckoutForm({
 
   return (
     <div className={`space-y-3 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      {isApple ? (
-        <div>
-          <button
-            type="button"
-            className="zt-apple-pay-button"
-            aria-label="Buy with Apple Pay"
-            onClick={startApplePay}
-          />
-          {appleError ? (
-            <p className="mt-2 text-xs text-red-600">{appleError}</p>
-          ) : null}
-        </div>
-      ) : walletRequest ? (
+      {walletRequest && !isApple ? (
         <div className="h-12 overflow-hidden rounded-sm">
           <PaymentRequestButtonElement
             options={{
@@ -338,7 +296,8 @@ function WalletCheckoutForm({
           />
         </div>
       ) : (
-        <ExpressCheckoutElement
+        <div className="min-h-12">
+          <ExpressCheckoutElement
           onClick={handleClick}
           onConfirm={handleConfirm}
           onShippingAddressChange={(event) => {
@@ -353,7 +312,10 @@ function WalletCheckoutForm({
             });
           }}
           onLoadError={() => {}}
-          onReady={({ availablePaymentMethods }) => walletAvailable(availablePaymentMethods)}
+          onReady={({ availablePaymentMethods }) => {
+            walletAvailable(availablePaymentMethods);
+            if (isApple) onAvailabilityChange?.(true);
+          }}
           onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
           options={{
             emailRequired: true,
@@ -380,9 +342,10 @@ function WalletCheckoutForm({
               googlePay: 'black',
             },
             buttonHeight: 48,
-            layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
+            layout: { maxColumns: 1, maxRows: 1, overflow: 'auto' },
           }}
-        />
+          />
+        </div>
       )}
     </div>
   );
