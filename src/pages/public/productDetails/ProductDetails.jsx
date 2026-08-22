@@ -113,11 +113,17 @@ const ProductDetails = () => {
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [walletType] = useState(() => getWalletType());
+  const [walletType, setWalletType] = useState(() => getWalletType());
   const [showWalletPay, setShowWalletPay] = useState(() => Boolean(getWalletType()));
   const [startingStripeCheckout, setStartingStripeCheckout] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const type = getWalletType();
+    setWalletType(type);
+    if (type) setShowWalletPay(true);
+  }, []);
 
   useEffect(() => {
     if (!id) return;

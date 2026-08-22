@@ -75,7 +75,9 @@ function WalletCheckoutForm({
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
   const [walletRequest, setWalletRequest] = useState(null);
+  const [appleError, setAppleError] = useState('');
   const payLock = useRef(false);
+  const applePrRef = useRef(null);
   const isApple = walletType === 'apple';
 
   useEffect(() => {
@@ -100,10 +102,18 @@ function WalletCheckoutForm({
         : ['applePay', 'link', 'browserCard'],
     });
 
+    if (isApple) {
+      applePrRef.current = pr;
+      onAvailabilityChange?.(true);
+    }
+
     pr.canMakePayment()
       .then((result) => {
-        const ready = isApple ? result?.applePay : result?.googlePay;
-        if (ready) {
+        if (isApple) {
+          onAvailabilityChange?.(true);
+          return;
+        }
+        if (result?.googlePay) {
           setWalletRequest(pr);
           onAvailabilityChange?.(true);
         }
@@ -166,6 +176,7 @@ function WalletCheckoutForm({
     pr.on('shippingaddresschange', onShippingAddressChange);
     pr.on('paymentmethod', onPaymentMethod);
     return () => {
+      if (applePrRef.current === pr) applePrRef.current = null;
       pr.off('shippingaddresschange', onShippingAddressChange);
       pr.off('paymentmethod', onPaymentMethod);
     };
@@ -187,6 +198,22 @@ function WalletCheckoutForm({
       total: { label: 'Zephyr Technology', amount: amountPence },
     });
   }, [walletRequest, amountPence]);
+
+  const startApplePay = () => {
+    setAppleError('');
+    const pr = applePrRef.current;
+    if (!pr || disabled) return;
+    const result = pr.show();
+    if (result && typeof result.catch === 'function') {
+      result.catch((err) => {
+        const message = String(err?.message || err || '');
+        if (/cancel/i.test(message)) return;
+        setAppleError(
+          'Apple Pay could not start. Use Safari on iPhone/Mac with a card in Wallet, on the live site (not Windows).',
+        );
+      });
+    }
+  };
 
   const handleClick = (event) => {
     event.resolve({
@@ -283,7 +310,19 @@ function WalletCheckoutForm({
 
   return (
     <div className={`space-y-3 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      {walletRequest ? (
+      {isApple ? (
+        <div>
+          <button
+            type="button"
+            className="zt-apple-pay-button"
+            aria-label="Buy with Apple Pay"
+            onClick={startApplePay}
+          />
+          {appleError ? (
+            <p className="mt-2 text-xs text-red-600">{appleError}</p>
+          ) : null}
+        </div>
+      ) : walletRequest ? (
         <div className="h-12 overflow-hidden rounded-sm">
           <PaymentRequestButtonElement
             options={{
@@ -298,9 +337,7 @@ function WalletCheckoutForm({
             }}
           />
         </div>
-      ) : null}
-
-      {!walletRequest ? (
+      ) : (
         <ExpressCheckoutElement
           onClick={handleClick}
           onConfirm={handleConfirm}
@@ -346,7 +383,7 @@ function WalletCheckoutForm({
             layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
           }}
         />
-      ) : null}
+      )}
     </div>
   );
 }
