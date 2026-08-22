@@ -74,7 +74,7 @@ function WalletCheckoutForm({
   const elements = useElements();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
-  const [googlePayRequest, setGooglePayRequest] = useState(null);
+  const [walletRequest, setWalletRequest] = useState(null);
   const payLock = useRef(false);
   const isApple = walletType === 'apple';
 
@@ -84,7 +84,7 @@ function WalletCheckoutForm({
   }, [elements, amountPence]);
 
   useEffect(() => {
-    if (!stripe || isApple) return undefined;
+    if (!stripe) return undefined;
 
     const pr = stripe.paymentRequest({
       country: 'GB',
@@ -95,13 +95,16 @@ function WalletCheckoutForm({
       requestPayerPhone: true,
       requestShipping: true,
       shippingOptions: PR_SHIPPING_OPTIONS,
-      disableWallets: ['applePay', 'link', 'browserCard'],
+      disableWallets: isApple
+        ? ['googlePay', 'link', 'browserCard']
+        : ['applePay', 'link', 'browserCard'],
     });
 
     pr.canMakePayment()
       .then((result) => {
-        if (result?.googlePay) {
-          setGooglePayRequest(pr);
+        const ready = isApple ? result?.applePay : result?.googlePay;
+        if (ready) {
+          setWalletRequest(pr);
           onAvailabilityChange?.(true);
         }
       })
@@ -179,11 +182,11 @@ function WalletCheckoutForm({
   ]);
 
   useEffect(() => {
-    if (!googlePayRequest || googlePayRequest.isShowing()) return;
-    googlePayRequest.update({
+    if (!walletRequest || walletRequest.isShowing()) return;
+    walletRequest.update({
       total: { label: 'Zephyr Technology', amount: amountPence },
     });
-  }, [googlePayRequest, amountPence]);
+  }, [walletRequest, amountPence]);
 
   const handleClick = (event) => {
     event.resolve({
@@ -275,16 +278,16 @@ function WalletCheckoutForm({
     const available = isApple
       ? Boolean(methods.applePay?.available ?? methods.applePay)
       : Boolean(methods.googlePay?.available ?? methods.googlePay);
-    onAvailabilityChange?.(available || Boolean(googlePayRequest));
+    onAvailabilityChange?.(available || Boolean(walletRequest));
   };
 
   return (
     <div className={`space-y-3 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      {googlePayRequest ? (
+      {walletRequest ? (
         <div className="h-12 overflow-hidden rounded-sm">
           <PaymentRequestButtonElement
             options={{
-              paymentRequest: googlePayRequest,
+              paymentRequest: walletRequest,
               style: {
                 paymentRequestButton: {
                   type: 'buy',
@@ -297,7 +300,7 @@ function WalletCheckoutForm({
         </div>
       ) : null}
 
-      {isApple || !googlePayRequest ? (
+      {!walletRequest ? (
         <ExpressCheckoutElement
           onClick={handleClick}
           onConfirm={handleConfirm}
@@ -312,9 +315,7 @@ function WalletCheckoutForm({
               lineItems: [{ name: 'Order total', amount: amountPence }],
             });
           }}
-          onLoadError={() => {
-            if (!googlePayRequest) onAvailabilityChange?.(false);
-          }}
+          onLoadError={() => {}}
           onReady={({ availablePaymentMethods }) => walletAvailable(availablePaymentMethods)}
           onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
           options={{

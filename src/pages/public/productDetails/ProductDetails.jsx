@@ -76,19 +76,11 @@ function getImageIndexForColor(images, colorId) {
   return sharedIdx >= 0 ? sharedIdx : 0;
 }
 
-function isAppleDevice() {
+function isApplePayBrowser() {
   if (typeof window === 'undefined') return false;
-  if (typeof window.ApplePaySession === 'function') return true;
-
-  const ua = navigator.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua);
-  const isIPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  const isMacSafari =
-    /Macintosh/.test(ua) &&
-    /Safari/.test(ua) &&
-    !/Chrome|Chromium|CriOS|Edg|EdgiOS|FxiOS|Firefox|Android/.test(ua);
-
-  return isIOS || isIPadOs || isMacSafari;
+  // Web Apple Pay only works in Safari (or iOS/iPadOS Safari webviews that expose ApplePaySession).
+  // Chrome / Instagram / Facebook on iPhone cannot show Apple Pay.
+  return typeof window.ApplePaySession === 'function';
 }
 
 function isGooglePayDevice() {
@@ -96,14 +88,14 @@ function isGooglePayDevice() {
   const ua = navigator.userAgent || '';
   if (/Android/i.test(ua)) return true;
   if (/android/i.test(navigator.userAgentData?.platform || '')) return true;
-  if (isAppleDevice()) return false;
+  if (isApplePayBrowser()) return false;
   return /Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua) && !/CriOS|EdgiOS|FxiOS/.test(ua);
 }
 
 /** @returns {'apple' | 'google' | null} */
 function getWalletType() {
   if (typeof window === 'undefined') return null;
-  if (isAppleDevice()) return 'apple';
+  if (isApplePayBrowser()) return 'apple';
   if (isGooglePayDevice()) return 'google';
   return null;
 }
@@ -603,8 +595,8 @@ const ProductDetails = () => {
                   disabled={addingToCart || startingStripeCheckout || selectedVariantStock === 0}
                   walletType={walletType}
                   onAvailabilityChange={(available) => {
-                    if (walletType === 'google' && !available) return;
-                    setShowWalletPay(available);
+                    if (!available) return;
+                    setShowWalletPay(true);
                   }}
                 />
               </div>
