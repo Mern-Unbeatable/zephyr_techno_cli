@@ -21,12 +21,14 @@ function methodAvailable(methods, key) {
 }
 
 function isExpressMethodAvailable(walletType, methods) {
-  if (!methods) return false;
+  if (!methods) return null;
+  const googlePay = methodAvailable(methods, 'googlePay');
+  const applePay = methodAvailable(methods, 'applePay');
   return (
     methodAvailable(methods, 'paypal') ||
     methodAvailable(methods, 'klarna') ||
-    (walletType === 'google' && methodAvailable(methods, 'googlePay')) ||
-    (walletType === 'apple' && methodAvailable(methods, 'applePay'))
+    googlePay ||
+    applePay
   );
 }
 
@@ -93,7 +95,9 @@ function ExpressCheckoutForm({
   };
 
   const handleWalletAvailability = (methods) => {
-    onAvailabilityChange?.(isExpressMethodAvailable(walletType, methods));
+    const available = isExpressMethodAvailable(walletType, methods);
+    if (available === null) return;
+    onAvailabilityChange?.(available);
   };
 
   const handleConfirm = async (event) => {
@@ -201,7 +205,7 @@ function ExpressCheckoutForm({
                 : ['paypal', 'klarna', 'google_pay', 'apple_pay'],
           paymentMethods: {
             applePay: walletType === 'apple' ? 'always' : 'never',
-            googlePay: walletType === 'google' ? 'always' : 'never',
+            googlePay: walletType === 'apple' ? 'never' : 'always',
             paypal: 'auto',
             klarna: 'auto',
             link: 'never',
