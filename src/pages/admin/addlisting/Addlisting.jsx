@@ -36,6 +36,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     deviceModelId: "",
     conditionId: "",
     basePrice: "",
+    compareAtPrice: "",
     stockQuantity: "",
     colorIds: [],
     storageOptionIds: [],
@@ -49,6 +50,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   ]);
   const [includedItems, setIncludedItems] = useState([{ label: "" }]);
   const [storagePrices, setStoragePrices] = useState({});
+  const [storageCompareAtPrices, setStorageCompareAtPrices] = useState({});
   const [variantStocks, setVariantStocks] = useState({});
   const [colorImages, setColorImages] = useState({});
   const [removedImageIds, setRemovedImageIds] = useState([]);
@@ -239,6 +241,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             deviceModelId: listing.deviceModel?.id || "",
             conditionId: listing.condition?.id || "",
             basePrice: listing.basePrice || "",
+            compareAtPrice: listing.compareAtPrice || "",
             stockQuantity: listing.stockQuantity || "",
             colorIds: listing.availableColors?.map((c) => c.id) || [],
             storageOptionIds: validStorageIds,
@@ -246,14 +249,20 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             listingStatus: listing.listingStatus || "ACTIVE",
           });
           const nextStoragePrices = {};
+          const nextStorageCompareAt = {};
           listingStorages.forEach((storage) => {
             if (!listingStorageNames[storage.id]) return;
             nextStoragePrices[storage.id] =
               storage.price != null && Number(storage.price) > 0
                 ? String(storage.price)
                 : "";
+            nextStorageCompareAt[storage.id] =
+              storage.compareAtPrice != null && Number(storage.compareAtPrice) > 0
+                ? String(storage.compareAtPrice)
+                : "";
           });
           setStoragePrices(nextStoragePrices);
+          setStorageCompareAtPrices(nextStorageCompareAt);
           const nextVariantStocks = {};
           (listing.availableVariantStocks || []).forEach((row) => {
             if (!row?.colorId || !row?.storageOptionId) return;
@@ -373,6 +382,16 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
 
   const handleStoragePriceChange = (storageId, value) => {
     setStoragePrices((prev) => ({ ...prev, [storageId]: value }));
+  };
+
+  const getStorageCompareAtInputValue = (storageId) => {
+    const value = storageCompareAtPrices[storageId];
+    if (value === undefined || value === null || value === "") return "";
+    return String(value);
+  };
+
+  const handleStorageCompareAtChange = (storageId, value) => {
+    setStorageCompareAtPrices((prev) => ({ ...prev, [storageId]: value }));
   };
 
   const variantStockKey = (colorId, storageId) => `${colorId}::${storageId}`;
@@ -669,17 +688,25 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       formDataToSend.append("deviceModelId", formData.deviceModelId);
       if (formData.conditionId)
         formDataToSend.append("conditionId", formData.conditionId);
-      const storageEntries = formData.storageOptionIds.map((storageOptionId) => ({
-        storageOptionId,
-        // Aggregated on backend from variantStocks; send 0 as placeholder
-        stockQuantity: 0,
-        price: parseFloat(storagePrices[storageOptionId]) || 0,
-      }));
+      const storageEntries = formData.storageOptionIds.map((storageOptionId) => {
+        const compareAt = parseFloat(storageCompareAtPrices[storageOptionId]);
+        return {
+          storageOptionId,
+          stockQuantity: 0,
+          price: parseFloat(storagePrices[storageOptionId]) || 0,
+          compareAtPrice: compareAt > 0 ? compareAt : null,
+        };
+      });
       const minStoragePrice = storageEntries.length
         ? Math.min(...storageEntries.map((entry) => entry.price).filter((price) => price > 0))
         : parseFloat(formData.basePrice) || 0;
 
       formDataToSend.append("basePrice", minStoragePrice);
+      if (formData.compareAtPrice) {
+        formDataToSend.append("compareAtPrice", formData.compareAtPrice);
+      } else {
+        formDataToSend.append("compareAtPrice", "");
+      }
       formDataToSend.append("storageStocks", JSON.stringify(storageEntries));
       const variantEntries = [];
       formData.colorIds.forEach((colorId) => {
@@ -896,6 +923,17 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               />
             </FormField>
           )}
+          <FormField label="Retail / RRP (optional)">
+            <NumberInput
+              name="compareAtPrice"
+              placeholder="e.g. 1099"
+              value={formData.compareAtPrice}
+              onChange={handleChange}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Shown with a strikethrough next to the selling price. Must be higher than the selling price. Per-storage RRP can be set below.
+            </p>
+          </FormField>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -966,17 +1004,25 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                   return (
                     <div
                       key={storageId}
-                      className="grid grid-cols-1 sm:grid-cols-[7rem_1fr] items-center gap-3"
+                      className="grid grid-cols-1 sm:grid-cols-[7rem_1fr_1fr] items-center gap-3"
                     >
                       <span className="text-sm text-gray-600 shrink-0">
                         {storageName}
                       </span>
                       <NumberInput
                         name={`storage-price-${storageId}`}
-                        placeholder="Price"
+                        placeholder="Selling price"
                         value={getStoragePriceInputValue(storageId)}
                         onChange={(e) =>
                           handleStoragePriceChange(storageId, e.target.value)
+                        }
+                      />
+                      <NumberInput
+                        name={`storage-rrp-${storageId}`}
+                        placeholder="RRP (optional)"
+                        value={getStorageCompareAtInputValue(storageId)}
+                        onChange={(e) =>
+                          handleStorageCompareAtChange(storageId, e.target.value)
                         }
                       />
                     </div>

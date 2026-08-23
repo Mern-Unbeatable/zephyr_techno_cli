@@ -371,7 +371,7 @@ function WalletCheckoutForm({
             paymentMethods: {
               applePay: isApple ? 'always' : 'never',
               googlePay: isApple ? 'never' : 'always',
-              paypal: 'never',
+              paypal: 'auto',
               klarna: 'never',
               link: 'never',
               amazonPay: 'never',
@@ -379,13 +379,14 @@ function WalletCheckoutForm({
             buttonType: {
               applePay: 'buy',
               googlePay: 'buy',
+              paypal: 'buynow',
             },
             buttonTheme: {
               applePay: 'black',
               googlePay: 'black',
             },
             buttonHeight: 48,
-            layout: { maxColumns: 1, maxRows: 1, overflow: 'auto' },
+            layout: { maxColumns: 2, maxRows: 2, overflow: 'auto' },
           }}
           />
         </div>

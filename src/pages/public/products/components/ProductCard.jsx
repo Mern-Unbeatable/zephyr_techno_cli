@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import Swal from "sweetalert2";
 import Stars from "./Stars";
 import { useCart } from "../../../../context/CartContext";
+import PriceDisplay from "../../../../components/shared/PriceDisplay";
 
 export default function ProductCard({ product }) {
   const [status, setStatus] = useState("idle"); // idle | loading | added | error
@@ -90,15 +91,12 @@ export default function ProductCard({ product }) {
         <p className="text-xs lg:text-sm text-[#767E97] mt-0.5 line-clamp-1">
           {product.storage} · {product.color}
         </p>
-        <div className="flex items-baseline gap-2 mt-2">
-          <span className="text-lg md:text-xl font-bold text-[#1C2337]">
-            £{product.price}
-          </span>
-          {product.oldPrice && (
-            <span className="text-xs md:text-sm text-gray-400 line-through">
-              £{product.oldPrice}
-            </span>
-          )}
+        <div className="mt-2">
+          <PriceDisplay
+            price={product.price}
+            compareAtPrice={product.oldPrice}
+            size="md"
+          />
         </div>
         <button
           onClick={handleAdd}

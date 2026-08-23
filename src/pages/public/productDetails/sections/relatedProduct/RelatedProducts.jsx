@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router';
+import PriceDisplay from '../../../../../components/shared/PriceDisplay';
 
 const RelatedProducts = ({ products = [] }) => {
     const data = products;
@@ -94,7 +95,11 @@ const RelatedProducts = ({ products = [] }) => {
                             </div>
                             <p className='text-xs text-gray-400 mb-0.5'>{item.series?.name}</p>
                             <p className='text-sm font-medium text-[#151A2A] truncate'>{item.title}</p>
-                            <p className='text-sm font-bold text-custom'>£{Number(item.basePrice).toLocaleString()}</p>
+                            <PriceDisplay
+                                price={item.basePrice}
+                                compareAtPrice={item.compareAtPrice}
+                                size="md"
+                            />
                         </Link>
                     ))}
                 </div>

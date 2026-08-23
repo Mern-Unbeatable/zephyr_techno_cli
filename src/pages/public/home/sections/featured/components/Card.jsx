@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import Stars from "../../../../products/components/Stars";
+import PriceDisplay from "../../../../../../components/shared/PriceDisplay";
 
 const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, currency, rating, reviews, images }) => {
   return (
@@ -37,15 +38,8 @@ const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, currency, 
         <p className="text-xs lg:text-sm text-[#767E97] mt-0.5 line-clamp-1">
           {variant}
         </p>
-        <div className="flex items-baseline gap-2 mt-2">
-          <span className="text-lg md:text-xl font-bold text-[#1C2337]">
-            £{price}
-          </span>
-          {oldPrice && (
-            <span className="text-xs md:text-sm text-gray-400 line-through">
-              £{oldPrice}
-            </span>
-          )}
+        <div className="mt-2">
+          <PriceDisplay price={price} compareAtPrice={oldPrice} size="md" />
         </div>
       </div>
     </Link>

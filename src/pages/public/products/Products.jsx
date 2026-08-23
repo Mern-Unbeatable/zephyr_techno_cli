@@ -456,7 +456,11 @@ export default function Products() {
       storage: apiProduct.series?.name || "",
       color: apiProduct.category?.name || "",
       price: parseFloat(apiProduct.basePrice),
-      oldPrice: null,
+      oldPrice:
+        apiProduct.compareAtPrice &&
+        Number(apiProduct.compareAtPrice) > Number(apiProduct.basePrice)
+          ? parseFloat(apiProduct.compareAtPrice)
+          : null,
       images: apiProduct.thumbnail ? [apiProduct.thumbnail] : [],
       colorIds: apiProduct.colorIds || [],
       storageOptionIds: apiProduct.storageOptionIds || [],

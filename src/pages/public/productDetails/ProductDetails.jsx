@@ -21,6 +21,7 @@ import { sortStorageOptionsBySize } from '../../../utils/storageSort';
 import ProductExpressCheckout from './ProductExpressCheckout';
 import ProductPaymentMessaging from './ProductPaymentMessaging';
 import InfoTooltip from './InfoTooltip';
+import PriceDisplay from '../../../components/shared/PriceDisplay';
 import { checkout } from '../../../utils/cartApi';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -62,6 +63,25 @@ const WHY_CHOOSE_ITEMS = [
 
 function sortImages(images = []) {
   return [...images].sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+function variantStock(variantStocks, colorId, storageId) {
+  if (!colorId || !storageId) return 0;
+  const cell = (variantStocks || []).find(
+    (row) => row.colorId === colorId && row.storageOptionId === storageId,
+  );
+  return Math.max(0, Number(cell?.stockQuantity) || 0);
+}
+
+function pickFirstInStockVariant(colors, storages, variantStocks) {
+  for (const color of colors || []) {
+    for (const storage of storages || []) {
+      if (variantStock(variantStocks, color.id, storage.id) > 0) {
+        return { colorId: color.id, storageId: storage.id };
+      }
+    }
+  }
+  return { colorId: null, storageId: null };
 }
 
 function getImageIndexForColor(images, colorId) {
@@ -139,10 +159,16 @@ const ProductDetails = () => {
         const sortedStorages = sortStorageOptionsBySize(
           data.availableStorageOptions || [],
         );
-        const firstColorId = data.availableColors?.[0]?.id ?? null;
+        const firstInStock = pickFirstInStockVariant(
+          data.availableColors || [],
+          sortedStorages,
+          data.availableVariantStocks || [],
+        );
+        const firstColorId = firstInStock.colorId ?? data.availableColors?.[0]?.id ?? null;
+        const firstStorageId = firstInStock.storageId ?? sortedStorages[0]?.id ?? null;
         setProduct({ ...data, availableStorageOptions: sortedStorages });
         setSelectedColor(firstColorId);
-        setSelectedStorage(sortedStorages[0]?.id ?? null);
+        setSelectedStorage(firstStorageId);
         setSelectedImage(getImageIndexForColor(data.images, firstColorId));
       })
       .catch((err) => setError(err.message))
@@ -227,12 +253,54 @@ const ProductDetails = () => {
     return Math.max(0, Number(product.basePrice) || 0);
   }, [product, selectedStorage]);
 
+  const selectedCompareAtPrice = useMemo(() => {
+    if (!product) return null;
+    const option = product.availableStorageOptions?.find(
+      (storage) => storage.id === selectedStorage,
+    );
+    const fromStorage = Number(option?.compareAtPrice);
+    if (fromStorage > 0) return fromStorage;
+    const fromProduct = Number(product.compareAtPrice);
+    return fromProduct > 0 ? fromProduct : null;
+  }, [product, selectedStorage]);
+
+  const isStorageOutOfStock = (storageId) => {
+    if (!product || !storageId) return false;
+    if (selectedColor) {
+      return variantStock(product.availableVariantStocks, selectedColor, storageId) <= 0;
+    }
+    return (product.availableStorageOptions || []).some((s) => s.id === storageId)
+      ? (product.availableColors || []).every(
+          (color) =>
+            variantStock(product.availableVariantStocks, color.id, storageId) <= 0,
+        )
+      : Number(
+          product.availableStorageOptions?.find((s) => s.id === storageId)
+            ?.stockQuantity,
+        ) <= 0;
+  };
+
+  const isColorOutOfStock = (colorId) => {
+    if (!product || !colorId) return false;
+    if (selectedStorage) {
+      return variantStock(product.availableVariantStocks, colorId, selectedStorage) <= 0;
+    }
+    const storages = product.availableStorageOptions || [];
+    if (!storages.length) return false;
+    return storages.every(
+      (storage) =>
+        variantStock(product.availableVariantStocks, colorId, storage.id) <= 0,
+    );
+  };
+
   const selectStorage = (storageId) => {
+    if (isStorageOutOfStock(storageId)) return;
     setSelectedStorage(storageId);
     setQuantity(1);
   };
 
   const selectColor = (colorId) => {
+    if (isColorOutOfStock(colorId)) return;
     setSelectedColor(colorId);
     setSelectedImage(getImageIndexForColor(product?.images, colorId));
   };
@@ -450,9 +518,11 @@ const ProductDetails = () => {
               <h1 className="text-3xl md:text-4xl lg:text-[42px] xl:text-[48px] font-semibold text-[#151A2A] mb-2 tracking-tight">
                 {product.title}
               </h1>
-              <p className="text-xl md:text-2xl lg:text-3xl font-bold text-[#151A2A]">
-                £{Number(selectedStoragePrice).toLocaleString()}
-              </p>
+              <PriceDisplay
+                price={selectedStoragePrice}
+                compareAtPrice={selectedCompareAtPrice}
+                size="xl"
+              />
               <div className="mt-2">
                 <InfoTooltip
                   label="Sold on VAT margin scheme"
@@ -504,18 +574,23 @@ const ProductDetails = () => {
                   {product.availableColors.map((c) => {
                     const hex = getColorHex(c.name, c.hexCode);
                     const isSelected = selectedColor === c.id;
+                    const outOfStock = isColorOutOfStock(c.id);
                     return (
                       <button
                         key={c.id}
                         type="button"
-                        title={c.name}
+                        title={outOfStock ? `${c.name} (out of stock)` : c.name}
                         aria-label={c.name}
                         aria-pressed={isSelected}
+                        aria-disabled={outOfStock}
+                        disabled={outOfStock}
                       onClick={() => selectColor(c.id)}
-                        className={`w-8 h-8 rounded-full transition-all shrink-0 ${
+                        className={`relative w-8 h-8 rounded-full transition-all shrink-0 ${
+                          outOfStock ? 'opacity-40 grayscale cursor-not-allowed' : ''
+                        } ${
                           isSelected
                             ? 'ring-2 ring-[#151A2A] ring-offset-2 scale-105'
-                            : 'hover:scale-105'
+                            : outOfStock ? '' : 'hover:scale-105'
                         } ${isLightColor(hex) ? 'border border-gray-300' : ''}`}
                         style={{
                           backgroundColor: hex,
@@ -523,7 +598,11 @@ const ProductDetails = () => {
                             ? 'inset 0 0 0 1px #e5e7eb'
                             : 'none',
                         }}
-                      />
+                      >
+                        {outOfStock ? (
+                          <span className="pointer-events-none absolute inset-[3px] rounded-full border-t-2 border-gray-600 rotate-45" />
+                        ) : null}
+                      </button>
                     );
                   })}
                 </div>
@@ -537,19 +616,26 @@ const ProductDetails = () => {
                   Storage
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {product.availableStorageOptions.map((s) => (
+                  {product.availableStorageOptions.map((s) => {
+                    const outOfStock = isStorageOutOfStock(s.id);
+                    return (
                     <button
                       key={s.id}
+                      type="button"
+                      disabled={outOfStock}
                       onClick={() => selectStorage(s.id)}
                       className={`px-4 py-2 rounded-sm text-[13px] border transition-colors ${
-                        selectedStorage === s.id
+                        outOfStock
+                          ? 'border-gray-200 text-gray-400 line-through bg-gray-50 cursor-not-allowed'
+                          : selectedStorage === s.id
                           ? "bg-custom border-custom text-white"
                           : "border-gray-300 text-gray-500 hover:border-gray-400 bg-white"
                       }`}
                     >
                       {s.name}
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

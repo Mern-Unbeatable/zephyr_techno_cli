@@ -55,7 +55,7 @@ const Featured = () => {
               badgeColor={item.isFeatured ? 'bg-cyan-500' : 'bg-gray-400'}
               variant={item.deviceModel?.name}
               price={item.basePrice}
-              oldPrice={null}
+              oldPrice={item.compareAtPrice}
               currency={'£'}
               images={[item.thumbnail].filter(Boolean)}
             />
