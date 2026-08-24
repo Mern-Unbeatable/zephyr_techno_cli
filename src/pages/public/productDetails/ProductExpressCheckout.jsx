@@ -109,6 +109,8 @@ function WalletCheckoutForm({
   const [processing, setProcessing] = useState(false);
   const [walletRequest, setWalletRequest] = useState(null);
   const payLock = useRef(false);
+  const pendingIntent = useRef(null);
+  const lastWallet = useRef(null);
   const isApple = walletType === 'apple';
 
   useEffect(() => {
@@ -229,11 +231,40 @@ function WalletCheckoutForm({
     });
   }, [walletRequest, amountPence]);
 
+  const prefetchIntent = (shippingCost = 0) => {
+    pendingIntent.current = createExpressCheckoutIntent({
+      productId,
+      colorId,
+      storageOptionId,
+      quantity,
+      shippingMethod: shippingCost >= 15 ? 'Express Delivery' : 'Standard Delivery',
+      shippingCost,
+      shippingAddress: null,
+      guestEmail: null,
+    }).catch((error) => {
+      console.error('[PayPal] Failed to start payment intent', error);
+      return null;
+    });
+  };
+
   const handleClick = (event) => {
+    const walletPay =
+      event.expressPaymentType === 'paypal' || event.expressPaymentType === 'klarna';
+    lastWallet.current = event.expressPaymentType;
     event.resolve({
       lineItems: lineItemsFor(amountPence, 0),
-      shippingRates: WALLET_SHIPPING_RATES,
+      emailRequired: false,
+      phoneNumberRequired: false,
+      billingAddressRequired: false,
+      shippingAddressRequired: !walletPay,
+      ...(walletPay
+        ? {}
+        : {
+            shippingRates: WALLET_SHIPPING_RATES,
+            allowedShippingCountries: ['GB'],
+          }),
     });
+    prefetchIntent(0);
   };
 
   const handleConfirm = async (event) => {
@@ -245,25 +276,33 @@ function WalletCheckoutForm({
     setProcessing(true);
     try {
       const shipping = shippingFromWalletRate(event.shippingRate);
-      const totalPence = amountPence + Math.round(shipping.shippingCost * 100);
-      await elements.update({ amount: totalPence }).catch(() => {});
+      const walletPay =
+        event.expressPaymentType === 'paypal' || event.expressPaymentType === 'klarna';
+      const shippingCost = walletPay ? 0 : shipping.shippingCost;
 
-      const { error: submitError } = await elements.submit();
+      const intentPromise =
+        pendingIntent.current ||
+        createExpressCheckoutIntent({
+          productId,
+          colorId,
+          storageOptionId,
+          quantity,
+          shippingMethod: shippingCost >= 15 ? 'Express Delivery' : 'Standard Delivery',
+          shippingCost,
+          shippingAddress: mapWalletAddressToOrder(event),
+          guestEmail: event.billingDetails?.email || null,
+        });
+      pendingIntent.current = null;
+
+      const [{ error: submitError }, intent] = await Promise.all([
+        elements.submit(),
+        intentPromise,
+      ]);
+
       if (submitError) {
         event.paymentFailed({ reason: 'fail' });
         return;
       }
-
-      const intent = await createExpressCheckoutIntent({
-        productId,
-        colorId,
-        storageOptionId,
-        quantity,
-        shippingMethod: shipping.shippingMethod,
-        shippingCost: shipping.shippingCost,
-        shippingAddress: mapWalletAddressToOrder(event),
-        guestEmail: event.billingDetails?.email || null,
-      });
 
       if (!intent?.success || !intent.data?.clientSecret) {
         event.paymentFailed({ reason: 'fail' });
@@ -271,26 +310,16 @@ function WalletCheckoutForm({
       }
 
       const { clientSecret, paymentIntentId } = intent.data;
-      const confirmParams = {
-        return_url: `${window.location.origin}/checkout/success`,
-      };
+      sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
 
-      if (event.shippingAddress) {
-        confirmParams.shipping = {
-          name: event.shippingAddress.name,
-          address: event.shippingAddress.address,
-        };
-      }
-
-      if (event.billingDetails?.email) {
-        confirmParams.receipt_email = event.billingDetails.email;
-      }
-
-      const { error } = await stripe.confirmPayment({
+      // Express Checkout + PayPal must use the default redirect. `if_required`
+      // leaves the PayPal popup stuck on "Taking you to PayPal".
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         clientSecret,
-        confirmParams,
-        redirect: 'if_required',
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/success`,
+        },
       });
 
       if (error) {
@@ -298,7 +327,19 @@ function WalletCheckoutForm({
         return;
       }
 
-      sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
+      if (
+        paymentIntent?.status === 'processing' ||
+        paymentIntent?.status === 'requires_action' ||
+        !paymentIntent
+      ) {
+        return;
+      }
+
+      if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'requires_capture') {
+        event.paymentFailed({ reason: 'fail' });
+        return;
+      }
+
       const result = await confirmExpressPayment(paymentIntentId);
       if (!result?.success) {
         event.paymentFailed({ reason: 'fail' });
@@ -306,7 +347,8 @@ function WalletCheckoutForm({
       }
 
       navigate('/checkout/success', { state: { order: result.data } });
-    } catch {
+    } catch (error) {
+      console.error('[Express checkout] confirm failed', error);
       event.paymentFailed({ reason: 'fail' });
     } finally {
       setProcessing(false);
@@ -344,9 +386,11 @@ function WalletCheckoutForm({
           onClick={handleClick}
           onConfirm={handleConfirm}
           onShippingAddressChange={(event) => {
+            const walletPay =
+              lastWallet.current === 'paypal' || lastWallet.current === 'klarna';
             event.resolve({
               lineItems: lineItemsFor(amountPence, 0),
-              shippingRates: WALLET_SHIPPING_RATES,
+              ...(walletPay ? {} : { shippingRates: WALLET_SHIPPING_RATES }),
             });
           }}
           onShippingRateChange={(event) => {
@@ -361,32 +405,32 @@ function WalletCheckoutForm({
           }}
           onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
           options={{
-            emailRequired: true,
-            phoneNumberRequired: true,
-            billingAddressRequired: true,
-            shippingAddressRequired: true,
-            allowedShippingCountries: ['GB'],
+            emailRequired: false,
+            phoneNumberRequired: false,
+            billingAddressRequired: false,
+            shippingAddressRequired: false,
             lineItems: lineItemsFor(amountPence, 0),
-            shippingRates: WALLET_SHIPPING_RATES,
+            paymentMethodOrder: ['apple_pay', 'google_pay', 'paypal', 'klarna'],
             paymentMethods: {
               applePay: isApple ? 'always' : 'never',
               googlePay: isApple ? 'never' : 'always',
               paypal: 'auto',
-              klarna: 'never',
+              klarna: 'auto',
               link: 'never',
               amazonPay: 'never',
             },
             buttonType: {
               applePay: 'buy',
               googlePay: 'buy',
-              paypal: 'buynow',
+              paypal: 'paypal',
             },
             buttonTheme: {
               applePay: 'black',
               googlePay: 'black',
+              paypal: 'blue',
             },
             buttonHeight: 48,
-            layout: { maxColumns: 2, maxRows: 2, overflow: 'auto' },
+            layout: { maxColumns: 3, maxRows: 2, overflow: 'auto' },
           }}
           />
         </div>

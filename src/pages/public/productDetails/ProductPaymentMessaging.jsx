@@ -17,13 +17,13 @@ export default function ProductPaymentMessaging({ amount }) {
   return (
     <div className="mt-3 space-y-1.5 min-h-6">
       {stripePromise ? (
-        <Elements stripe={stripePromise}>
+        <Elements stripe={stripePromise} key={amountPence}>
           <PaymentMethodMessagingElement
             options={{
               amount: amountPence,
               currency: 'GBP',
               countryCode: 'GB',
-              paymentMethodTypes: ['klarna'],
+              paymentMethodTypes: ['klarna', 'afterpay_clearpay'],
               logoColor: 'color',
             }}
           />

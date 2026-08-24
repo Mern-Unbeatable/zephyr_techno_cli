@@ -253,6 +253,32 @@ const ProductDetails = () => {
     return Math.max(0, Number(product.basePrice) || 0);
   }, [product, selectedStorage]);
 
+  const selectedColorName = useMemo(
+    () => product?.availableColors?.find((color) => color.id === selectedColor)?.name || '',
+    [product, selectedColor],
+  );
+
+  const selectedStorageName = useMemo(
+    () =>
+      product?.availableStorageOptions?.find((storage) => storage.id === selectedStorage)?.name ||
+      '',
+    [product, selectedStorage],
+  );
+
+  useEffect(() => {
+    const defaultTitle = 'ZEPHYR TECHNO | BUY & SELL PHONES';
+    if (!product?.title) {
+      document.title = defaultTitle;
+      return undefined;
+    }
+    document.title = [product.title, selectedStorageName, selectedColorName]
+      .filter(Boolean)
+      .join(' ');
+    return () => {
+      document.title = defaultTitle;
+    };
+  }, [product, selectedColorName, selectedStorageName]);
+
   const selectedCompareAtPrice = useMemo(() => {
     if (!product) return null;
     const option = product.availableStorageOptions?.find(
@@ -570,7 +596,7 @@ const ProductDetails = () => {
                 <p className="text-[11px] font-bold tracking-widest text-[#151A2A] uppercase mb-3">
                   COLOR
                 </p>
-                <div className="flex flex-wrap gap-3 items-center">
+                <div className="flex flex-wrap gap-4 items-end">
                   {product.availableColors.map((c) => {
                     const hex = getColorHex(c.name, c.hexCode);
                     const isSelected = selectedColor === c.id;
@@ -585,23 +611,41 @@ const ProductDetails = () => {
                         aria-disabled={outOfStock}
                         disabled={outOfStock}
                       onClick={() => selectColor(c.id)}
-                        className={`relative w-8 h-8 rounded-full transition-all shrink-0 ${
-                          outOfStock ? 'opacity-40 grayscale cursor-not-allowed' : ''
-                        } ${
-                          isSelected
-                            ? 'ring-2 ring-[#151A2A] ring-offset-2 scale-105'
-                            : outOfStock ? '' : 'hover:scale-105'
-                        } ${isLightColor(hex) ? 'border border-gray-300' : ''}`}
-                        style={{
-                          backgroundColor: hex,
-                          boxShadow: isLightColor(hex)
-                            ? 'inset 0 0 0 1px #e5e7eb'
-                            : 'none',
-                        }}
+                        className={`flex flex-col items-center gap-1.5 ${
+                          outOfStock ? 'cursor-not-allowed' : ''
+                        }`}
                       >
-                        {outOfStock ? (
-                          <span className="pointer-events-none absolute inset-[3px] rounded-full border-t-2 border-gray-600 rotate-45" />
-                        ) : null}
+                        <span
+                          className={`relative w-8 h-8 rounded-full transition-all shrink-0 ${
+                            isSelected
+                              ? 'ring-2 ring-[#151A2A] ring-offset-2 scale-105'
+                              : outOfStock ? '' : 'hover:scale-105'
+                          } ${isLightColor(hex) ? 'border border-gray-300' : ''}`}
+                          style={{
+                            backgroundColor: hex,
+                            boxShadow: isLightColor(hex)
+                              ? 'inset 0 0 0 1px #e5e7eb'
+                              : 'none',
+                          }}
+                        >
+                          {outOfStock ? (
+                            <>
+                              <span className="pointer-events-none absolute left-1/2 top-1/2 h-[2px] w-[130%] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded bg-[#151A2A]" />
+                              <span className="pointer-events-none absolute left-1/2 top-1/2 h-[2px] w-[130%] -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded bg-[#151A2A]" />
+                            </>
+                          ) : null}
+                        </span>
+                        <span
+                          className={`text-[11px] leading-none max-w-[4.5rem] text-center ${
+                            outOfStock
+                              ? 'text-gray-400 line-through'
+                              : isSelected
+                                ? 'text-[#151A2A] font-medium'
+                                : 'text-gray-500'
+                          }`}
+                        >
+                          {c.name}
+                        </span>
                       </button>
                     );
                   })}
