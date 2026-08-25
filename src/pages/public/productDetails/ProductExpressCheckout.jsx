@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Elements,
   ExpressCheckoutElement,
+  PaymentElement,
   PaymentRequestButtonElement,
   useElements,
   useStripe,
@@ -106,7 +107,6 @@ function WalletCheckoutForm({
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
-  const [processing, setProcessing] = useState(false);
   const [walletRequest, setWalletRequest] = useState(null);
   const payLock = useRef(false);
   const pendingIntent = useRef(null);
@@ -160,7 +160,6 @@ function WalletCheckoutForm({
         return;
       }
       payLock.current = true;
-      setProcessing(true);
       try {
         const shipping = shippingFromWalletRate(ev.shippingOption);
         const intent = await createExpressCheckoutIntent({
@@ -200,7 +199,6 @@ function WalletCheckoutForm({
         ev.complete('fail');
       } finally {
         payLock.current = false;
-        setProcessing(false);
       }
     };
 
@@ -231,142 +229,207 @@ function WalletCheckoutForm({
     });
   }, [walletRequest, amountPence]);
 
-  const prefetchIntent = (shippingCost = 0) => {
-    pendingIntent.current = createExpressCheckoutIntent({
-      productId,
-      colorId,
-      storageOptionId,
-      quantity,
-      shippingMethod: shippingCost >= 15 ? 'Express Delivery' : 'Standard Delivery',
-      shippingCost,
-      shippingAddress: null,
-      guestEmail: null,
-    }).catch((error) => {
-      console.error('[PayPal] Failed to start payment intent', error);
-      return null;
-    });
-  };
+  const createIntent = useCallback(
+    ({ shippingCost = 0, shippingAddress = null, guestEmail = null } = {}) =>
+      createExpressCheckoutIntent({
+        productId,
+        colorId,
+        storageOptionId,
+        quantity,
+        shippingMethod: shippingCost >= 15 ? 'Express Delivery' : 'Standard Delivery',
+        shippingCost,
+        shippingAddress,
+        guestEmail,
+      }).catch((error) => {
+        console.error('[Express checkout] Failed to start payment intent', error);
+        return null;
+      }),
+    [productId, colorId, storageOptionId, quantity],
+  );
 
-  const handleClick = (event) => {
-    const walletPay =
-      event.expressPaymentType === 'paypal' || event.expressPaymentType === 'klarna';
-    lastWallet.current = event.expressPaymentType;
+  const handleClick = useCallback(
+    (event) => {
+      lastWallet.current = event.expressPaymentType;
+      pendingIntent.current = createIntent({ shippingCost: 0 });
+      event.resolve({
+        lineItems: lineItemsFor(amountPence, 0),
+        emailRequired: false,
+        phoneNumberRequired: false,
+        billingAddressRequired: false,
+        shippingAddressRequired: event.expressPaymentType !== 'klarna',
+        ...(event.expressPaymentType === 'klarna'
+          ? {}
+          : {
+              shippingRates: WALLET_SHIPPING_RATES,
+              allowedShippingCountries: ['GB'],
+            }),
+      });
+    },
+    [amountPence, createIntent],
+  );
+
+  const handleConfirm = useCallback(
+    async (event) => {
+      const walletPay =
+        event.expressPaymentType === 'paypal' || event.expressPaymentType === 'klarna';
+
+      if (!stripe || !elements || payLock.current || disabled) {
+        event.paymentFailed({ reason: 'fail' });
+        return;
+      }
+
+      payLock.current = true;
+      try {
+        const shipping = shippingFromWalletRate(event.shippingRate);
+        const shippingCost = walletPay ? 0 : shipping.shippingCost;
+
+        const intentPromise =
+          pendingIntent.current ||
+          createIntent({
+            shippingCost,
+            shippingAddress: mapWalletAddressToOrder(event),
+            guestEmail: event.billingDetails?.email || null,
+          });
+        pendingIntent.current = null;
+
+        if (!walletPay) {
+          const { error: submitError } = await elements.submit();
+          if (submitError) {
+            event.paymentFailed({ reason: 'fail' });
+            return;
+          }
+        }
+
+        const intent = await intentPromise;
+        if (!intent?.success || !intent.data?.clientSecret) {
+          event.paymentFailed({ reason: 'fail' });
+          return;
+        }
+
+        const { clientSecret, paymentIntentId } = intent.data;
+        sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
+
+        // Never use redirect: 'if_required' here — PayPal stays on
+        // "Taking you to PayPal" and never opens the login sheet.
+        const { error, paymentIntent } = await stripe.confirmPayment({
+          elements,
+          clientSecret,
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout/success`,
+          },
+        });
+
+        if (error) {
+          event.paymentFailed({ reason: 'fail' });
+          return;
+        }
+
+        // Redirect wallets leave this tab; confirmPayment may resolve empty.
+        if (
+          walletPay ||
+          paymentIntent?.status === 'processing' ||
+          paymentIntent?.status === 'requires_action' ||
+          !paymentIntent
+        ) {
+          return;
+        }
+
+        if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'requires_capture') {
+          event.paymentFailed({ reason: 'fail' });
+          return;
+        }
+
+        const result = await confirmExpressPayment(paymentIntentId);
+        if (!result?.success) {
+          event.paymentFailed({ reason: 'fail' });
+          return;
+        }
+
+        navigate('/checkout/success', { state: { order: result.data } });
+      } catch (error) {
+        console.error('[Express checkout] confirm failed', error);
+        event.paymentFailed({ reason: 'fail' });
+      } finally {
+        payLock.current = false;
+      }
+    },
+    [createIntent, disabled, elements, navigate, stripe],
+  );
+
+  const handleShippingAddressChange = useCallback(
+    (event) => {
+      if (lastWallet.current === 'paypal' || lastWallet.current === 'klarna') {
+        event.resolve({ lineItems: lineItemsFor(amountPence, 0) });
+        return;
+      }
+      event.resolve({
+        lineItems: lineItemsFor(amountPence, 0),
+        shippingRates: WALLET_SHIPPING_RATES,
+      });
+    },
+    [amountPence],
+  );
+
+  const handleShippingRateChange = useCallback((event) => {
     event.resolve({
-      lineItems: lineItemsFor(amountPence, 0),
+      lineItems: lineItemsFor(amountPence, Number(event.shippingRate?.amount || 0)),
+    });
+  }, [amountPence]);
+
+  const handleCancel = useCallback(() => {
+    pendingIntent.current = null;
+    payLock.current = false;
+  }, []);
+
+  const walletAvailable = useCallback(
+    (methods) => {
+      if (!methods) return;
+      const klarnaOn = Boolean(methods.klarna?.available ?? methods.klarna);
+      const appleOn = Boolean(methods.applePay?.available ?? methods.applePay);
+      const googleOn = Boolean(methods.googlePay?.available ?? methods.googlePay);
+      onAvailabilityChange?.(klarnaOn || appleOn || googleOn || Boolean(walletRequest));
+    },
+    [onAvailabilityChange, walletRequest],
+  );
+
+  const expressOptions = useMemo(
+    () => ({
       emailRequired: false,
       phoneNumberRequired: false,
       billingAddressRequired: false,
-      shippingAddressRequired: !walletPay,
-      ...(walletPay
-        ? {}
-        : {
-            shippingRates: WALLET_SHIPPING_RATES,
-            allowedShippingCountries: ['GB'],
-          }),
-    });
-    prefetchIntent(0);
-  };
+      shippingAddressRequired: false,
+      lineItems: lineItemsFor(amountPence, 0),
+      paymentMethodOrder: ['apple_pay', 'google_pay', 'klarna'],
+      paymentMethods: {
+        applePay: isApple ? 'always' : 'never',
+        googlePay: isApple || walletRequest ? 'never' : 'always',
+        paypal: 'never',
+        klarna: 'auto',
+        link: 'never',
+        amazonPay: 'never',
+      },
+      buttonType: {
+        applePay: 'buy',
+        googlePay: 'buy',
+        paypal: 'paypal',
+      },
+      buttonTheme: {
+        applePay: 'black',
+        googlePay: 'black',
+        paypal: 'blue',
+      },
+      buttonHeight: 48,
+      layout: { maxColumns: 3, maxRows: 2, overflow: 'auto' },
+    }),
+    [amountPence, isApple, walletRequest],
+  );
 
-  const handleConfirm = async (event) => {
-    if (!stripe || !elements || processing || disabled) {
-      event.paymentFailed({ reason: 'fail' });
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      const shipping = shippingFromWalletRate(event.shippingRate);
-      const walletPay =
-        event.expressPaymentType === 'paypal' || event.expressPaymentType === 'klarna';
-      const shippingCost = walletPay ? 0 : shipping.shippingCost;
-
-      const intentPromise =
-        pendingIntent.current ||
-        createExpressCheckoutIntent({
-          productId,
-          colorId,
-          storageOptionId,
-          quantity,
-          shippingMethod: shippingCost >= 15 ? 'Express Delivery' : 'Standard Delivery',
-          shippingCost,
-          shippingAddress: mapWalletAddressToOrder(event),
-          guestEmail: event.billingDetails?.email || null,
-        });
-      pendingIntent.current = null;
-
-      const [{ error: submitError }, intent] = await Promise.all([
-        elements.submit(),
-        intentPromise,
-      ]);
-
-      if (submitError) {
-        event.paymentFailed({ reason: 'fail' });
-        return;
-      }
-
-      if (!intent?.success || !intent.data?.clientSecret) {
-        event.paymentFailed({ reason: 'fail' });
-        return;
-      }
-
-      const { clientSecret, paymentIntentId } = intent.data;
-      sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
-
-      // Express Checkout + PayPal must use the default redirect. `if_required`
-      // leaves the PayPal popup stuck on "Taking you to PayPal".
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout/success`,
-        },
-      });
-
-      if (error) {
-        event.paymentFailed({ reason: 'fail' });
-        return;
-      }
-
-      if (
-        paymentIntent?.status === 'processing' ||
-        paymentIntent?.status === 'requires_action' ||
-        !paymentIntent
-      ) {
-        return;
-      }
-
-      if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'requires_capture') {
-        event.paymentFailed({ reason: 'fail' });
-        return;
-      }
-
-      const result = await confirmExpressPayment(paymentIntentId);
-      if (!result?.success) {
-        event.paymentFailed({ reason: 'fail' });
-        return;
-      }
-
-      navigate('/checkout/success', { state: { order: result.data } });
-    } catch (error) {
-      console.error('[Express checkout] confirm failed', error);
-      event.paymentFailed({ reason: 'fail' });
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const walletAvailable = (methods) => {
-    if (!methods) return;
-    const available = isApple
-      ? Boolean(methods.applePay?.available ?? methods.applePay)
-      : Boolean(methods.googlePay?.available ?? methods.googlePay);
-    onAvailabilityChange?.(available || Boolean(walletRequest));
-  };
+  const showGooglePayButton = Boolean(walletRequest && !isApple);
 
   return (
-    <div className={`space-y-3 ${processing || disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      {walletRequest && !isApple ? (
-        <div className="h-12 overflow-hidden rounded-sm">
+    <div className="space-y-3">
+      {showGooglePayButton ? (
+        <div className={`h-12 overflow-hidden rounded-sm ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
           <PaymentRequestButtonElement
             options={{
               paymentRequest: walletRequest,
@@ -380,62 +443,132 @@ function WalletCheckoutForm({
             }}
           />
         </div>
-      ) : (
-        <div className="min-h-12">
-          <ExpressCheckoutElement
+      ) : null}
+      <div className={`min-h-12 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+        <ExpressCheckoutElement
           onClick={handleClick}
           onConfirm={handleConfirm}
-          onShippingAddressChange={(event) => {
-            const walletPay =
-              lastWallet.current === 'paypal' || lastWallet.current === 'klarna';
-            event.resolve({
-              lineItems: lineItemsFor(amountPence, 0),
-              ...(walletPay ? {} : { shippingRates: WALLET_SHIPPING_RATES }),
-            });
-          }}
-          onShippingRateChange={(event) => {
-            event.resolve({
-              lineItems: lineItemsFor(amountPence, Number(event.shippingRate?.amount || 0)),
-            });
-          }}
+          onCancel={handleCancel}
+          onShippingAddressChange={handleShippingAddressChange}
+          onShippingRateChange={handleShippingRateChange}
           onLoadError={() => {}}
           onReady={({ availablePaymentMethods }) => {
             walletAvailable(availablePaymentMethods);
             if (isApple) onAvailabilityChange?.(true);
           }}
           onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
-          options={{
-            emailRequired: false,
-            phoneNumberRequired: false,
-            billingAddressRequired: false,
-            shippingAddressRequired: false,
-            lineItems: lineItemsFor(amountPence, 0),
-            paymentMethodOrder: ['apple_pay', 'google_pay', 'paypal', 'klarna'],
-            paymentMethods: {
-              applePay: isApple ? 'always' : 'never',
-              googlePay: isApple ? 'never' : 'always',
-              paypal: 'auto',
-              klarna: 'auto',
-              link: 'never',
-              amazonPay: 'never',
-            },
-            buttonType: {
-              applePay: 'buy',
-              googlePay: 'buy',
-              paypal: 'paypal',
-            },
-            buttonTheme: {
-              applePay: 'black',
-              googlePay: 'black',
-              paypal: 'blue',
-            },
-            buttonHeight: 48,
-            layout: { maxColumns: 3, maxRows: 2, overflow: 'auto' },
-          }}
-          />
-        </div>
-      )}
+          options={expressOptions}
+        />
+      </div>
     </div>
+  );
+}
+
+function PayPalPaymentForm({
+  productId,
+  colorId,
+  storageOptionId,
+  quantity,
+  amountPence,
+  disabled,
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [ready, setReady] = useState(false);
+  const [available, setAvailable] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!elements || !amountPence) return;
+    elements.update({ amount: amountPence }).catch(() => {});
+  }, [elements, amountPence]);
+
+  const handlePayPal = async (event) => {
+    event.preventDefault();
+    if (!stripe || !elements || paying || disabled) return;
+
+    setPaying(true);
+    setErrorMessage('');
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        setErrorMessage(submitError.message || 'PayPal could not start.');
+        return;
+      }
+
+      const intent = await createExpressCheckoutIntent({
+        productId,
+        colorId,
+        storageOptionId,
+        quantity,
+        shippingMethod: 'Standard Delivery',
+        shippingCost: 0,
+        shippingAddress: null,
+        guestEmail: null,
+        paymentMethodTypes: ['paypal'],
+      });
+
+      if (!intent?.success || !intent.data?.clientSecret) {
+        setErrorMessage(intent?.message || 'Unable to start PayPal payment.');
+        return;
+      }
+
+      sessionStorage.setItem('stripePaymentIntentId', intent.data.paymentIntentId);
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        clientSecret: intent.data.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/success`,
+        },
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'PayPal payment failed.');
+      }
+    } catch (error) {
+      console.error('[PayPal] Payment Element confirm failed', error);
+      setErrorMessage('Something went wrong. Please try again.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  if (!available) return null;
+
+  return (
+    <form onSubmit={handlePayPal} className="relative space-y-2">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+      >
+        <PaymentElement
+          onReady={() => setReady(true)}
+          onLoadError={() => setAvailable(false)}
+          options={{
+            layout: 'tabs',
+            paymentMethodOrder: ['paypal'],
+            terms: { paypal: 'never' },
+            wallets: {
+              applePay: 'never',
+              googlePay: 'never',
+              link: 'never',
+            },
+          }}
+        />
+      </div>
+      {errorMessage ? (
+        <p className="text-sm text-red-500">{errorMessage}</p>
+      ) : null}
+      <button
+        type="submit"
+        disabled={!stripe || !ready || paying || disabled}
+        className="flex h-11 w-full items-center justify-center rounded-sm bg-[#FFC439] text-sm font-semibold text-[#003087] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {paying ? <span className="loading loading-spinner loading-xs" /> : 'Pay with PayPal'}
+      </button>
+    </form>
   );
 }
 
@@ -452,6 +585,24 @@ export default function ProductExpressCheckout({
   const [stripePromise, setStripePromise] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const amountPence = Math.max(50, Math.round((Number(amount) || 0) * 100));
+  const walletElementsOptions = useMemo(
+    () => ({
+      mode: 'payment',
+      amount: amountPence,
+      currency: 'gbp',
+      paymentMethodTypes: ['card', 'klarna'],
+    }),
+    [amountPence],
+  );
+  const paypalElementsOptions = useMemo(
+    () => ({
+      mode: 'payment',
+      amount: amountPence,
+      currency: 'gbp',
+      paymentMethodTypes: ['paypal'],
+    }),
+    [amountPence],
+  );
 
   useEffect(() => {
     getStripe()
@@ -473,24 +624,29 @@ export default function ProductExpressCheckout({
   }
 
   return (
-    <Elements
-      stripe={stripePromise}
-      options={{
-        mode: 'payment',
-        amount: amountPence,
-        currency: 'gbp',
-      }}
-    >
-      <WalletCheckoutForm
-        productId={productId}
-        colorId={colorId}
-        storageOptionId={storageOptionId}
-        quantity={quantity}
-        amountPence={amountPence}
-        disabled={disabled}
-        walletType={walletType}
-        onAvailabilityChange={onAvailabilityChange}
-      />
-    </Elements>
+    <div className="space-y-3">
+      <Elements stripe={stripePromise} options={walletElementsOptions}>
+        <WalletCheckoutForm
+          productId={productId}
+          colorId={colorId}
+          storageOptionId={storageOptionId}
+          quantity={quantity}
+          amountPence={amountPence}
+          disabled={disabled}
+          walletType={walletType}
+          onAvailabilityChange={onAvailabilityChange}
+        />
+      </Elements>
+      <Elements stripe={stripePromise} options={paypalElementsOptions}>
+        <PayPalPaymentForm
+          productId={productId}
+          colorId={colorId}
+          storageOptionId={storageOptionId}
+          quantity={quantity}
+          amountPence={amountPence}
+          disabled={disabled}
+        />
+      </Elements>
+    </div>
   );
 }

@@ -134,7 +134,6 @@ const ProductDetails = () => {
   const [selectedStorage, setSelectedStorage] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [walletType, setWalletType] = useState(() => getWalletType());
-  const [showWalletPay, setShowWalletPay] = useState(() => Boolean(getWalletType()));
   const [startingStripeCheckout, setStartingStripeCheckout] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
   const prefersReducedMotion = useReducedMotion();
@@ -142,7 +141,6 @@ const ProductDetails = () => {
   useEffect(() => {
     const type = getWalletType();
     setWalletType(type);
-    if (type) setShowWalletPay(true);
   }, []);
 
   useEffect(() => {
@@ -721,8 +719,7 @@ const ProductDetails = () => {
                 )}
               </button>
             </div>
-            {showWalletPay && walletType && (
-              <div className="mt-3">
+            <div className="mt-3">
                 <ProductExpressCheckout
                   productId={product.id}
                   colorId={selectedColor}
@@ -731,13 +728,8 @@ const ProductDetails = () => {
                   amount={selectedStoragePrice * quantity}
                   disabled={addingToCart || startingStripeCheckout || selectedVariantStock === 0}
                   walletType={walletType}
-                  onAvailabilityChange={(available) => {
-                    if (!available) return;
-                    setShowWalletPay(true);
-                  }}
                 />
               </div>
-            )}
             <button
               type="button"
               onClick={handleMorePaymentOptions}

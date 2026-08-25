@@ -228,6 +228,7 @@ export async function createExpressCheckoutIntent({
   shippingCost,
   shippingAddress,
   guestEmail,
+  paymentMethodTypes,
 }) {
   const body = {
     productId,
@@ -238,6 +239,7 @@ export async function createExpressCheckoutIntent({
     shippingCost,
     shippingAddress: shippingAddress || null,
     guestEmail: guestEmail || undefined,
+    paymentMethodTypes: paymentMethodTypes || undefined,
   };
 
   let headers;
