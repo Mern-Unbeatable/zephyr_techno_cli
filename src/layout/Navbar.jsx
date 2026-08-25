@@ -98,8 +98,15 @@ const Navbar = () => {
             </ul>
           </div>
 
-          {/* RIGHT — cart + buttons */}
+          {/* RIGHT — sell + cart; profile is desktop-only (mobile uses sidebar) */}
           <div className="navbar-end gap-2 lg:gap-3 ml-5">
+            <Link
+              to="/sell"
+              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 flex"
+            >
+              <span className="sm:hidden">Sell Your Phone</span>
+              <span className="hidden sm:inline">Sell Your Phone</span>
+            </Link>
             <Link
               to="/cart"
               className="btn btn-ghost hover:bg-gray-100 border-none btn-circle relative"
@@ -112,16 +119,9 @@ const Navbar = () => {
                 </span>
               )}
             </Link>
-            <Link
-              to="/sell"
-              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 flex"
-            >
-              <span className="sm:hidden">Sell Your Phone</span>
-              <span className="hidden sm:inline">Sell Your Phone</span>
-            </Link>
             {isAuthenticated ? (
               <div
-                className="dropdown dropdown-end"
+                className="dropdown dropdown-end hidden lg:block"
                 style={{ position: "relative" }}
                 ref={userMenuRef}
               >
@@ -231,12 +231,24 @@ const Navbar = () => {
           <div className="flex flex-col gap-3 px-6 py-6 border-t border-gray-100">
             {isAuthenticated ? (
               <>
+                <div className="flex items-center gap-3 rounded-xl bg-gray-50 px-3 py-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2E395B] text-white">
+                    <FiUser size={18} />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-gray-800">
+                      {displayName}
+                    </p>
+                    <p className="text-xs text-gray-500">Signed in</p>
+                  </div>
+                </div>
                 <Link
                   to={dashboardPath}
                   onClick={() => setSidebarOpen(false)}
                   className="btn bg-[#2E395B] hover:bg-[#1C253B] text-white border-none w-full"
                 >
-                  Dashboard
+                  <FiUser size={16} />
+                  Profile / Dashboard
                 </Link>
                 <button
                   type="button"
@@ -246,6 +258,7 @@ const Navbar = () => {
                   }}
                   className="btn btn-ghost border border-gray-200 w-full text-gray-700"
                 >
+                  <FiLogOut size={16} />
                   Log Out
                 </button>
               </>
