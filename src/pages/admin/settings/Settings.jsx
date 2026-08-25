@@ -296,9 +296,65 @@ const Settings = () => {
         const newValue = modalValues[valueKey];
         if (activeSection.key !== 'condition-model-prices' && !newValue) return;
 
-        // If adding a category, series, model, or condition, POST to backend and use returned item
+        if (activeSection.key === 'categories') {
+            if (!modalValues.id) return;
+
+            (async () => {
+                try {
+                    const token = localStorage.getItem('token');
+                    const res = await fetch(
+                        `${API_BASE_URL}/api/admin/attributes/categories/${modalValues.id}`,
+                        {
+                            method: 'PATCH',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                            },
+                            body: JSON.stringify({ name: newValue }),
+                        },
+                    );
+
+                    if (!res.ok) {
+                        throw new Error(
+                            await readApiErrorMessage(res, 'Failed to update category.'),
+                        );
+                    }
+
+                    const payload = await res.json();
+                    const updated = payload?.data || payload || {};
+                    const name = updated.name || updated.title || newValue;
+
+                    setSettings((prev) => ({
+                        ...prev,
+                        categories: prev.categories.map((item) =>
+                            item.id === modalValues.id ? { ...item, name } : item,
+                        ),
+                    }));
+
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: 'Category name updated.',
+                        confirmButtonColor: '#0891b2',
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
+                } catch (err) {
+                    await Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: err.message || 'Failed to update category.',
+                        confirmButtonColor: '#0891b2',
+                    });
+                } finally {
+                    handleCloseModal();
+                }
+            })();
+            return;
+        }
+
+        // If adding a series, model, or condition, POST to backend and use returned item
         if (
-            activeSection.key === 'categories' ||
             activeSection.key === 'series' ||
             activeSection.key === 'models' ||
             activeSection.key === 'conditions'
@@ -372,10 +428,7 @@ const Settings = () => {
                     const id = created.id || created._id || created.uuid || created?.value || null;
                     const name = created.name || created.title || created.value || newValue;
 
-                    if (activeSection.key === 'categories') {
-                        const item = { id, name };
-                        setSettings((prev) => ({ ...prev, categories: [...prev.categories, item] }));
-                    } else if (activeSection.key === 'series') {
+                    if (activeSection.key === 'series') {
                         // series: normalize to { value, label, image } for SelectInput
                         const item = {
                             value: id || name,
@@ -665,6 +718,8 @@ const Settings = () => {
     };
 
     const handleDeleteItem = async (sectionKey, id, index) => {
+        if (sectionKey === 'categories') return;
+
         const { isConfirmed } = await Swal.fire({
             title: 'Are you sure?',
             text: 'This action cannot be undone.',
@@ -775,6 +830,17 @@ const Settings = () => {
                             label={label}
                             hexCode={isString ? null : item?.hexCode}
                             showColorSwatch={section.key === 'colors'}
+                            onEdit={
+                                section.key === 'categories' && id
+                                    ? () => {
+                                          setActiveSection({
+                                              ...section,
+                                              modalTitle: 'Edit Category',
+                                          });
+                                          setModalValues({ id, value: label });
+                                      }
+                                    : undefined
+                            }
                             onDelete={
                                 section.key === 'categories'
                                     ? undefined

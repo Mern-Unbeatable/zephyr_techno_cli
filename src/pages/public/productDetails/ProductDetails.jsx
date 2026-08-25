@@ -543,6 +543,7 @@ const ProductDetails = () => {
               </p>
               <h1 className="text-3xl md:text-4xl lg:text-[42px] xl:text-[48px] font-semibold text-[#151A2A] mb-2 tracking-tight">
                 {product.title}
+                {selectedStorageName ? ` ${selectedStorageName}` : ''}
               </h1>
               <PriceDisplay
                 price={selectedStoragePrice}
@@ -629,16 +630,13 @@ const ProductDetails = () => {
                           }}
                         >
                           {outOfStock ? (
-                            <>
-                              <span className="pointer-events-none absolute left-1/2 top-1/2 h-[2px] w-[130%] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded bg-[#151A2A]" />
-                              <span className="pointer-events-none absolute left-1/2 top-1/2 h-[2px] w-[130%] -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded bg-[#151A2A]" />
-                            </>
+                            <span className="pointer-events-none absolute left-1/2 top-1/2 h-[2px] w-[130%] -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded bg-[#151A2A]" />
                           ) : null}
                         </span>
                         <span
                           className={`text-[11px] leading-none max-w-[4.5rem] text-center ${
                             outOfStock
-                              ? 'text-gray-400 line-through'
+                              ? 'text-gray-400'
                               : isSelected
                                 ? 'text-[#151A2A] font-medium'
                                 : 'text-gray-500'
@@ -668,15 +666,18 @@ const ProductDetails = () => {
                       type="button"
                       disabled={outOfStock}
                       onClick={() => selectStorage(s.id)}
-                      className={`px-4 py-2 rounded-sm text-[13px] border transition-colors ${
+                      className={`relative overflow-hidden px-4 py-2 rounded-sm text-[13px] border transition-colors ${
                         outOfStock
-                          ? 'border-gray-200 text-gray-400 line-through bg-gray-50 cursor-not-allowed'
+                          ? 'border-gray-300 text-gray-500 bg-white cursor-not-allowed'
                           : selectedStorage === s.id
                           ? "bg-custom border-custom text-white"
                           : "border-gray-300 text-gray-500 hover:border-gray-400 bg-white"
                       }`}
                     >
                       {s.name}
+                      {outOfStock ? (
+                        <span className="pointer-events-none absolute left-1/2 top-1/2 h-[1.5px] w-[140%] -translate-x-1/2 -translate-y-1/2 bg-[#151A2A]" />
+                      ) : null}
                     </button>
                     );
                   })}

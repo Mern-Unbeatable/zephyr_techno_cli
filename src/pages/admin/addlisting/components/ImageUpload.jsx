@@ -31,15 +31,19 @@ const ImageUpload = ({ images, onFilesAdded, onRemove, deletingImageId = null })
         };
     }, [images]);
 
+    const imageFiles = (files) =>
+        files.filter((file) => file.type?.startsWith('image/') || !file.type);
+
     const handleImageDrop = (e) => {
         e.preventDefault();
-        const files = Array.from(e.dataTransfer.files);
-        onFilesAdded(files);
+        const files = imageFiles(Array.from(e.dataTransfer.files));
+        if (files.length) onFilesAdded(files);
     };
 
     const handleImageSelect = (e) => {
-        const files = Array.from(e.target.files);
-        onFilesAdded(files);
+        const files = imageFiles(Array.from(e.target.files || []));
+        if (files.length) onFilesAdded(files);
+        e.target.value = '';
     };
 
     const handleRemove = (index, e) => {
@@ -67,7 +71,7 @@ const ImageUpload = ({ images, onFilesAdded, onRemove, deletingImageId = null })
                     />
                 </svg>
                 <div className="flex items-center gap-3 text-xs text-gray-400">
-                    <span>⊕ JPEG, PNG</span>
+                    <span>⊕ All image types</span>
                     <span>⊕ Max 20 photos</span>
                     <span>⊕ Auto-fit to 1080×1080 (square)</span>
                 </div>
@@ -78,7 +82,7 @@ const ImageUpload = ({ images, onFilesAdded, onRemove, deletingImageId = null })
             <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png"
+                accept="image/*"
                 multiple
                 className="hidden"
                 onChange={handleImageSelect}

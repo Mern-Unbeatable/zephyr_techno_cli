@@ -1,7 +1,7 @@
-import { Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { getColorHex, isLightColor } from '../../../../utils/color';
 
-const Tag = ({ label, hexCode, showColorSwatch = false, onDelete }) => {
+const Tag = ({ label, hexCode, showColorSwatch = false, onEdit, onDelete }) => {
     const swatch = showColorSwatch ? getColorHex(label, hexCode) : null;
 
     return (
@@ -16,7 +16,18 @@ const Tag = ({ label, hexCode, showColorSwatch = false, onDelete }) => {
                 title={swatch}
             />
         )}
-        {label}        {onDelete && (
+        {label}
+        {onEdit && (
+            <button
+                type="button"
+                onClick={onEdit}
+                className="text-custom hover:text-teal-700"
+                aria-label={`Edit ${label}`}
+            >
+                <Pencil size={14} />
+            </button>
+        )}
+        {onDelete && (
             <button
                 type="button"
                 onClick={onDelete}
