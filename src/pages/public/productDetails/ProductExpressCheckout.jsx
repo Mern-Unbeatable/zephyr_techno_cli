@@ -157,29 +157,7 @@ function WalletCheckoutForm({
       shippingOptions: PR_SHIPPING_OPTIONS,
     });
 
-    // Probe without shipping — requestShipping:true often makes canMakePayment() return null.
-    const probe = stripe.paymentRequest({
-      country: 'GB',
-      currency: 'gbp',
-      total: {
-        label: 'Zephyr Technology',
-        amount: amountPence,
-      },
-      requestPayerName: true,
-      requestPayerEmail: true,
-    });
-
     let cancelled = false;
-
-    probe.canMakePayment().then((result) => {
-      if (cancelled) return;
-      if (result?.googlePay || result?.applePay) {
-        setWalletRequest(pr);
-        onAvailabilityChange?.(true);
-        return;
-      }
-      setWalletRequest(null);
-    });
 
     const onShippingAddressChange = (ev) => {
       ev.updateWith({
@@ -253,6 +231,16 @@ function WalletCheckoutForm({
     pr.on('shippingaddresschange', onShippingAddressChange);
     pr.on('shippingoptionchange', onShippingOptionChange);
     pr.on('paymentmethod', onPaymentMethod);
+
+    pr.canMakePayment().then((result) => {
+      if (cancelled) return;
+      if (result) {
+        setWalletRequest(pr);
+        onAvailabilityChange?.(true);
+        return;
+      }
+      setWalletRequest(null);
+    });
 
     return () => {
       cancelled = true;
