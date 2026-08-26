@@ -103,19 +103,11 @@ function isApplePayBrowser() {
   return typeof window.ApplePaySession === 'function';
 }
 
-function isGooglePayDevice() {
-  if (typeof navigator === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  if (/Android/i.test(ua)) return true;
-  return /android/i.test(navigator.userAgentData?.platform || '');
-}
-
-/** @returns {'apple' | 'google' | null} */
+/** @returns {'apple' | 'google'} */
 function getWalletType() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return 'google';
   if (isApplePayBrowser()) return 'apple';
-  if (isGooglePayDevice()) return 'google';
-  return null;
+  return 'google';
 }
 
 const ProductDetails = () => {

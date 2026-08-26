@@ -157,17 +157,28 @@ function WalletCheckoutForm({
       shippingOptions: PR_SHIPPING_OPTIONS,
     });
 
+    // Probe without shipping — requestShipping:true often makes canMakePayment() return null.
+    const probe = stripe.paymentRequest({
+      country: 'GB',
+      currency: 'gbp',
+      total: {
+        label: 'Zephyr Technology',
+        amount: amountPence,
+      },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    });
+
     let cancelled = false;
 
-    pr.canMakePayment().then((result) => {
+    probe.canMakePayment().then((result) => {
       if (cancelled) return;
-      if (result?.googlePay) {
+      if (result?.googlePay || result?.applePay) {
         setWalletRequest(pr);
         onAvailabilityChange?.(true);
-      } else {
-        setWalletRequest(null);
-        onAvailabilityChange?.(false);
+        return;
       }
+      setWalletRequest(null);
     });
 
     const onShippingAddressChange = (ev) => {
@@ -393,10 +404,10 @@ function WalletCheckoutForm({
       billingAddressRequired: false,
       shippingAddressRequired: false,
       lineItems: lineItemsFor(amountPence, 0),
-      paymentMethodOrder: ['apple_pay', 'google_pay'],
+      paymentMethodOrder: isApple ? ['apple_pay'] : ['google_pay'],
       paymentMethods: {
-        applePay: 'always',
-        googlePay: 'never',
+        applePay: isApple ? 'always' : 'never',
+        googlePay: isApple ? 'never' : 'always',
         paypal: 'never',
         klarna: 'never',
         link: 'never',
@@ -413,13 +424,14 @@ function WalletCheckoutForm({
       buttonHeight: 48,
       layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
     }),
-    [amountPence],
+    [amountPence, isApple],
   );
 
-  if (isGoogle) {
-    if (!walletRequest) return null;
+  const busyClass = disabled ? 'opacity-60 pointer-events-none' : '';
+
+  if (isGoogle && walletRequest) {
     return (
-      <div className={`h-12 overflow-hidden rounded-sm ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+      <div className={`h-12 overflow-hidden rounded-sm ${busyClass}`}>
         <PaymentRequestButtonElement
           options={{
             paymentRequest: walletRequest,
@@ -436,10 +448,8 @@ function WalletCheckoutForm({
     );
   }
 
-  if (!isApple) return null;
-
   return (
-    <div className={`min-h-12 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+    <div className={`min-h-12 ${busyClass}`}>
       <ExpressCheckoutElement
         onClick={handleClick}
         onConfirm={handleConfirm}
@@ -449,7 +459,6 @@ function WalletCheckoutForm({
         onLoadError={() => {}}
         onReady={({ availablePaymentMethods }) => {
           walletAvailable(availablePaymentMethods);
-          onAvailabilityChange?.(true);
         }}
         onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
         options={expressOptions}
