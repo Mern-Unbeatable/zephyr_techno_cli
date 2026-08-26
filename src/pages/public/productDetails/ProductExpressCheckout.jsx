@@ -138,26 +138,13 @@ function WalletCheckoutForm({
   );
 
   useEffect(() => {
-    if (!stripe || !isGoogle || !amountPence) {
+    if (!stripe || !(isApple || isGoogle) || !amountPence) {
       setWalletRequest(null);
       return undefined;
     }
 
-    const pr = stripe.paymentRequest({
-      country: 'GB',
-      currency: 'gbp',
-      total: {
-        label: 'Zephyr Technology',
-        amount: amountPence,
-      },
-      requestPayerName: true,
-      requestPayerEmail: true,
-      requestPayerPhone: true,
-      requestShipping: true,
-      shippingOptions: PR_SHIPPING_OPTIONS,
-    });
-
     let cancelled = false;
+    const requests = [];
 
     const onShippingAddressChange = (ev) => {
       ev.updateWith({
@@ -221,38 +208,77 @@ function WalletCheckoutForm({
           navigate('/checkout/success', { state: { order: result.data } });
         }
       } catch (error) {
-        console.error('[Google Pay] Payment Request failed', error);
+        console.error('[Wallet] Payment Request failed', error);
         ev.complete('fail');
       } finally {
         payLock.current = false;
       }
     };
 
-    pr.on('shippingaddresschange', onShippingAddressChange);
-    pr.on('shippingoptionchange', onShippingOptionChange);
-    pr.on('paymentmethod', onPaymentMethod);
+    const makeRequest = (withShipping) => {
+      const pr = stripe.paymentRequest({
+        country: 'GB',
+        currency: 'gbp',
+        total: {
+          label: 'Zephyr Technology',
+          amount: amountPence,
+        },
+        requestPayerName: true,
+        requestPayerEmail: true,
+        requestPayerPhone: true,
+        ...(withShipping
+          ? { requestShipping: true, shippingOptions: PR_SHIPPING_OPTIONS }
+          : {}),
+      });
+      pr.on('shippingaddresschange', onShippingAddressChange);
+      pr.on('shippingoptionchange', onShippingOptionChange);
+      pr.on('paymentmethod', onPaymentMethod);
+      requests.push(pr);
+      return pr;
+    };
 
-    pr.canMakePayment().then((result) => {
+    const isUsable = (result) => {
+      if (!result) return false;
+      if (isApple) return Boolean(result.applePay);
+      return Boolean(result.googlePay || result.applePay);
+    };
+
+    (async () => {
+      const withShipping = makeRequest(true);
+      const first = await withShipping.canMakePayment();
       if (cancelled) return;
-      if (result) {
-        setWalletRequest(pr);
+      if (isUsable(first)) {
+        setWalletRequest(withShipping);
         onAvailabilityChange?.(true);
         return;
       }
+
+      const withoutShipping = makeRequest(false);
+      const second = await withoutShipping.canMakePayment();
+      if (cancelled) return;
+      if (isUsable(second)) {
+        setWalletRequest(withoutShipping);
+        onAvailabilityChange?.(true);
+        return;
+      }
+
       setWalletRequest(null);
-    });
+    })();
 
     return () => {
       cancelled = true;
-      pr.off('shippingaddresschange');
-      pr.off('shippingoptionchange');
-      pr.off('paymentmethod');
+      requests.forEach((pr) => {
+        pr.off('shippingaddresschange');
+        pr.off('shippingoptionchange');
+        pr.off('paymentmethod');
+      });
       setWalletRequest(null);
     };
   }, [
     amountPence,
     createIntent,
     disabled,
+    isApple,
     isGoogle,
     navigate,
     onAvailabilityChange,
@@ -417,7 +443,7 @@ function WalletCheckoutForm({
 
   const busyClass = disabled ? 'opacity-60 pointer-events-none' : '';
 
-  if (isGoogle && walletRequest) {
+  if (walletRequest) {
     return (
       <div className={`h-12 overflow-hidden rounded-sm ${busyClass}`}>
         <PaymentRequestButtonElement

@@ -98,9 +98,13 @@ function getImageIndexForColor(images, colorId) {
 
 function isApplePayBrowser() {
   if (typeof window === 'undefined') return false;
-  // Web Apple Pay only works in Safari (or iOS/iPadOS Safari webviews that expose ApplePaySession).
-  // Chrome / Instagram / Facebook on iPhone cannot show Apple Pay.
-  return typeof window.ApplePaySession === 'function';
+  if (typeof window.ApplePaySession === 'function') return true;
+  const ua = navigator.userAgent || '';
+  const iOS =
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const safari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Android/i.test(ua);
+  return iOS && safari;
 }
 
 /** @returns {'apple' | 'google'} */
