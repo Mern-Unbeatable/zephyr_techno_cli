@@ -539,9 +539,10 @@ const ProductDetails = () => {
               <p className="text-sm font-bold tracking-widest text-[#94A3B8] uppercase mb-1">
                 {product.series?.name}
               </p>
-              <h1 className="text-3xl md:text-4xl lg:text-[42px] xl:text-[48px] font-semibold text-[#151A2A] mb-2 tracking-tight">
+              <h1 className="text-[22px] md:text-4xl lg:text-[42px] xl:text-[40px] font-semibold text-[#151A2A] mb-2 tracking-tight">
                 {product.title}
                 {selectedStorageName ? ` ${selectedStorageName}` : ''}
+                {selectedColorName ? ` ${selectedColorName}` : ''}
               </h1>
               <PriceDisplay
                 price={selectedStoragePrice}
@@ -595,7 +596,7 @@ const ProductDetails = () => {
                 <p className="text-[11px] font-bold tracking-widest text-[#151A2A] uppercase mb-3">
                   COLOR
                 </p>
-                <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex flex-wrap gap-x-5 gap-y-3 items-start">
                   {product.availableColors.map((c) => {
                     const hex = getColorHex(c.name, c.hexCode);
                     const isSelected = selectedColor === c.id;
@@ -632,7 +633,7 @@ const ProductDetails = () => {
                           ) : null}
                         </span>
                         <span
-                          className={`text-[11px] leading-none max-w-[4.5rem] text-center ${
+                          className={`text-[11px] leading-none whitespace-nowrap text-center ${
                             outOfStock
                               ? 'text-gray-400'
                               : isSelected
