@@ -4,6 +4,7 @@ import {
   Elements,
   ExpressCheckoutElement,
   PaymentElement,
+  PaymentRequestButtonElement,
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
@@ -23,6 +24,21 @@ const EXPRESS_SHIPPING = {
 };
 
 const WALLET_SHIPPING_RATES = [STANDARD_SHIPPING, EXPRESS_SHIPPING];
+
+const PR_SHIPPING_OPTIONS = [
+  {
+    id: 'standard',
+    label: 'Standard Delivery',
+    detail: '3-5 working days',
+    amount: 0,
+  },
+  {
+    id: 'express',
+    label: 'Express Delivery',
+    detail: '1-2 working days',
+    amount: 1500,
+  },
+];
 
 function shippingFromWalletRate(rate) {
   const amountPence = Number(rate?.amount || 0);
@@ -60,6 +76,24 @@ function mapWalletAddressToOrder(event) {
   };
 }
 
+function mapPaymentRequestShipping(ev) {
+  const addr = ev.shippingAddress;
+  if (!addr) return null;
+  const line1 = addr.addressLine?.[0] || addr.address?.line1;
+  const line2 = addr.addressLine?.[1] || addr.address?.line2;
+  const street = [line1, line2].filter(Boolean).join(', ');
+  if (!street) return null;
+  return {
+    fullName: addr.recipient || ev.payerName || 'Customer',
+    phone: addr.phone || ev.payerPhone || null,
+    street,
+    city: addr.city || 'To be confirmed',
+    state: addr.region || null,
+    zipCode: addr.postalCode || 'TBC',
+    country: addr.country === 'GB' ? 'United Kingdom' : addr.country || 'United Kingdom',
+  };
+}
+
 function WalletCheckoutForm({
   productId,
   colorId,
@@ -75,7 +109,9 @@ function WalletCheckoutForm({
   const navigate = useNavigate();
   const payLock = useRef(false);
   const pendingIntent = useRef(null);
+  const [walletRequest, setWalletRequest] = useState(null);
   const isApple = walletType === 'apple';
+  const isGoogle = walletType === 'google';
 
   useEffect(() => {
     if (!elements || !amountPence) return;
@@ -93,12 +129,136 @@ function WalletCheckoutForm({
         shippingCost,
         shippingAddress,
         guestEmail,
+        paymentMethodTypes: ['card'],
       }).catch((error) => {
         console.error('[Express checkout] Failed to start payment intent', error);
         return null;
       }),
     [productId, colorId, storageOptionId, quantity],
   );
+
+  useEffect(() => {
+    if (!stripe || !isGoogle || !amountPence) {
+      setWalletRequest(null);
+      return undefined;
+    }
+
+    const pr = stripe.paymentRequest({
+      country: 'GB',
+      currency: 'gbp',
+      total: {
+        label: 'Zephyr Technology',
+        amount: amountPence,
+      },
+      requestPayerName: true,
+      requestPayerEmail: true,
+      requestPayerPhone: true,
+      requestShipping: true,
+      shippingOptions: PR_SHIPPING_OPTIONS,
+    });
+
+    let cancelled = false;
+
+    pr.canMakePayment().then((result) => {
+      if (cancelled) return;
+      if (result?.googlePay) {
+        setWalletRequest(pr);
+        onAvailabilityChange?.(true);
+      } else {
+        setWalletRequest(null);
+        onAvailabilityChange?.(false);
+      }
+    });
+
+    const onShippingAddressChange = (ev) => {
+      ev.updateWith({
+        status: 'success',
+        shippingOptions: PR_SHIPPING_OPTIONS,
+        total: { label: 'Zephyr Technology', amount: amountPence },
+      });
+    };
+
+    const onShippingOptionChange = (ev) => {
+      const extra = Number(ev.shippingOption?.amount || 0);
+      ev.updateWith({
+        status: 'success',
+        total: { label: 'Zephyr Technology', amount: amountPence + extra },
+      });
+    };
+
+    const onPaymentMethod = async (ev) => {
+      if (payLock.current || disabled) {
+        ev.complete('fail');
+        return;
+      }
+
+      payLock.current = true;
+      try {
+        const shippingCost = Number(ev.shippingOption?.amount || 0) / 100;
+        const intent = await createIntent({
+          shippingCost,
+          shippingAddress: mapPaymentRequestShipping(ev),
+          guestEmail: ev.payerEmail || null,
+        });
+
+        if (!intent?.success || !intent.data?.clientSecret) {
+          ev.complete('fail');
+          return;
+        }
+
+        const { clientSecret, paymentIntentId } = intent.data;
+        sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
+
+        const { error, paymentIntent } = await stripe.confirmCardPayment(
+          clientSecret,
+          { payment_method: ev.paymentMethod.id },
+          { handleActions: false },
+        );
+
+        if (error) {
+          ev.complete('fail');
+          return;
+        }
+
+        ev.complete('success');
+
+        if (paymentIntent?.status === 'requires_action') {
+          const { error: actionError } = await stripe.confirmCardPayment(clientSecret);
+          if (actionError) return;
+        }
+
+        const result = await confirmExpressPayment(paymentIntentId);
+        if (result?.success) {
+          navigate('/checkout/success', { state: { order: result.data } });
+        }
+      } catch (error) {
+        console.error('[Google Pay] Payment Request failed', error);
+        ev.complete('fail');
+      } finally {
+        payLock.current = false;
+      }
+    };
+
+    pr.on('shippingaddresschange', onShippingAddressChange);
+    pr.on('shippingoptionchange', onShippingOptionChange);
+    pr.on('paymentmethod', onPaymentMethod);
+
+    return () => {
+      cancelled = true;
+      pr.off('shippingaddresschange');
+      pr.off('shippingoptionchange');
+      pr.off('paymentmethod');
+      setWalletRequest(null);
+    };
+  }, [
+    amountPence,
+    createIntent,
+    disabled,
+    isGoogle,
+    navigate,
+    onAvailabilityChange,
+    stripe,
+  ]);
 
   const handleClick = useCallback(
     (event) => {
@@ -235,8 +395,8 @@ function WalletCheckoutForm({
       lineItems: lineItemsFor(amountPence, 0),
       paymentMethodOrder: ['apple_pay', 'google_pay'],
       paymentMethods: {
-        applePay: isApple ? 'always' : 'never',
-        googlePay: isApple ? 'never' : 'always',
+        applePay: 'always',
+        googlePay: 'never',
         paypal: 'never',
         klarna: 'never',
         link: 'never',
@@ -253,8 +413,30 @@ function WalletCheckoutForm({
       buttonHeight: 48,
       layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
     }),
-    [amountPence, isApple],
+    [amountPence],
   );
+
+  if (isGoogle) {
+    if (!walletRequest) return null;
+    return (
+      <div className={`h-12 overflow-hidden rounded-sm ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+        <PaymentRequestButtonElement
+          options={{
+            paymentRequest: walletRequest,
+            style: {
+              paymentRequestButton: {
+                type: 'buy',
+                theme: 'dark',
+                height: '48px',
+              },
+            },
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!isApple) return null;
 
   return (
     <div className={`min-h-12 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -267,7 +449,7 @@ function WalletCheckoutForm({
         onLoadError={() => {}}
         onReady={({ availablePaymentMethods }) => {
           walletAvailable(availablePaymentMethods);
-          if (isApple) onAvailabilityChange?.(true);
+          onAvailabilityChange?.(true);
         }}
         onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
         options={expressOptions}
@@ -437,18 +619,20 @@ export default function ProductExpressCheckout({
 
   return (
     <div className="space-y-3">
-      <Elements stripe={stripePromise} options={walletElementsOptions}>
-        <WalletCheckoutForm
-          productId={productId}
-          colorId={colorId}
-          storageOptionId={storageOptionId}
-          quantity={quantity}
-          amountPence={amountPence}
-          disabled={disabled}
-          walletType={walletType}
-          onAvailabilityChange={onAvailabilityChange}
-        />
-      </Elements>
+      {walletType === 'apple' || walletType === 'google' ? (
+        <Elements stripe={stripePromise} options={walletElementsOptions}>
+          <WalletCheckoutForm
+            productId={productId}
+            colorId={colorId}
+            storageOptionId={storageOptionId}
+            quantity={quantity}
+            amountPence={amountPence}
+            disabled={disabled}
+            walletType={walletType}
+            onAvailabilityChange={onAvailabilityChange}
+          />
+        </Elements>
+      ) : null}
       <Elements stripe={stripePromise} options={paypalElementsOptions}>
         <PayPalPaymentForm
           productId={productId}

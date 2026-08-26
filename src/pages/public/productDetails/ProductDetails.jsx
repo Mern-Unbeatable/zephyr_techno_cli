@@ -107,9 +107,7 @@ function isGooglePayDevice() {
   if (typeof navigator === 'undefined') return false;
   const ua = navigator.userAgent || '';
   if (/Android/i.test(ua)) return true;
-  if (/android/i.test(navigator.userAgentData?.platform || '')) return true;
-  if (isApplePayBrowser()) return false;
-  return /Chrome|Chromium|Edg|OPR|SamsungBrowser/i.test(ua) && !/CriOS|EdgiOS|FxiOS/.test(ua);
+  return /android/i.test(navigator.userAgentData?.platform || '');
 }
 
 /** @returns {'apple' | 'google' | null} */
