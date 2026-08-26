@@ -282,7 +282,7 @@ const Cart = () => {
                 Your security is our priority
               </p>
             </div>
-
+{/* 
             <div className="flex flex-col items-center text-center">
               <FiCornerUpLeft
                 className="w-7 h-7 text-[#47B5C9] mb-4"
@@ -294,7 +294,7 @@ const Cart = () => {
               <p className="text-[13px] text-gray-500">
                 30-day money-back guarantee
               </p>
-            </div>
+            </div> */}
 
             <div className="flex flex-col items-center text-center">
               <FiAward
