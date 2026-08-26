@@ -256,7 +256,7 @@ const Cart = () => {
 
         {/* Features below */}
         <div className="mt-20 pt-16 border-t border-gray-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="flex flex-col items-center text-center">
               <FiTruck
                 className="w-7 h-7 text-[#47B5C9] mb-4"
