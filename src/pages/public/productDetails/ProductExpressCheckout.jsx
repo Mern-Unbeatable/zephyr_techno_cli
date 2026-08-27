@@ -10,6 +10,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { getStripe } from '../../../utils/stripe';
 import { confirmExpressPayment, createExpressCheckoutIntent } from '../../../utils/cartApi';
+import PayPalWordmark from '../../../components/shared/PayPalWordmark';
 
 const STANDARD_SHIPPING = {
   id: 'standard',
@@ -581,9 +582,143 @@ function PayPalPaymentForm({
       <button
         type="submit"
         disabled={!stripe || !ready || paying || disabled}
-        className="flex h-11 w-full items-center justify-center rounded-sm bg-[#FFC439] text-sm font-semibold text-[#003087] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center rounded-sm bg-[#FFC439] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {paying ? <span className="loading loading-spinner loading-xs" /> : 'Pay with PayPal'}
+        {paying ? (
+          <span className="loading loading-spinner loading-xs text-[#003087]" />
+        ) : (
+          <span className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold leading-none text-[#003087]">
+              Pay with
+            </span>
+            <PayPalWordmark className="h-4 w-auto shrink-0" />
+          </span>
+        )}
+      </button>
+    </form>
+  );
+}
+
+function KlarnaWordmark() {
+  return (
+    <span className="inline-flex items-center rounded-md bg-[#FFB3C7] px-2.5 py-[3px] text-[15px] font-black leading-none tracking-tight text-[#0B051D]">
+      Klarna
+    </span>
+  );
+}
+
+function KlarnaPaymentForm({
+  productId,
+  colorId,
+  storageOptionId,
+  quantity,
+  amountPence,
+  disabled,
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [ready, setReady] = useState(false);
+  const [available, setAvailable] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    if (!elements || !amountPence) return;
+    elements.update({ amount: amountPence }).catch(() => {});
+  }, [elements, amountPence]);
+
+  const handleKlarna = async (event) => {
+    event.preventDefault();
+    if (!stripe || !elements || paying || disabled) return;
+
+    setPaying(true);
+    setErrorMessage('');
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        setErrorMessage(submitError.message || 'Klarna could not start.');
+        return;
+      }
+
+      const intent = await createExpressCheckoutIntent({
+        productId,
+        colorId,
+        storageOptionId,
+        quantity,
+        shippingMethod: 'Standard Delivery',
+        shippingCost: 0,
+        shippingAddress: null,
+        guestEmail: null,
+        paymentMethodTypes: ['klarna'],
+      });
+
+      if (!intent?.success || !intent.data?.clientSecret) {
+        setErrorMessage(intent?.message || 'Unable to start Klarna payment.');
+        return;
+      }
+
+      sessionStorage.setItem('stripePaymentIntentId', intent.data.paymentIntentId);
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        clientSecret: intent.data.clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/success`,
+        },
+      });
+
+      if (error) {
+        setErrorMessage(error.message || 'Klarna payment failed.');
+      }
+    } catch (error) {
+      console.error('[Klarna] Payment Element confirm failed', error);
+      setErrorMessage('Something went wrong. Please try again.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  if (!available) return null;
+
+  return (
+    <form onSubmit={handleKlarna} className="relative space-y-2">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+      >
+        <PaymentElement
+          onReady={() => setReady(true)}
+          onLoadError={() => setAvailable(false)}
+          options={{
+            layout: 'tabs',
+            paymentMethodOrder: ['klarna'],
+            terms: { klarna: 'never' },
+            wallets: {
+              applePay: 'never',
+              googlePay: 'never',
+              link: 'never',
+            },
+          }}
+        />
+      </div>
+      {errorMessage ? (
+        <p className="text-sm text-red-500">{errorMessage}</p>
+      ) : null}
+      <button
+        type="submit"
+        disabled={!stripe || !ready || paying || disabled}
+        className="flex h-11 w-full items-center justify-center rounded-md bg-[#0B051D] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {paying ? (
+          <span className="loading loading-spinner loading-xs text-white" />
+        ) : (
+          <span className="flex items-center gap-2">
+            <span className="text-sm font-semibold leading-none text-white">
+              Pay with
+            </span>
+            <KlarnaWordmark />
+          </span>
+        )}
       </button>
     </form>
   );
@@ -617,6 +752,15 @@ export default function ProductExpressCheckout({
       amount: amountPence,
       currency: 'gbp',
       paymentMethodTypes: ['paypal'],
+    }),
+    [amountPence],
+  );
+  const klarnaElementsOptions = useMemo(
+    () => ({
+      mode: 'payment',
+      amount: amountPence,
+      currency: 'gbp',
+      paymentMethodTypes: ['klarna'],
     }),
     [amountPence],
   );
@@ -658,6 +802,16 @@ export default function ProductExpressCheckout({
       ) : null}
       <Elements stripe={stripePromise} options={paypalElementsOptions}>
         <PayPalPaymentForm
+          productId={productId}
+          colorId={colorId}
+          storageOptionId={storageOptionId}
+          quantity={quantity}
+          amountPence={amountPence}
+          disabled={disabled}
+        />
+      </Elements>
+      <Elements stripe={stripePromise} options={klarnaElementsOptions}>
+        <KlarnaPaymentForm
           productId={productId}
           colorId={colorId}
           storageOptionId={storageOptionId}

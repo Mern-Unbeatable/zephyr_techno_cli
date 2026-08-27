@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Elements, PaymentMethodMessagingElement } from '@stripe/react-stripe-js';
 import { FiX } from 'react-icons/fi';
 import { getStripe } from '../../../utils/stripe';
+import PayPalWordmark from '../../../components/shared/PayPalWordmark';
 
 function formatGbp(value) {
   const amount = Number(value) || 0;
@@ -39,11 +40,7 @@ function KlarnaMark() {
 }
 
 function PayPalMark() {
-  return (
-    <span className="text-[15px] font-semibold italic tracking-tight text-[#003087]">
-      Pay<span className="text-[#009CDE]">Pal</span>
-    </span>
-  );
+  return <PayPalWordmark className="h-5 w-auto" />;
 }
 
 export default function ProductPaymentMessaging({ amount }) {
@@ -74,7 +71,7 @@ export default function ProductPaymentMessaging({ amount }) {
       },
       {
         id: 'paypal',
-        title: 'Pay in full with PayPal',
+        title: `3 payments of ${formatGbp(klarna)} monthly, interest-free`,
         mark: <PayPalMark />,
       },
     ];
@@ -185,8 +182,8 @@ export default function ProductPaymentMessaging({ amount }) {
                       Purchase price: {formatGbp(total)}
                     </p>
                     <p className="mt-2 text-[14px] leading-snug text-[#6B7280]">
-                      Select Clearpay or Klarna as your payment method to pay in
-                      installments.
+                      Select Clearpay, Klarna, or PayPal as your payment method
+                      to pay in instalments.
                     </p>
 
                     <div className="mt-4 space-y-2.5">
@@ -231,8 +228,9 @@ export default function ProductPaymentMessaging({ amount }) {
                         Clearpay Finance Ltd. You can pay in 4 interest-free
                         instalments of {formatGbp(splitAmount(total, 4)[0])}.
                         Representative example: representative 0% APR. Credit is
-                        subject to status. T&amp;Cs apply. PayPal is also available
-                        at checkout.
+                        subject to status. T&amp;Cs apply. PayPal Pay in 3 is 3
+                        interest-free monthly payments of{' '}
+                        {formatGbp(splitAmount(total, 3)[0])}, subject to status.
                       </p>
                     </div>
                   </motion.div>
