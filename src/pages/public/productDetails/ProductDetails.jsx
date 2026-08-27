@@ -17,7 +17,7 @@ import RelatedProducts from "./sections/relatedProduct/RelatedProducts";
 import { useCart } from "../../../context/CartContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
-import { sortStorageOptionsBySize } from '../../../utils/storageSort';
+import { formatStorageLabel, sortStorageOptionsBySize } from '../../../utils/storageSort';
 import ProductExpressCheckout from './ProductExpressCheckout';
 import ProductPaymentMessaging from './ProductPaymentMessaging';
 import InfoTooltip from './InfoTooltip';
@@ -250,12 +250,12 @@ const ProductDetails = () => {
     [product, selectedColor],
   );
 
-  const selectedStorageName = useMemo(
-    () =>
-      product?.availableStorageOptions?.find((storage) => storage.id === selectedStorage)?.name ||
-      '',
-    [product, selectedStorage],
-  );
+  const selectedStorageName = useMemo(() => {
+    const raw =
+      product?.availableStorageOptions?.find((storage) => storage.id === selectedStorage)
+        ?.name || '';
+    return raw ? formatStorageLabel(raw) : '';
+  }, [product, selectedStorage]);
 
   useEffect(() => {
     const defaultTitle = 'ZEPHYR TECHNO | BUY & SELL PHONES';
@@ -537,6 +537,7 @@ const ProductDetails = () => {
                 {product.title}
                 {selectedStorageName ? ` ${selectedStorageName}` : ''}
                 {selectedColorName ? ` ${selectedColorName}` : ''}
+                {console.log(selectedColorName)}
               </h1>
               <PriceDisplay
                 price={selectedStoragePrice}
@@ -667,7 +668,7 @@ const ProductDetails = () => {
                           : "border-gray-300 text-gray-500 hover:border-gray-400 bg-white"
                       }`}
                     >
-                      {s.name}
+                      {formatStorageLabel(s.name)}
                       {outOfStock ? (
                         <span className="pointer-events-none absolute left-1/2 top-1/2 h-[1.5px] w-[140%] -translate-x-1/2 -translate-y-1/2 bg-[#151A2A]" />
                       ) : null}

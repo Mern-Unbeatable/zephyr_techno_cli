@@ -70,8 +70,13 @@ export default function ProductPaymentMessaging({ amount }) {
         mark: <KlarnaMark />,
       },
       {
-        id: 'paypal',
+        id: 'paypal-pay-in-3',
         title: `3 payments of ${formatGbp(klarna)} monthly, interest-free`,
+        mark: <PayPalMark />,
+      },
+      {
+        id: 'paypal-full',
+        title: 'Pay in full with PayPal',
         mark: <PayPalMark />,
       },
     ];
@@ -231,6 +236,7 @@ export default function ProductPaymentMessaging({ amount }) {
                         subject to status. T&amp;Cs apply. PayPal Pay in 3 is 3
                         interest-free monthly payments of{' '}
                         {formatGbp(splitAmount(total, 3)[0])}, subject to status.
+                        You can also pay in full with PayPal.
                       </p>
                     </div>
                   </motion.div>

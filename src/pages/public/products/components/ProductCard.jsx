@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import Swal from "sweetalert2";
-import Stars from "./Stars";
 import { useCart } from "../../../../context/CartContext";
 import PriceDisplay from "../../../../components/shared/PriceDisplay";
 
 export default function ProductCard({ product }) {
   const [status, setStatus] = useState("idle"); // idle | loading | added | error
   const { addToCart } = useCart();
+  const imageSrc = product.images?.find(Boolean) || null;
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -50,48 +50,38 @@ export default function ProductCard({ product }) {
   return (
     <Link
       to={`/product-details/${product.id}`}
-      className="bg-white border border-gray-100 rounded-2xl overflow-hidden
+      className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white
       transition-all duration-300 group cursor-pointer"
     >
-      {/* Image */}
-      <div className="relative bg-[#F7F9FB] flex items-center justify-center py-6 px-4 h-52">
+      {/* Image — fixed height so cards align even without a thumbnail */}
+      <div className="relative flex h-52 shrink-0 items-center justify-center bg-[#F7F9FB] px-4 py-6">
         <span
-          className={`absolute top-0 left-3 text-white text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-bl-lg rounded-br-lg ${product.badgeColor}`}
+          className={`absolute top-0 left-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${product.badgeColor}`}
         >
           {product.badge}
         </span>
-        {/* Favorite icon disabled for now */}
-
-        {/* <img
-          src={product.images[0]}
-          alt={product.name}
-          className="h-52 object-contain transition-transform duration-500"
-          onError={(e) => {
-            e.target.src =
-              "https://placehold.co/200x200/f3f4f6/94a3b8?text=Phone";
-          }}
-        /> */}
-        <figure className="">
-          {product.images &&
-            product.images.map((img, index) => (
-              <img
-                key={index}
-                src={img}
-                className="h-52 object-contain transition-transform duration-500"
-              />
-            ))}
-        </figure>
+        {imageSrc ? (
+          <img
+            src={imageSrc}
+            alt={product.name}
+            className="h-full max-h-40 w-auto object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+            No image
+          </div>
+        )}
       </div>
 
-      {/* Info */}
-      <div className="px-4 pt-3 pb-4 info-hover">
-        <h3 className="text-sm md:text-base font-semibold text-gray-900 leading-tight">
+      {/* Info — grows so Add to Cart stays on one row across cards */}
+      <div className="info-hover flex flex-1 flex-col px-4 pt-3 pb-4">
+        <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-tight text-gray-900 md:min-h-[2.75rem] md:text-base">
           {product.name}
         </h3>
-        <p className="text-xs lg:text-sm text-[#767E97] mt-0.5 line-clamp-1">
+        <p className="mt-0.5 line-clamp-1 text-xs text-[#767E97] lg:text-sm">
           {product.storage} · {product.color}
         </p>
-        <div className="mt-2">
+        <div className="mt-2 min-h-[3.75rem]">
           <PriceDisplay
             price={product.price}
             compareAtPrice={product.oldPrice}
@@ -101,7 +91,7 @@ export default function ProductCard({ product }) {
         <button
           onClick={handleAdd}
           disabled={status === "loading"}
-          className={`mt-3 w-full active:scale-95 text-white py-2 rounded-lg text-sm cursor-pointer font-medium transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed ${
+          className={`mt-auto w-full cursor-pointer rounded-lg py-2 text-sm font-medium text-white transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 ${
             status === "added"
               ? "bg-green-500"
               : status === "error"
