@@ -53,8 +53,8 @@ export default function ProductCard({ product }) {
       className="flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white
       transition-all duration-300 group cursor-pointer"
     >
-      {/* Image — fixed height so cards align even without a thumbnail */}
-      <div className="relative flex h-52 shrink-0 items-center justify-center  px-4 py-6">
+      {/* Image — fills card width/height, no gray pad */}
+      <div className="relative h-52 w-full shrink-0 overflow-hidden bg-transparent">
         <span
           className={`absolute top-0 left-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${product.badgeColor}`}
         >
@@ -64,7 +64,7 @@ export default function ProductCard({ product }) {
           <img
             src={imageSrc}
             alt={product.name}
-            className="h-full max-h-40 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
