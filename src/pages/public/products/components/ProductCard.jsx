@@ -54,7 +54,7 @@ export default function ProductCard({ product }) {
       transition-all duration-300 group cursor-pointer"
     >
       {/* Image — fixed height so cards align even without a thumbnail */}
-      <div className="relative flex h-52 shrink-0 items-center justify-center bg-[#F7F9FB] px-4 py-6">
+      <div className="relative flex h-52 shrink-0 items-center justify-center  px-4 py-6">
         <span
           className={`absolute top-0 left-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${product.badgeColor}`}
         >
@@ -64,7 +64,7 @@ export default function ProductCard({ product }) {
           <img
             src={imageSrc}
             alt={product.name}
-            className="h-full max-h-40 w-auto object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+            className="h-full max-h-40 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">

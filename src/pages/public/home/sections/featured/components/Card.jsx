@@ -11,7 +11,7 @@ const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, currency, 
       transition-all duration-300 group cursor-pointer"
     >
       {/* Image */}
-      <div className="relative bg-[#F7F9FB] flex items-center justify-center py-6 sm:px-4 h-52">
+      <div className="relative flex items-center justify-center py-6 sm:px-4 h-52">
         <span
           className={`absolute top-0 left-3 text-white text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-bl-lg rounded-br-lg ${badgeColor}`}
         >
