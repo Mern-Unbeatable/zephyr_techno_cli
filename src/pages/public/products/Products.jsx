@@ -405,7 +405,6 @@ export default function Products() {
   const [searchParams] = useSearchParams();
   const [categoryId, setCategoryId] = useState(null);
   const [seriesId, setSeriesId] = useState(null);
-  const [conditionId, setConditionId] = useState(null);
   const [storageId, setStorageId] = useState(null);
   const [colorId, setColorId] = useState(null);
   const [priceMin, setPriceMin] = useState(0);
@@ -437,16 +436,16 @@ export default function Products() {
   };
 
   const transformProduct = (apiProduct) => {
-    let badge = apiProduct.condition?.name || "NEW";
+    const categoryName = apiProduct.category?.name || "NEW";
+    let badge = String(categoryName).toUpperCase();
     let badgeColor = "bg-custom";
     if (apiProduct.isFeatured) {
-      badge = "FEATURED"; badgeColor = "bg-[#FF6B6B]";
-    } else if (apiProduct.condition?.name === "Excellent") {
-      badge = "EXCELLENT"; badgeColor = "bg-[#1E293B]";
-    } else if (apiProduct.condition?.name === "Good") {
-      badge = "GOOD"; badgeColor = "bg-[#94A3B8]";
-    } else if (apiProduct.condition?.name === "New") {
-      badge = "NEW"; badgeColor = "bg-custom";
+      badge = "FEATURED";
+      badgeColor = "bg-[#FF6B6B]";
+    } else if (/used|old/i.test(categoryName)) {
+      badgeColor = "bg-[#1E293B]";
+    } else if (/seal/i.test(categoryName)) {
+      badgeColor = "bg-[#0F766E]";
     }
     return {
       id: apiProduct.id,
@@ -484,7 +483,6 @@ export default function Products() {
             );
             if (matchedFilter) {
               setCategoryId(matchedFilter.categoryId);
-              setConditionId(matchedFilter.conditionId || null);
               setSelectedFilterKey(matchedFilter.key);
             }
           }
@@ -505,7 +503,6 @@ export default function Products() {
         const params = new URLSearchParams();
         if (categoryId) params.append('categoryId', categoryId);
         if (seriesId) params.append('seriesId', seriesId);
-        if (conditionId) params.append('conditionId', conditionId);
         if (colorId) params.append('colorId', colorId);
         if (storageId) params.append('storageOptionId', storageId);
         if (priceMin > 0) params.append('priceMin', priceMin);
@@ -535,14 +532,13 @@ export default function Products() {
       }
     };
     if (!isLoadingAttributes) fetchProducts();
-  }, [categoryId, seriesId, conditionId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
+  }, [categoryId, seriesId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
 
   const closeFilterPanel = () => setIsFilterOpen(false);
 
   const clearAllFilters = () => {
     setCategoryId(null);
     setSeriesId(null);
-    setConditionId(null);
     setStorageId(null);
     setColorId(null);
     setPriceMin(0);
@@ -555,7 +551,6 @@ export default function Products() {
   const filterProps = {
     categoryId, setCategoryId,
     seriesId, setSeriesId,
-    conditionId, setConditionId,
     storageId, setStorageId,
     colorId, setColorId,
     priceMin, setPriceMin,

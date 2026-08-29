@@ -34,7 +34,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     categoryId: "",
     seriesId: "",
     deviceModelId: "",
-    conditionId: "",
     basePrice: "",
     compareAtPrice: "",
     stockQuantity: "",
@@ -60,15 +59,10 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   const [categories, setCategories] = useState([]);
   const [allSeries, setAllSeries] = useState([]);
   const [allModels, setAllModels] = useState([]);
-  const [conditions, setConditions] = useState([]);
   const [colors, setColors] = useState([]);
   const [storageOptions, setStorageOptions] = useState([]);
   const [storageNameById, setStorageNameById] = useState({});
   const [filteredModels, setFilteredModels] = useState([]);
-
-  // Category-condition business rules
-  const [availableConditions, setAvailableConditions] = useState([]);
-  const [conditionDisabled, setConditionDisabled] = useState(false);
 
   // Fetch all attribute options on mount
   useEffect(() => {
@@ -94,8 +88,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         setCategories(data.categories || []);
         setAllSeries(data.series || []);
         setAllModels(data.models || []);
-        setConditions(data.conditions || []);
-        setAvailableConditions(data.conditions || []);
         setColors(data.colors || []);
         const storages = sortStorageOptionsBySize(data.storageOptions || []);
         setStorageOptions(storages);
@@ -154,38 +146,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     });
   }, [storageOptions, formData.storageOptionIds]);
 
-  // Apply category-condition rules when formData.categoryId is available
-  // Ensure same behavior for add and edit: when category is 'New' condition is disabled
-  useEffect(() => {
-    if (!conditions.length || !formData.categoryId) return;
-    const category = categories.find((cat) => cat.id === formData.categoryId);
-    const categoryName = category?.name?.toLowerCase();
-
-    if (categoryName === "new" || categoryName === "sealed") {
-      // For 'New' / 'Sealed' categories, no condition should be required
-      setAvailableConditions([]);
-      setConditionDisabled(true);
-      updateField("conditionId", "");
-    } else if (categoryName === 'used' || categoryName === 'old') {
-      // For used/old, exclude 'New' and 'Brand New (Sealed)' condition options
-      const usedConditions = conditions.filter(c => {
-          const cName = c.name?.toLowerCase() || '';
-          return cName !== 'new' && cName !== 'brand new (sealed)';
-      });
-      setAvailableConditions(usedConditions);
-      setConditionDisabled(false);
-      // If currently empty, pick the first available used condition
-      if (!formData.conditionId)
-        updateField("conditionId", usedConditions[0]?.id || "");
-    } else {
-      // Default: show all conditions and enable selection
-      setAvailableConditions(conditions);
-      setConditionDisabled(false);
-      if (!formData.conditionId)
-        updateField("conditionId", conditions[0]?.id || "");
-    }
-  }, [conditions, categories, formData.categoryId]);
-
   // Fetch listing data when in edit mode
   useEffect(() => {
     if (isEdit && listingId) {
@@ -239,7 +199,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             categoryId: loadedCategoryId,
             seriesId: listing.series?.id || "",
             deviceModelId: listing.deviceModel?.id || "",
-            conditionId: listing.condition?.id || "",
             basePrice: listing.basePrice || "",
             compareAtPrice: listing.compareAtPrice || "",
             stockQuantity: listing.stockQuantity || "",
@@ -345,31 +304,9 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle category change with business rules
+  // Handle category change
   const handleCategoryChange = (e) => {
-    const selectedCategoryId = e.target.value;
-    updateField("categoryId", selectedCategoryId);
-
-    const category = categories.find((cat) => cat.id === selectedCategoryId);
-    const categoryName = category?.name?.toLowerCase();
-
-    if (categoryName === "new" || categoryName === "sealed") {
-      setAvailableConditions([]);
-      setConditionDisabled(true);
-      updateField("conditionId", "");
-    } else if (categoryName === 'used' || categoryName === 'old') {
-      const usedConditions = conditions.filter(c => {
-          const cName = c.name?.toLowerCase() || '';
-          return cName !== 'new' && cName !== 'brand new (sealed)';
-      });
-      setAvailableConditions(usedConditions);
-      setConditionDisabled(false);
-      updateField("conditionId", usedConditions[0]?.id || "");
-    } else {
-      setAvailableConditions(conditions);
-      setConditionDisabled(false);
-      updateField("conditionId", conditions[0]?.id || "");
-    }
+    updateField("categoryId", e.target.value);
   };
 
   const getStoragePriceInputValue = (storageId) => {
@@ -642,9 +579,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       { key: "categoryId", label: "Category" },
       { key: "seriesId", label: "Series" },
       { key: "deviceModelId", label: "Model" },
-      ...(!conditionDisabled
-        ? [{ key: "conditionId", label: "Condition" }]
-        : []),
     ];
     const missing = required
       .filter((f) => !formData[f.key])
@@ -686,8 +620,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       formDataToSend.append("categoryId", formData.categoryId);
       formDataToSend.append("seriesId", formData.seriesId);
       formDataToSend.append("deviceModelId", formData.deviceModelId);
-      if (formData.conditionId)
-        formDataToSend.append("conditionId", formData.conditionId);
+      // Listings are category-only — clear any legacy condition on save
+      formDataToSend.append("conditionId", "");
       const storageEntries = formData.storageOptionIds.map((storageOptionId) => {
         const compareAt = parseFloat(storageCompareAtPrices[storageOptionId]);
         return {
@@ -896,23 +830,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               disabled={!formData.seriesId}
             />
           </FormField>
-          {!conditionDisabled && (
-            <FormField label="Condition">
-              <SelectInput
-                name="conditionId"
-                value={formData.conditionId}
-                onChange={handleChange}
-                disabled={false}
-                options={[
-                  { value: "", label: "Select Condition" },
-                  ...availableConditions.map((c) => ({
-                    value: c.id,
-                    label: c.name,
-                  })),
-                ]}
-              />
-            </FormField>
-          )}
           {formData.storageOptionIds.length === 0 && (
             <FormField label="Price">
               <NumberInput

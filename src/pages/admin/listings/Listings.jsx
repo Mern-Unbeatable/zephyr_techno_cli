@@ -13,14 +13,13 @@ const Listings = () => {
     const navigate = useNavigate();
     const [listings, setListings] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [conditions, setConditions] = useState([]);
     const [tabs, setTabs] = useState(['All']);
     const [activeTab, setActiveTab] = useState('All');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(false);
 
-    // Fetch all options (categories + conditions) on mount
+    // Fetch categories for tabs (listings are category-only)
     useEffect(() => {
         const token = localStorage.getItem('token');
         fetch(`${API_BASE_URL}/api/admin/attributes/all-options`, {
@@ -30,10 +29,8 @@ const Listings = () => {
             .then((payload) => {
                 if (payload.success) {
                     const cats = payload.data.categories || [];
-                    const conds = payload.data.conditions || [];
                     setCategories(cats);
-                    setConditions(conds);
-                    setTabs(['All', ...cats.filter(c => c.name !== 'Old').map(c => c.name), ...conds.map(c => c.name)]);
+                    setTabs(['All', ...cats.filter(c => c.name !== 'Old').map(c => c.name)]);
                 }
             })
             .catch(() => {});
@@ -43,18 +40,15 @@ const Listings = () => {
         setLoading(true);
         try {
             let categoryId = '';
-            let conditionId = '';
             
             if (tab !== 'All') {
                 const category = categories.find(c => c.name === tab);
-                const condition = conditions.find(c => c.name === tab);
                 if (category) categoryId = category.id;
-                if (condition) conditionId = condition.id;
             }
 
             const token = localStorage.getItem('token');
             const res = await fetch(
-                `${API_BASE_URL}/api/admin/products?page=${page}&limit=6&categoryId=${categoryId}&conditionId=${conditionId}`,
+                `${API_BASE_URL}/api/admin/products?page=${page}&limit=6&categoryId=${categoryId}`,
                 { headers: token ? { Authorization: `Bearer ${token}` } : {} }
             );
             let payload = {};
@@ -68,13 +62,13 @@ const Listings = () => {
         } finally {
             setLoading(false);
         }
-    }, [categories, conditions]);
+    }, [categories]);
 
     useEffect(() => {
-        if (categories.length > 0 || conditions.length > 0 || activeTab === 'All') {
+        if (categories.length > 0 || activeTab === 'All') {
             fetchListings(currentPage, activeTab);
         }
-    }, [currentPage, activeTab, categories, conditions, fetchListings]);
+    }, [currentPage, activeTab, categories, fetchListings]);
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);
@@ -190,7 +184,7 @@ const Listings = () => {
                                 discountedPrice={parseFloat(listing.basePrice) || 0}
                                 stock={listing.stockQuantity > 0 ? 'In Stock' : 'Out of Stock'}
                                 units={`${listing.stockQuantity} Units`}
-                                badge={listing.condition?.name || listing.category?.name || ''}
+                                badge={listing.category?.name || ''}
                                 onEdit={() => navigate(`/dashboard/admin/edit-listing/${listing.id}`)}
                                 onDelete={() => handleDelete(listing)}
                                 onFavorite={() => handleFavorite(listing)}

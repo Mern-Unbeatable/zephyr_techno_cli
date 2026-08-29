@@ -393,7 +393,6 @@ const CustomRadio = ({ label, value, currentValue, onChange, isGroup }) => {
 const Filter = ({
   categoryId, setCategoryId,
   seriesId, setSeriesId,
-  conditionId, setConditionId,
   storageId, setStorageId,
   colorId, setColorId,
   priceMin, setPriceMin,
@@ -405,8 +404,6 @@ const Filter = ({
   onClearAll,
   onApply,
 }) => {
-  const [usedOpen, setUsedOpen] = useState(true);
-
   const apply = () => { if (onApply) onApply(); };
 
   const categoryFilters = attributes?.categoryFilters || [];
@@ -419,12 +416,10 @@ const Filter = ({
   const simpleCategoryFilters = categoryFilters.filter(
     (filter) => filter.key !== "ALL" && filter.key !== "USED",
   );
-  const usedSubItems = usedFilter?.conditions || [];
 
   const selectCategoryFilter = (filter) => {
     setSelectedFilterKey(filter.key);
     setCategoryId(filter.categoryId || null);
-    setConditionId(filter.conditionId || null);
     apply();
   };
 
@@ -446,9 +441,9 @@ const Filter = ({
 
         {!isLoadingAttributes && (
           <>
-            {/* Condition */}
+            {/* Category */}
             {categoryFilters.length > 0 && (
-              <FilterSection title="Condition">
+              <FilterSection title="Category">
                 <div className="flex flex-col gap-3">
 
                   {/* ALL */}
@@ -460,13 +455,12 @@ const Filter = ({
                       onChange={() => {
                         setSelectedFilterKey('ALL');
                         setCategoryId(null);
-                        setConditionId(null);
                         apply();
                       }}
                     />
                   )}
 
-                  {/* Category filters (New, Sealed, etc.) */}
+                  {/* Category filters (New, Sealed, Used, etc.) */}
                   {simpleCategoryFilters.map((filter) => (
                     <CustomRadio
                       key={filter.key}
@@ -477,52 +471,18 @@ const Filter = ({
                     />
                   ))}
 
-                  {/* USED */}
+                  {/* USED — category only, no condition sub-filters */}
                   {usedFilter && (
-                    <div>
-                      <div className="flex items-center justify-between w-full py-1 -my-1">
-                        <CustomRadio
-                          label={usedFilter.name}
-                          value="USED"
-                          isGroup={true}
-                          currentValue={selectedFilterKey}
-                          onChange={() => {
-                            setSelectedFilterKey('USED');
-                            setCategoryId(usedFilter.categoryId || null);
-                            setConditionId(null);
-                            apply();
-                          }}
-                        />
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setUsedOpen(!usedOpen); }}
-                          className="p-1 hover:bg-gray-50 rounded"
-                        >
-                          <svg className={`w-4 h-4 text-[#8A94A6] transition-transform ${usedOpen ? "" : "rotate-180"}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      {/* USED sub-conditions */}
-                      {usedOpen && usedSubItems.length > 0 && (
-                        <div className="flex flex-col gap-3 pl-7 mt-3">
-                          {usedSubItems.map((item) => (
-                            <CustomRadio
-                              key={item.id}
-                              label={item.name}
-                              value={item.id}
-                              currentValue={conditionId}
-                              onChange={(id) => {
-                                setSelectedFilterKey('USED');
-                                setCategoryId(usedFilter.categoryId || null);
-                                setConditionId(id);
-                                apply();
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <CustomRadio
+                      label={usedFilter.name}
+                      value="USED"
+                      currentValue={selectedFilterKey}
+                      onChange={() => {
+                        setSelectedFilterKey('USED');
+                        setCategoryId(usedFilter.categoryId || null);
+                        apply();
+                      }}
+                    />
                   )}
                 </div>
               </FilterSection>
