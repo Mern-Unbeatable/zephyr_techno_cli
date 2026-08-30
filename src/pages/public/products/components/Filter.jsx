@@ -409,9 +409,6 @@ const Filter = ({
 
   const categoryFilters = attributes?.categoryFilters || [];
   const seriesList = attributes?.series || [];
-  const modelsList = (attributes?.models || []).filter(
-    (model) => !seriesId || model.seriesId === seriesId,
-  );
   const storageOptions = sortStorageOptionsBySize(attributes?.storageOptions || []);
   const colorsList = attributes?.colors || [];
 
@@ -499,23 +496,6 @@ const Filter = ({
                   <CustomRadio label="All" value={null} currentValue={seriesId} onChange={() => { setSeriesId(null); setDeviceModelId(null); apply(); }} />
                   {seriesList.map((s) => (
                     <CustomRadio key={s.id} label={s.name} value={s.id} currentValue={seriesId} onChange={(id) => { setSeriesId(id); setDeviceModelId(null); apply(); }} />
-                  ))}
-                </div>
-              </FilterSection>
-            )}
-
-            {modelsList.length > 0 && (
-              <FilterSection title="Model">
-                <div className="flex flex-col gap-3">
-                  <CustomRadio label="All" value={null} currentValue={deviceModelId} onChange={() => { setDeviceModelId(null); apply(); }} />
-                  {modelsList.map((model) => (
-                    <CustomRadio
-                      key={model.id}
-                      label={model.name}
-                      value={model.id}
-                      currentValue={deviceModelId}
-                      onChange={(id) => { setDeviceModelId(id); apply(); }}
-                    />
                   ))}
                 </div>
               </FilterSection>
