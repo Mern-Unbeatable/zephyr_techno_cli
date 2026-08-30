@@ -58,6 +58,8 @@ const Featured = () => {
               oldPrice={item.compareAtPrice}
               currency={'£'}
               images={[item.thumbnail].filter(Boolean)}
+              colors={item.availableColors || []}
+              storageOptions={item.availableStorageOptions || []}
             />
           ))}
         </div>

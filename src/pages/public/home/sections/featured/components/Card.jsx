@@ -1,8 +1,21 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import PriceDisplay from "../../../../../../components/shared/PriceDisplay";
+import { getColorHex, isLightColor } from "../../../../../../utils/color";
+import { formatStorageLabel } from "../../../../../../utils/storageSort";
 
-const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, images }) => {
+const Card = ({
+  id,
+  title,
+  tag,
+  badgeColor,
+  variant,
+  price,
+  oldPrice,
+  images,
+  colors = [],
+  storageOptions = [],
+}) => {
   const imageSrc = images?.find(Boolean) || null;
 
   return (
@@ -10,7 +23,6 @@ const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, images }) 
       to={`/product-details/${id}`}
       className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300"
     >
-      {/* Image — fills card width/height, no gray pad */}
       <div className="relative h-52 w-full shrink-0 overflow-hidden bg-transparent">
         <span
           className={`absolute top-0 left-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${badgeColor}`}
@@ -34,9 +46,44 @@ const Card = ({ id, title, tag, badgeColor, variant, price, oldPrice, images }) 
         <h3 className="line-clamp-2 text-sm font-semibold leading-tight text-gray-900 md:text-base">
           {title}
         </h3>
-        <p className="mt-0.5 line-clamp-1 text-xs text-[#767E97] lg:text-sm">
-          {variant}
-        </p>
+        {variant ? (
+          <p className="mt-0.5 line-clamp-1 text-xs text-[#767E97] lg:text-sm">
+            {variant}
+          </p>
+        ) : null}
+
+        {colors.length > 0 ? (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {colors.map((color) => {
+              const hex = getColorHex(color.name, color.hexCode);
+              return (
+                <span
+                  key={color.id}
+                  title={color.name}
+                  aria-label={color.name}
+                  className={`h-4 w-4 shrink-0 rounded-full border ${
+                    isLightColor(hex) ? "border-gray-300" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              );
+            })}
+          </div>
+        ) : null}
+
+        {storageOptions.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {storageOptions.map((storage) => (
+              <span
+                key={storage.id}
+                className="rounded border border-gray-200 bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-medium text-[#475569]"
+              >
+                {formatStorageLabel(storage.name)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div className="mt-2">
           <PriceDisplay price={price} compareAtPrice={oldPrice} size="md" />
         </div>
