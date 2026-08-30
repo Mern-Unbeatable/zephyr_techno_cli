@@ -948,11 +948,13 @@ import {
 } from "react-icons/fi";
 import RelatedProducts from "./sections/relatedProduct/RelatedProducts";
 import { useCart } from "../../../context/CartContext";
+import { useAuth } from "../../../context/AuthContext";
 import Swal from 'sweetalert2';
 import { getColorHex, isLightColor } from '../../../utils/color';
 import { formatStorageLabel, sortStorageOptionsBySize } from '../../../utils/storageSort';
 import ProductExpressCheckout from './ProductExpressCheckout';
 import ProductPaymentMessaging from './ProductPaymentMessaging';
+import NotifyMeModal from './NotifyMeModal';
 import InfoTooltip from './InfoTooltip';
 import PriceDisplay from '../../../components/shared/PriceDisplay';
 import { checkout } from '../../../utils/cartApi';
@@ -1051,6 +1053,7 @@ function getWalletType() {
 const ProductDetails = () => {
   const { id } = useParams();
   const { addToCart, cartItems } = useCart();
+  const { user } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1064,6 +1067,7 @@ const ProductDetails = () => {
   const [walletType, setWalletType] = useState(() => getWalletType());
   const [startingStripeCheckout, setStartingStripeCheckout] = useState(false);
   const [activeFaq, setActiveFaq] = useState(null);
+  const [notifyModalOpen, setNotifyModalOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -1256,6 +1260,20 @@ const ProductDetails = () => {
     setSelectedColor(colorId);
     setSelectedImage(getImageIndexForColor(product?.images, colorId));
   };
+
+  const hasOutOfStockVariants = useMemo(() => {
+    if (!product) return false;
+    const colors = product.availableColors || [];
+    const storages = product.availableStorageOptions || [];
+    if (!colors.length || !storages.length) return false;
+
+    return colors.some((color) =>
+      storages.some(
+        (storage) =>
+          variantStock(product.availableVariantStocks, color.id, storage.id) <= 0,
+      ),
+    );
+  }, [product]);
 
   if (loading) {
     return (
@@ -1538,7 +1556,7 @@ const ProductDetails = () => {
                         aria-pressed={isSelected}
                         aria-disabled={outOfStock}
                         disabled={outOfStock}
-                      onClick={() => selectColor(c.id)}
+                        onClick={() => selectColor(c.id)}
                         className={`flex flex-col items-center gap-1.5 ${
                           outOfStock ? 'cursor-not-allowed' : ''
                         }`}
@@ -1609,6 +1627,18 @@ const ProductDetails = () => {
                     );
                   })}
                 </div>
+                {hasOutOfStockVariants ? (
+                  <p className="mt-3 text-sm text-gray-600">
+                    Looking for an out-of-stock variant?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setNotifyModalOpen(true)}
+                      className="font-medium text-[#47B5C9] underline underline-offset-2 hover:text-[#349eab] transition-colors"
+                    >
+                      Notify Me
+                    </button>
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -1634,7 +1664,7 @@ const ProductDetails = () => {
               </div>
               <button
                 onClick={handleAddToCart}
-                disabled={addingToCart}
+                disabled={addingToCart || selectedVariantStock === 0}
                 className={`sm:flex-1 bg-[#47B5C9] hover:bg-[#349eab] text-white rounded-sm font-medium text-sm transition-colors h-11 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
                   selectedVariantStock === 0 ? 'opacity-60' : ''
                 }`}
@@ -1854,6 +1884,17 @@ const ProductDetails = () => {
           <RelatedProducts products={product.relatedProducts} />
         )}
       </Container>
+
+      <NotifyMeModal
+        isOpen={notifyModalOpen}
+        onClose={() => setNotifyModalOpen(false)}
+        productId={product.id}
+        productTitle={product.title}
+        colors={product.availableColors || []}
+        storageOptions={product.availableStorageOptions || []}
+        initialEmail={user?.email || ''}
+        variantStocks={product.availableVariantStocks || []}
+      />
     </div>
   );
 };

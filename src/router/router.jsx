@@ -37,6 +37,7 @@ import CheckoutSuccess from "../pages/public/checkout/CheckoutSuccess";
 import CheckoutCancel from "../pages/public/checkout/CheckoutCancel";
 import BusinessQuery from "../pages/admin/businessQuery/BusinessQuery";
 import ContactManagement from "../pages/admin/contactManagement/ContactManagement";
+import StockNotifications from "../pages/admin/stockNotifications/StockNotifications";
 import ForgetCode from "../pages/auth/ForgetCode";
 import Privacy from "../pages/public/privacy-policy/Privacy";
 import Terms from "../pages/public/terms-condition/Terms";
@@ -141,6 +142,7 @@ const router = createBrowserRouter([
       { path: "user-management", element: <UserManagement /> },
       { path: "business-queries", element: <BusinessQuery /> },
       { path: "contact-management", element: <ContactManagement /> },
+      { path: "stock-notifications", element: <StockNotifications /> },
       { path: "settings", element: <Settings /> },
       { path: "profile", element: <AdminProfile /> },
     ],

@@ -11,6 +11,7 @@ import {
     Star,
     LogOut,
     Mail,
+    Bell,
 } from 'lucide-react';
 import logo from '../assets/logo.webp';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +35,7 @@ const ADMIN_NAV_ITEMS = [
     { label: 'User Management', icon: Users, path: '/dashboard/admin/user-management' },
     { label: 'Business Queries', icon: Star, path: '/dashboard/admin/business-queries' },
     { label: 'Contact Management', icon: Mail, path: '/dashboard/admin/contact-management' },
+    { label: 'Stock Notifications', icon: Bell, path: '/dashboard/admin/stock-notifications' },
     { label: 'Settings', icon: Settings, path: '/dashboard/admin/settings' },
     { label: 'Profile', icon: User, path: '/dashboard/admin/profile' },
 ];
