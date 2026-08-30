@@ -931,7 +931,7 @@
 
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useSearchParams } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Container from "../../../layout/Container";
 import {
@@ -1052,6 +1052,7 @@ function getWalletType() {
 
 const ProductDetails = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const { addToCart, cartItems } = useCart();
   const { user } = useAuth();
   const [product, setProduct] = useState(null);
@@ -1079,6 +1080,9 @@ const ProductDetails = () => {
     if (!id) return;
     setLoading(true);
     setError(null);
+    const urlColorId = searchParams.get('colorId');
+    const urlStorageId = searchParams.get('storageOptionId');
+
     fetch(`${BASE_URL}/api/public/product/${id}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to load product");
@@ -1089,21 +1093,41 @@ const ProductDetails = () => {
         const sortedStorages = sortStorageOptionsBySize(
           data.availableStorageOptions || [],
         );
-        const firstInStock = pickFirstInStockVariant(
-          data.availableColors || [],
-          sortedStorages,
-          data.availableVariantStocks || [],
-        );
-        const firstColorId = firstInStock.colorId ?? data.availableColors?.[0]?.id ?? null;
-        const firstStorageId = firstInStock.storageId ?? sortedStorages[0]?.id ?? null;
+        const colors = data.availableColors || [];
+        const stocks = data.availableVariantStocks || [];
+
+        const urlColorValid = urlColorId && colors.some((c) => c.id === urlColorId);
+        const urlStorageValid =
+          urlStorageId && sortedStorages.some((s) => s.id === urlStorageId);
+
+        let nextColorId = null;
+        let nextStorageId = null;
+
+        if (urlColorValid && urlStorageValid) {
+          nextColorId = urlColorId;
+          nextStorageId = urlStorageId;
+        } else {
+          const firstInStock = pickFirstInStockVariant(colors, sortedStorages, stocks);
+          nextColorId =
+            (urlColorValid ? urlColorId : null) ??
+            firstInStock.colorId ??
+            colors[0]?.id ??
+            null;
+          nextStorageId =
+            (urlStorageValid ? urlStorageId : null) ??
+            firstInStock.storageId ??
+            sortedStorages[0]?.id ??
+            null;
+        }
+
         setProduct({ ...data, availableStorageOptions: sortedStorages });
-        setSelectedColor(firstColorId);
-        setSelectedStorage(firstStorageId);
-        setSelectedImage(getImageIndexForColor(data.images, firstColorId));
+        setSelectedColor(nextColorId);
+        setSelectedStorage(nextStorageId);
+        setSelectedImage(getImageIndexForColor(data.images, nextColorId));
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, searchParams]);
 
   const allImages = useMemo(() => sortImages(product?.images), [product]);
 
@@ -1187,6 +1211,16 @@ const ProductDetails = () => {
     () => product?.availableColors?.find((color) => color.id === selectedColor)?.name || '',
     [product, selectedColor],
   );
+
+  const selectedExpressDeliveryEnabled = useMemo(() => {
+    if (!selectedColor || !selectedStorage) return true;
+    const cell = product?.availableVariantStocks?.find(
+      (row) =>
+        row.colorId === selectedColor &&
+        row.storageOptionId === selectedStorage,
+    );
+    return cell?.expressDeliveryEnabled !== false;
+  }, [product, selectedColor, selectedStorage]);
 
   const selectedStorageName = useMemo(() => {
     const raw =
@@ -1687,6 +1721,7 @@ const ProductDetails = () => {
                   amount={selectedStoragePrice * quantity}
                   disabled={addingToCart || startingStripeCheckout || selectedVariantStock === 0}
                   walletType={walletType}
+                  expressDeliveryEnabled={selectedExpressDeliveryEnabled}
                 />
               </div>
             <button

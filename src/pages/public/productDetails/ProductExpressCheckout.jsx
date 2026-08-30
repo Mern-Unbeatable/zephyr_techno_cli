@@ -41,6 +41,16 @@ const PR_SHIPPING_OPTIONS = [
   },
 ];
 
+function shippingRatesForVariant(expressDeliveryEnabled = true) {
+  if (expressDeliveryEnabled) return WALLET_SHIPPING_RATES;
+  return [STANDARD_SHIPPING];
+}
+
+function paymentRequestOptionsForVariant(expressDeliveryEnabled = true) {
+  if (expressDeliveryEnabled) return PR_SHIPPING_OPTIONS;
+  return PR_SHIPPING_OPTIONS.filter((option) => option.id !== 'express');
+}
+
 function shippingFromWalletRate(rate) {
   const amountPence = Number(rate?.amount || 0);
   const isExpress = rate?.id === 'express' || amountPence >= 1500;
@@ -104,6 +114,7 @@ function WalletCheckoutForm({
   disabled,
   walletType,
   onAvailabilityChange,
+  expressDeliveryEnabled = true,
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -113,6 +124,14 @@ function WalletCheckoutForm({
   const [walletRequest, setWalletRequest] = useState(null);
   const isApple = walletType === 'apple';
   const isGoogle = walletType === 'google';
+  const walletShippingRates = useMemo(
+    () => shippingRatesForVariant(expressDeliveryEnabled),
+    [expressDeliveryEnabled],
+  );
+  const paymentRequestShippingOptions = useMemo(
+    () => paymentRequestOptionsForVariant(expressDeliveryEnabled),
+    [expressDeliveryEnabled],
+  );
 
   useEffect(() => {
     if (!elements || !amountPence) return;
@@ -126,8 +145,11 @@ function WalletCheckoutForm({
         colorId,
         storageOptionId,
         quantity,
-        shippingMethod: shippingCost >= 15 ? 'Express Delivery' : 'Standard Delivery',
-        shippingCost,
+        shippingMethod:
+          !expressDeliveryEnabled || shippingCost < 15
+            ? 'Standard Delivery'
+            : 'Express Delivery',
+        shippingCost: expressDeliveryEnabled ? shippingCost : 0,
         shippingAddress,
         guestEmail,
         paymentMethodTypes: ['card'],
@@ -135,7 +157,7 @@ function WalletCheckoutForm({
         console.error('[Express checkout] Failed to start payment intent', error);
         return null;
       }),
-    [productId, colorId, storageOptionId, quantity],
+    [productId, colorId, storageOptionId, quantity, expressDeliveryEnabled],
   );
 
   useEffect(() => {
@@ -150,7 +172,7 @@ function WalletCheckoutForm({
     const onShippingAddressChange = (ev) => {
       ev.updateWith({
         status: 'success',
-        shippingOptions: PR_SHIPPING_OPTIONS,
+        shippingOptions: paymentRequestShippingOptions,
         total: { label: 'Zephyr Technology', amount: amountPence },
       });
     };
@@ -228,7 +250,7 @@ function WalletCheckoutForm({
         requestPayerEmail: true,
         requestPayerPhone: true,
         ...(withShipping
-          ? { requestShipping: true, shippingOptions: PR_SHIPPING_OPTIONS }
+          ? { requestShipping: true, shippingOptions: paymentRequestShippingOptions }
           : {}),
       });
       pr.on('shippingaddresschange', onShippingAddressChange);
@@ -295,7 +317,7 @@ function WalletCheckoutForm({
         phoneNumberRequired: false,
         billingAddressRequired: false,
         shippingAddressRequired: true,
-        shippingRates: WALLET_SHIPPING_RATES,
+        shippingRates: walletShippingRates,
         allowedShippingCountries: ['GB'],
       });
     },
@@ -385,7 +407,7 @@ function WalletCheckoutForm({
     (event) => {
       event.resolve({
         lineItems: lineItemsFor(amountPence, 0),
-        shippingRates: WALLET_SHIPPING_RATES,
+        shippingRates: walletShippingRates,
       });
     },
     [amountPence],
@@ -733,6 +755,7 @@ export default function ProductExpressCheckout({
   disabled,
   walletType,
   onAvailabilityChange,
+  expressDeliveryEnabled = true,
 }) {
   const [stripePromise, setStripePromise] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -786,6 +809,11 @@ export default function ProductExpressCheckout({
 
   return (
     <div className="space-y-3">
+      {!expressDeliveryEnabled ? (
+        <p className="text-xs text-gray-500">
+          Express Delivery is not available for this colour / storage. Standard Delivery only.
+        </p>
+      ) : null}
       {walletType === 'apple' || walletType === 'google' ? (
         <Elements stripe={stripePromise} options={walletElementsOptions}>
           <WalletCheckoutForm
@@ -797,6 +825,7 @@ export default function ProductExpressCheckout({
             disabled={disabled}
             walletType={walletType}
             onAvailabilityChange={onAvailabilityChange}
+            expressDeliveryEnabled={expressDeliveryEnabled}
           />
         </Elements>
       ) : null}

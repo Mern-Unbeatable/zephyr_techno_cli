@@ -15,12 +15,27 @@ const Card = ({
   images,
   colors = [],
   storageOptions = [],
+  colorId,
+  storageOptionId,
+  inStock,
+  stockQuantity,
 }) => {
   const imageSrc = images?.find(Boolean) || null;
+  const params = new URLSearchParams();
+  if (colorId) params.set("colorId", colorId);
+  if (storageOptionId) params.set("storageOptionId", storageOptionId);
+  const query = params.toString();
+  const to = query ? `/product-details/${id}?${query}` : `/product-details/${id}`;
+
+  const showStockBadge = typeof inStock === "boolean" || stockQuantity != null;
+  const isInStock =
+    typeof inStock === "boolean"
+      ? inStock
+      : Math.max(0, Number(stockQuantity) || 0) > 0;
 
   return (
     <Link
-      to={`/product-details/${id}`}
+      to={to}
       className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300"
     >
       <div className="relative h-52 w-full shrink-0 overflow-hidden bg-transparent">
@@ -29,6 +44,15 @@ const Card = ({
         >
           {tag}
         </span>
+        {showStockBadge ? (
+          <span
+            className={`absolute top-0 right-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${
+              isInStock ? "bg-emerald-500" : "bg-gray-500"
+            }`}
+          >
+            {isInStock ? "In stock" : "Out of stock"}
+          </span>
+        ) : null}
         {imageSrc ? (
           <img
             src={imageSrc}

@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Container from "../../../../../layout/Container";
 import { Link } from "react-router-dom";
 import Card from "./components/Card";
+import { expandProductsToVariantCards } from "../../../../../utils/variantPreviewCards";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -24,6 +25,11 @@ const Featured = () => {
     return () => { mounted = false };
   }, []);
 
+  const cards = useMemo(
+    () => expandProductsToVariantCards(data, { maxPerProduct: 4, inStockFirst: true }),
+    [data],
+  );
+
   return (
     <Container>
       <div className="py-10 w-full">
@@ -44,22 +50,26 @@ const Featured = () => {
           </div>
         </div>
 
-        {/* cards */}
+        {/* cards — one tile per colour × storage preview */}
         <div className="mt-10 w-full grid grid-cols-1 min-[350px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-4">
-          {data?.map((item) => (
+          {cards.map((item) => (
             <Card
-              key={item.id}
+              key={item.cardKey}
               id={item.id}
               title={item.title}
-              tag={item.category?.name}
-              badgeColor={item.isFeatured ? 'bg-cyan-500' : 'bg-gray-400'}
-              variant={item.deviceModel?.name}
-              price={item.basePrice}
-              oldPrice={item.compareAtPrice}
+              tag={item.tag}
+              badgeColor={item.badgeColor}
+              variant={item.variant}
+              price={item.price}
+              oldPrice={item.oldPrice}
               currency={'£'}
-              images={[item.thumbnail].filter(Boolean)}
-              colors={item.availableColors || []}
-              storageOptions={item.availableStorageOptions || []}
+              images={item.images}
+              colors={item.colors}
+              storageOptions={item.storageOptions}
+              colorId={item.colorId}
+              storageOptionId={item.storageOptionId}
+              inStock={item.inStock}
+              stockQuantity={item.stockQuantity}
             />
           ))}
         </div>

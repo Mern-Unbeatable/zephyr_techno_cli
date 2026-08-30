@@ -51,6 +51,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   const [storagePrices, setStoragePrices] = useState({});
   const [storageCompareAtPrices, setStorageCompareAtPrices] = useState({});
   const [variantStocks, setVariantStocks] = useState({});
+  const [variantExpress, setVariantExpress] = useState({});
   const [colorImages, setColorImages] = useState({});
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [deletingImageId, setDeletingImageId] = useState(null);
@@ -223,11 +224,13 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           setStoragePrices(nextStoragePrices);
           setStorageCompareAtPrices(nextStorageCompareAt);
           const nextVariantStocks = {};
+          const nextVariantExpress = {};
           (listing.availableVariantStocks || []).forEach((row) => {
             if (!row?.colorId || !row?.storageOptionId) return;
             const key = `${row.colorId}::${row.storageOptionId}`;
             nextVariantStocks[key] =
               Number(row.stockQuantity) > 0 ? String(row.stockQuantity) : "";
+            nextVariantExpress[key] = row.expressDeliveryEnabled !== false;
           });
           // Fallback: if matrix empty, seed from flat color/storage stocks
           if (
@@ -249,11 +252,19 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                       );
                 nextVariantStocks[`${color.id}::${storage.id}`] =
                   cell > 0 ? String(cell) : "";
+                nextVariantExpress[`${color.id}::${storage.id}`] = true;
               });
             });
           }
           setVariantStocks(nextVariantStocks);
-          if (listing.faqs?.length) setFaqs(listing.faqs);
+          setVariantExpress(nextVariantExpress);
+          if (listing.faqs?.length) {
+            setFaqs(
+              [...listing.faqs].sort(
+                (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
+              ),
+            );
+          }
           if (listing.specifications?.length)
             setSpecifications(listing.specifications);
           if (listing.includedItems?.length)
@@ -354,6 +365,21 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     }));
   };
 
+  const handleVariantExpressChange = (colorId, storageId, enabled) => {
+    setVariantExpress((prev) => ({
+      ...prev,
+      [variantStockKey(colorId, storageId)]: enabled,
+    }));
+  };
+
+  const isVariantExpressEnabled = (colorId, storageId) => {
+    const key = variantStockKey(colorId, storageId);
+    if (Object.prototype.hasOwnProperty.call(variantExpress, key)) {
+      return Boolean(variantExpress[key]);
+    }
+    return true;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     updateField(name, value);
@@ -450,6 +476,18 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
 
   const handleRemoveFaq = (index) => {
     setFaqs((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveFaq = (index, direction) => {
+    setFaqs((prev) => {
+      const next = [...prev];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      const tmp = next[index];
+      next[index] = next[target];
+      next[target] = tmp;
+      return next;
+    });
   };
 
   const addFaq = () => setFaqs([...faqs, { question: "", answer: "" }]);
@@ -653,6 +691,10 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                 variantStocks[`${colorId}::${storageOptionId}`],
                 10,
               ) || 0,
+            expressDeliveryEnabled: isVariantExpressEnabled(
+              colorId,
+              storageOptionId,
+            ),
           });
         });
       });
@@ -666,7 +708,16 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         "storageOptionIds",
         JSON.stringify(formData.storageOptionIds),
       );
-      formDataToSend.append("faqs", JSON.stringify(faqs));
+      formDataToSend.append(
+        "faqs",
+        JSON.stringify(
+          faqs.map((faq, index) => ({
+            question: faq.question,
+            answer: faq.answer,
+            displayOrder: index,
+          })),
+        ),
+      );
       formDataToSend.append("specifications", JSON.stringify(specifications));
       formDataToSend.append(
         "includedItems",
@@ -958,6 +1009,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               </p>
               <p className="text-xs text-gray-500 mb-3">
                 Each cell is stock for that exact color and storage combination.
+                Tick <strong>Express</strong> only when that variant is ready to ship immediately.
               </p>
               <table className="min-w-full text-sm border-collapse">
                 <thead>
@@ -988,13 +1040,13 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                       .filter(Boolean),
                   ).map(({ id: storageId, name: storageName }) => (
                     <tr key={storageId}>
-                      <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100">
+                      <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100 align-top">
                         {storageName}
                       </td>
                       {formData.colorIds.map((colorId) => (
                         <td
                           key={`${colorId}-${storageId}`}
-                          className="p-2 border-b border-gray-100 min-w-[5.5rem]"
+                          className="p-2 border-b border-gray-100 min-w-[6.5rem] align-top"
                         >
                           <NumberInput
                             name={`variant-stock-${colorId}-${storageId}`}
@@ -1011,6 +1063,21 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                               )
                             }
                           />
+                          <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-600">
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                              checked={isVariantExpressEnabled(colorId, storageId)}
+                              onChange={(e) =>
+                                handleVariantExpressChange(
+                                  colorId,
+                                  storageId,
+                                  e.target.checked,
+                                )
+                              }
+                            />
+                            Express
+                          </label>
                         </td>
                       ))}
                     </tr>
@@ -1041,9 +1108,12 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               key={index}
               index={index}
               faq={faq}
+              total={faqs.length}
               onQuestionChange={handleFaqQuestionChange}
               onAnswerChange={handleFaqAnswerChange}
               onRemove={handleRemoveFaq}
+              onMoveUp={() => moveFaq(index, -1)}
+              onMoveDown={() => moveFaq(index, 1)}
             />
           ))}
           <button
