@@ -2,12 +2,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import Container from "../../../../../layout/Container";
 import { Link } from "react-router-dom";
 import Card from "./components/Card";
+import Pagination from "../../../products/components/Pagination";
 import { expandProductsToVariantCards } from "../../../../../utils/variantPreviewCards";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
+const PAGE_SIZE = 12;
 
 const Featured = () => {
   const [data, setData] = useState([]);
+  const [page, setPage] = useState(1);
+
   useEffect(() => {
     let mounted = true;
     const fetchFeatured = async () => {
@@ -16,7 +20,10 @@ const Featured = () => {
         const payload = await res.json();
         if (!res.ok || payload.success === false) throw new Error(payload.message || 'Failed to load featured products');
         const items = payload.data?.items || [];
-        if (mounted) setData(items);
+        if (mounted) {
+          setData(items);
+          setPage(1);
+        }
       } catch (err) {
         console.error('Failed to load featured products', err);
       }
@@ -26,8 +33,19 @@ const Featured = () => {
   }, []);
 
   const cards = useMemo(
-    () => expandProductsToVariantCards(data, { maxPerProduct: 4, inStockFirst: true }),
+    () =>
+      expandProductsToVariantCards(data, {
+        maxPerProduct: Infinity,
+        inStockFirst: true,
+      }),
     [data],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(cards.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedCards = cards.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
   );
 
   return (
@@ -50,9 +68,8 @@ const Featured = () => {
           </div>
         </div>
 
-        {/* cards — one tile per colour × storage preview */}
         <div className="mt-10 w-full grid grid-cols-1 min-[350px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 md:gap-4">
-          {cards.map((item) => (
+          {pagedCards.map((item) => (
             <Card
               key={item.cardKey}
               id={item.id}
@@ -73,6 +90,14 @@ const Featured = () => {
             />
           ))}
         </div>
+
+        {cards.length > PAGE_SIZE && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        )}
       </div>
     </Container>
   );
