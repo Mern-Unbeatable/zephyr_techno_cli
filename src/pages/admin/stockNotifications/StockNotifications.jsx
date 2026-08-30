@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
-import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -67,20 +66,23 @@ const StockNotifications = () => {
   }, [page, statusFilter, fetchRows]);
 
   return (
-    <div className="p-4 md:p-6">
-      <AdminDashboardTitle
-        title="Stock Notifications"
-        subtitle="Customers waiting to be notified when a variant is back in stock."
-      />
+    <div>
+      <h1 className="text-[#050609] text-3xl lg:text-[35px] font-semibold">
+        Stock Notifications
+      </h1>
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <p className="mt-1 text-sm md:text-base text-[#464646]">
+        Customers waiting to be notified when a variant is back in stock.
+      </p>
+
+      <div className="mb-4 mt-4 flex justify-end">
         <select
           value={statusFilter}
           onChange={(e) => {
             setPage(1);
             setStatusFilter(e.target.value);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700"
         >
           <option value="">All statuses</option>
           <option value="PENDING">Pending</option>
