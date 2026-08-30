@@ -405,6 +405,7 @@ export default function Products() {
   const [searchParams] = useSearchParams();
   const [categoryId, setCategoryId] = useState(null);
   const [seriesId, setSeriesId] = useState(null);
+  const [deviceModelId, setDeviceModelId] = useState(null);
   const [storageId, setStorageId] = useState(null);
   const [colorId, setColorId] = useState(null);
   const [priceMin, setPriceMin] = useState(0);
@@ -475,17 +476,6 @@ export default function Products() {
         const data = await response.json();
         if (data.success && data.data) {
           setAttributes(data.data);
-          // Apply filter from URL query param after attributes load
-          const filterParam = searchParams.get('filter');
-          if (filterParam) {
-            const matchedFilter = (data.data.categoryFilters || []).find(
-              (filter) => filter.key === filterParam.toUpperCase(),
-            );
-            if (matchedFilter) {
-              setCategoryId(matchedFilter.categoryId);
-              setSelectedFilterKey(matchedFilter.key);
-            }
-          }
         }
       } catch (error) {
         console.error('Error fetching product attributes:', error);
@@ -497,12 +487,48 @@ export default function Products() {
   }, []);
 
   useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    const searchParam = searchParams.get('search') || '';
+    const seriesParam = searchParams.get('seriesId');
+    const modelParam = searchParams.get('deviceModelId');
+    const colorParam = searchParams.get('colorId');
+    const storageParam = searchParams.get('storageOptionId');
+    const pageParam = Number(searchParams.get('page')) || 1;
+
+    setSearch(searchParam);
+    setSeriesId(seriesParam || null);
+    setDeviceModelId(modelParam || null);
+    setColorId(colorParam || null);
+    setStorageId(storageParam || null);
+    setPage(pageParam);
+
+    if (!attributes) return;
+
+    if (filterParam) {
+      const matchedFilter = (attributes.categoryFilters || []).find(
+        (filter) => filter.key === filterParam.toUpperCase(),
+      );
+      if (matchedFilter) {
+        setCategoryId(matchedFilter.categoryId);
+        setSelectedFilterKey(matchedFilter.key);
+        return;
+      }
+    }
+
+    if (!filterParam && !searchParam && !seriesParam && !modelParam && !colorParam && !storageParam) {
+      setCategoryId(null);
+      setSelectedFilterKey('ALL');
+    }
+  }, [searchParams, attributes]);
+
+  useEffect(() => {
     const fetchProducts = async () => {
       try {
         setIsLoadingProducts(true);
         const params = new URLSearchParams();
         if (categoryId) params.append('categoryId', categoryId);
         if (seriesId) params.append('seriesId', seriesId);
+        if (deviceModelId) params.append('deviceModelId', deviceModelId);
         if (colorId) params.append('colorId', colorId);
         if (storageId) params.append('storageOptionId', storageId);
         if (priceMin > 0) params.append('priceMin', priceMin);
@@ -532,13 +558,14 @@ export default function Products() {
       }
     };
     if (!isLoadingAttributes) fetchProducts();
-  }, [categoryId, seriesId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
+  }, [categoryId, seriesId, deviceModelId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
 
   const closeFilterPanel = () => setIsFilterOpen(false);
 
   const clearAllFilters = () => {
     setCategoryId(null);
     setSeriesId(null);
+    setDeviceModelId(null);
     setStorageId(null);
     setColorId(null);
     setPriceMin(0);
@@ -551,6 +578,7 @@ export default function Products() {
   const filterProps = {
     categoryId, setCategoryId,
     seriesId, setSeriesId,
+    deviceModelId, setDeviceModelId,
     storageId, setStorageId,
     colorId, setColorId,
     priceMin, setPriceMin,

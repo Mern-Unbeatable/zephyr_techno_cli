@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { FiShoppingCart, FiX, FiMenu, FiLogOut, FiUser } from "react-icons/fi";
+import { FiShoppingCart, FiX, FiMenu, FiLogOut, FiUser, FiSearch } from "react-icons/fi";
 import logo from "../assets/logo.webp";
 import Container from "./Container";
+import GlobalSearch from "../components/GlobalSearch";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { getRoles } from "../utils/roles";
 
 const Navbar = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
   const location = useLocation();
@@ -57,10 +59,9 @@ const Navbar = () => {
   return (
     <>
       <Container>
-        <div className="navbar px-0!">
+        <div className="relative flex items-center justify-between gap-3 py-3">
           {/* LEFT — hamburger + logo */}
-          <div className="navbar-start flex items-center gap-4 lg:gap-0">
-            {/* Mobile hamburger */}
+          <div className="z-10 flex shrink-0 items-center gap-3">
             <button
               type="button"
               className="btn btn-ghost btn-circle lg:hidden"
@@ -70,8 +71,7 @@ const Navbar = () => {
               <FiMenu size={22} />
             </button>
 
-            {/* Logo */}
-            <Link to="/" className="cursor-pointer">
+            <Link to="/" className="shrink-0 cursor-pointer">
               <img
                 src={logo}
                 alt="Logo"
@@ -80,14 +80,14 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* CENTER — desktop nav */}
-          <div className="navbar-center hidden lg:flex">
-            <ul className="menu menu-horizontal gap-1 px-1">
+          {/* CENTER — desktop nav (truly centered) */}
+          <nav className="pointer-events-none absolute inset-x-0 hidden justify-center lg:flex">
+            <ul className="pointer-events-auto flex items-center gap-x-1">
               {navLinks.map(({ to, label }) => (
                 <li key={to}>
                   <Link
                     to={to}
-                    className={`nav-link text-gray-700 hover:text-custom hover:bg-transparent rounded-none ${
+                    className={`nav-link whitespace-nowrap text-gray-700 hover:text-custom hover:bg-transparent rounded-none px-2 py-1 ${
                       isActive(to) ? "nav-link-active" : ""
                     }`}
                   >
@@ -96,16 +96,26 @@ const Navbar = () => {
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          {/* RIGHT — sell + cart; profile is desktop-only (mobile uses sidebar) */}
-          <div className="navbar-end gap-2 lg:gap-3 ml-5">
+          {/* RIGHT — search + sell + cart; profile is desktop-only (mobile uses sidebar) */}
+          <div className="z-10 flex shrink-0 items-center gap-2 lg:gap-3">
+            <div className="hidden w-52 lg:block">
+              <GlobalSearch className="w-full" />
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-circle lg:hidden"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Open search"
+            >
+              <FiSearch size={20} />
+            </button>
             <Link
               to="/sell"
-              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 flex"
+              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 flex whitespace-nowrap"
             >
-              <span className="sm:hidden">Sell Your Phone</span>
-              <span className="hidden sm:inline">Sell Your Phone</span>
+              Sell Your Phone
             </Link>
             <Link
               to="/cart"
@@ -179,6 +189,10 @@ const Navbar = () => {
             )}
           </div>
         </div>
+
+        {searchOpen ? (
+          <GlobalSearch mobile onClose={() => setSearchOpen(false)} />
+        ) : null}
 
         {/* Backdrop */}
         <div
