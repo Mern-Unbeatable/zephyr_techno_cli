@@ -574,6 +574,11 @@ export default function Products() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const closeFilterPanel = () => setIsFilterOpen(false);
 
   const clearAllFilters = () => {
@@ -694,7 +699,7 @@ export default function Products() {
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
-                  onPageChange={setPage}
+                  onPageChange={handlePageChange}
                 />
               )}
             </div>
