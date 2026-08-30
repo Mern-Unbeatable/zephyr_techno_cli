@@ -13,6 +13,7 @@ import {
 import { Link } from "react-router";
 import { useCart } from "../../../context/CartContext";
 import { checkout } from "../../../utils/cartApi";
+import { formatStorageLabel } from "../../../utils/storageSort";
 import Swal from 'sweetalert2';
 
 const Cart = () => {
@@ -143,7 +144,7 @@ const Cart = () => {
                             ""}
                           {(item.selectedOptions?.storage?.name ??
                           item.selectedOptions?.storage)
-                            ? ` / ${item.selectedOptions?.storage?.name ?? item.selectedOptions?.storage}`
+                            ? ` / ${formatStorageLabel(item.selectedOptions?.storage?.name ?? item.selectedOptions?.storage)}`
                             : ""}
                         </p>
                         <div className="mt-5 flex items-center border border-gray-300 rounded-sm px-2 py-1 w-fit">

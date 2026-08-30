@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Package, Truck } from "lucide-react";
 import Swal from 'sweetalert2';
 import Container from "../../../layout/Container";
+import { formatStorageLabel } from "../../../utils/storageSort";
 
 const STORAGE_KEY = 'sellFlow';
 
@@ -132,7 +133,7 @@ const FinalizeSale = () => {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-[#171C1E]">
-                    {[flow?.deviceName, flow?.storageName].filter(Boolean).join(' ')}
+                    {[flow?.deviceName, flow?.storageName ? formatStorageLabel(flow.storageName) : null].filter(Boolean).join(' ')}
                   </p>
                   {flow?.conditionName && (
                     <p className="text-xs text-[#6D797C] mt-0.5">{flow.conditionName}</p>

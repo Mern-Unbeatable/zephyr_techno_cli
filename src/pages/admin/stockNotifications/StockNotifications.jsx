@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
+import { formatStorageLabel } from '../../../utils/storageSort';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -126,7 +127,7 @@ const StockNotifications = () => {
                   </td>
                   <td className="px-4 py-3 text-gray-700">{row.email}</td>
                   <td className="px-4 py-3 text-gray-700">{row.color?.name || '—'}</td>
-                  <td className="px-4 py-3 text-gray-700">{row.storage?.name || '—'}</td>
+                  <td className="px-4 py-3 text-gray-700">{formatStorageLabel(row.storage?.name) || '—'}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${

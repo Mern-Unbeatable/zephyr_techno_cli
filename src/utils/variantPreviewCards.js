@@ -8,7 +8,12 @@ const MAX_CARDS_PER_PRODUCT = 4;
  */
 export function expandProductToVariantCards(
   product,
-  { maxPerProduct = MAX_CARDS_PER_PRODUCT, inStockFirst = true } = {},
+  {
+    maxPerProduct = MAX_CARDS_PER_PRODUCT,
+    inStockFirst = true,
+    colorId = null,
+    storageOptionId = null,
+  } = {},
 ) {
   if (!product?.id) return [];
 
@@ -43,6 +48,24 @@ export function expandProductToVariantCards(
     }
   }
 
+  if (colorId) {
+    pairs = pairs.filter((pair) => pair.colorId === colorId);
+  }
+  if (storageOptionId) {
+    pairs = pairs.filter((pair) => pair.storageOptionId === storageOptionId);
+  }
+
+  if (!pairs.length && !colorId && !storageOptionId) {
+    pairs = [
+      {
+        colorId: colors[0]?.id || null,
+        storageOptionId: storages[0]?.id || null,
+        stockQuantity: Math.max(0, Number(product.stockQuantity) || 0),
+        expressDeliveryEnabled: true,
+      },
+    ];
+  }
+
   if (inStockFirst) {
     pairs.sort((a, b) => {
       const aIn = a.stockQuantity > 0 ? 0 : 1;
@@ -51,7 +74,10 @@ export function expandProductToVariantCards(
     });
   }
 
-  const limited = pairs.slice(0, Math.max(1, maxPerProduct));
+  const limited =
+    maxPerProduct == null || !Number.isFinite(maxPerProduct)
+      ? pairs
+      : pairs.slice(0, Math.max(1, maxPerProduct));
 
   return limited.map((pair) => {
     const color = colorById.get(pair.colorId);

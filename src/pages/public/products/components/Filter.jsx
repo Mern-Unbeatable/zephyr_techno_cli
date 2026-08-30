@@ -359,7 +359,7 @@
 
 import React, { useState } from "react";
 import { getColorHex, isLightColor } from "../../../../utils/color";
-import { sortStorageOptionsBySize } from "../../../../utils/storageSort";
+import { sortStorageOptionsBySize, formatStorageLabel } from "../../../../utils/storageSort";
 
 function FilterSection({ title, children }) {
   const [open, setOpen] = useState(true);
@@ -535,7 +535,7 @@ const Filter = ({
                   {storageOptions.map((s) => (
                     <button key={s.id} onClick={() => { setStorageId(storageId === s.id ? null : s.id); apply(); }}
                       className={`py-1.5 rounded-lg text-[14px] leading-5 font-medium border transition-all ${storageId === s.id ? "bg-custom border-custom text-white" : "bg-white border-gray-200 text-gray-600 hover:border-custom"}`}>
-                      {s.name}
+                      {formatStorageLabel(s.name)}
                     </button>
                   ))}
                 </div>

@@ -21,7 +21,7 @@ import {
   INITIAL_FORM,
   INITIAL_FAQS,
 } from "./constants";
-import { sortStorageOptionsBySize } from "../../../utils/storageSort";
+import { sortStorageOptionsBySize, formatStorageLabel } from "../../../utils/storageSort";
 
 const API_BASE_URL =
   import.meta.env.VITE_BASE_URL ||
@@ -944,7 +944,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                     onChange={() => handleMultiToggle("storageOptionIds", s.id)}
                     className="accent-teal-600"
                   />
-                  <span className="text-base text-gray-700">{s.name}</span>
+                  <span className="text-base text-gray-700">{formatStorageLabel(s.name)}</span>
                 </label>
               ))}
               {storageOptions.length === 0 && (
@@ -975,7 +975,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                       className="grid grid-cols-1 sm:grid-cols-[7rem_1fr_1fr] items-center gap-3"
                     >
                       <span className="text-sm text-gray-600 shrink-0">
-                        {storageName}
+                        {formatStorageLabel(storageName)}
                       </span>
                       <NumberInput
                         name={`storage-price-${storageId}`}
@@ -1041,7 +1041,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                   ).map(({ id: storageId, name: storageName }) => (
                     <tr key={storageId}>
                       <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100 align-top">
-                        {storageName}
+                        {formatStorageLabel(storageName)}
                       </td>
                       {formData.colorIds.map((colorId) => (
                         <td

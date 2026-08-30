@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Search, Package, Clock, CheckCircle, XCircle, Eye } from "lucide-react";
 import Container from "../../../layout/Container";
 import { useAuth } from "../../../context/AuthContext";
+import { formatStorageLabel } from "../../../utils/storageSort";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || "https://api.zephyrtechnology.co.uk";
 
@@ -146,7 +147,7 @@ const TrackRequest = () => {
                           </p>
                           {req.storageOptionName && (
                             <span className="text-sm text-[#6D797C]">
-                              {req.storageOptionName}
+                              {formatStorageLabel(req.storageOptionName)}
                             </span>
                           )}
                         </div>

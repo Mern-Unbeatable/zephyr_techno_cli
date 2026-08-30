@@ -288,7 +288,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ShieldCheck } from "lucide-react";
 import Container from "../../../layout/Container";
 import { Link } from "react-router";
-import { sortStorageOptionsBySize } from "../../../utils/storageSort";
+import { sortStorageOptionsBySize, formatStorageLabel } from "../../../utils/storageSort";
 
 const STORAGE_KEY = "sellFlow";
 
@@ -375,7 +375,7 @@ const SellWorth = () => {
       deviceModelId: selectedModel.id,
       deviceName: selectedModel.name,
       storageOptionId: selectedStorage.id,
-      storageName: selectedStorage.name,
+      storageName: formatStorageLabel(selectedStorage.name),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -597,7 +597,7 @@ const SellWorth = () => {
                           : "border-[#BDC9CC] bg-white text-[#171C1E] hover:border-custom"
                       }`}
                     >
-                      {storage.name}
+                      {formatStorageLabel(storage.name)}
                     </button>
                   );
                 })}

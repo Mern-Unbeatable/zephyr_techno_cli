@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Swal from 'sweetalert2';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
+import { formatStorageLabel } from '../../../utils/storageSort';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -226,7 +227,7 @@ const CellPhoneMange = () => {
                                         <div className="mt-0.5 text-xs text-gray-500">{request.email}</div>
                                     </td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{request.deviceModelName || '—'}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-700">{request.storageOptionName || '—'}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-700">{formatStorageLabel(request.storageOptionName) || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">{request.conditionName || '—'}</td>
                                     <td className="px-6 py-4 text-sm text-gray-700">
                                         {/* <span className="text-gray-400 line-through text-xs mr-1">£{request.baseOfferPrice}</span> */}
@@ -363,7 +364,7 @@ const CellPhoneMange = () => {
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Storage</p>
-                                    <p className="mt-0.5">{selectedRequest.storageOptionName || '—'}</p>
+                                    <p className="mt-0.5">{formatStorageLabel(selectedRequest.storageOptionName) || '—'}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs font-semibold uppercase text-gray-400">Condition</p>

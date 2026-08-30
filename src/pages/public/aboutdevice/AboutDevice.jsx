@@ -10,6 +10,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Container from "../../../layout/Container";
+import { formatStorageLabel } from "../../../utils/storageSort";
 
 const conditions = [
   {
@@ -231,7 +232,7 @@ const AboutDevice = () => {
                 </h2>
                 {device?.storageName && (
                   <p className="text-sm font-medium text-[#3D494C] mt-1">
-                    {device.storageName}
+                    {formatStorageLabel(device.storageName)}
                   </p>
                 )}
               </div>

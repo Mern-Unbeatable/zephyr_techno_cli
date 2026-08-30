@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { formatStorageLabel } from '../../../utils/storageSort';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -212,7 +213,7 @@ const NotifyMeModal = ({
                   >
                     {storageOptions.map((storage) => (
                       <option key={storage.id} value={storage.id}>
-                        {storage.name}
+                        {formatStorageLabel(storage.name)}
                         {colorId && isVariantOutOfStock(colorId, storage.id)
                           ? ' (out of stock)'
                           : ''}

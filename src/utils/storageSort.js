@@ -21,7 +21,10 @@ export function storageSizeInGb(name) {
  * - TB → "1TB"
  */
 export function formatStorageLabel(name) {
-  const raw = String(name ?? "").trim();
+  const raw = String(name ?? "")
+    .trim()
+    // Remove spaces between number and unit: "256 GB" → "256GB"
+    .replace(/(\d)\s+(gb|tb|mb)\b/gi, "$1$2");
   if (!raw || raw === "—") return raw;
 
   const match = raw.match(/^(\d+(?:\.\d+)?)\s*((?:tb|gb|mb)*)\s*$/i);

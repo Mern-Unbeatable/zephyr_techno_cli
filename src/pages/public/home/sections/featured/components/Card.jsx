@@ -1,6 +1,8 @@
-import React from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import Swal from "sweetalert2";
 import PriceDisplay from "../../../../../../components/shared/PriceDisplay";
+import { useCart } from "../../../../../../context/CartContext";
 import { getColorHex, isLightColor } from "../../../../../../utils/color";
 import { formatStorageLabel } from "../../../../../../utils/storageSort";
 
@@ -20,6 +22,8 @@ const Card = ({
   inStock,
   stockQuantity,
 }) => {
+  const { addToCart } = useCart();
+  const [status, setStatus] = useState("idle");
   const imageSrc = images?.find(Boolean) || null;
   const params = new URLSearchParams();
   if (colorId) params.set("colorId", colorId);
@@ -32,6 +36,42 @@ const Card = ({
     typeof inStock === "boolean"
       ? inStock
       : Math.max(0, Number(stockQuantity) || 0) > 0;
+
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isInStock || status === "loading") return;
+    setStatus("loading");
+    try {
+      const result = await addToCart({
+        productId: id,
+        quantity: 1,
+        ...(colorId && { colorId }),
+        ...(storageOptionId && { storageOptionId }),
+      });
+      if (result?.success) {
+        setStatus("added");
+      } else {
+        setStatus("error");
+        await Swal.fire({
+          icon: "warning",
+          title: "Unable to add to cart",
+          text: result?.message || "This item may be out of stock.",
+          confirmButtonColor: "#47B5C9",
+        });
+      }
+    } catch {
+      setStatus("error");
+      await Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "Something went wrong. Please try again.",
+        confirmButtonColor: "#47B5C9",
+      });
+    } finally {
+      setTimeout(() => setStatus("idle"), 2200);
+    }
+  };
 
   return (
     <Link
@@ -110,6 +150,33 @@ const Card = ({
 
         <div className="mt-2">
           <PriceDisplay price={price} compareAtPrice={oldPrice} size="md" />
+        </div>
+
+        <div className="mt-auto pt-3">
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={!isInStock || status === "loading"}
+            className={`w-full cursor-pointer rounded-lg py-2 text-sm font-medium text-white transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:opacity-70 ${
+              !isInStock
+                ? "bg-gray-400"
+                : status === "added"
+                  ? "bg-green-500"
+                  : status === "error"
+                    ? "bg-red-400"
+                    : "bg-custom"
+            }`}
+          >
+            {!isInStock
+              ? "Out of Stock"
+              : status === "loading"
+                ? "..."
+                : status === "added"
+                  ? "✓ Added!"
+                  : status === "error"
+                    ? "Try Again"
+                    : "Add to Cart"}
+          </button>
         </div>
       </div>
     </Link>

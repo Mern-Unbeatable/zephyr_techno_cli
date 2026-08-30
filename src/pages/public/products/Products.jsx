@@ -391,15 +391,18 @@
 
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import Container from "../../../layout/Container";
 import ProductCard from "./components/ProductCard";
 import Filter from "./components/Filter";
 import Pagination from "./components/Pagination";
 import EmptyState from "./components/EmptyState";
+import { expandProductsToVariantCards } from "../../../utils/variantPreviewCards";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
+const PAGE_SIZE = 15;
+const FETCH_LIMIT = 100;
 
 export default function Products() {
   const [searchParams] = useSearchParams();
@@ -413,7 +416,6 @@ export default function Products() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("");
   const [page, setPage] = useState(1);
-  const [limit] = useState(24);
 
   // ── NEW: track which main filter key is selected (ALL / NEW / USED)
   const [selectedFilterKey, setSelectedFilterKey] = useState('ALL');
@@ -436,7 +438,7 @@ export default function Products() {
     }
   };
 
-  const transformProduct = (apiProduct) => {
+  const getProductBadge = (apiProduct) => {
     const categoryName = apiProduct.category?.name || "NEW";
     let badge = String(categoryName).toUpperCase();
     let badgeColor = "bg-custom";
@@ -448,23 +450,7 @@ export default function Products() {
     } else if (/seal/i.test(categoryName)) {
       badgeColor = "bg-[#0F766E]";
     }
-    return {
-      id: apiProduct.id,
-      badge,
-      badgeColor,
-      name: apiProduct.title,
-      storage: apiProduct.series?.name || "",
-      color: apiProduct.category?.name || "",
-      price: parseFloat(apiProduct.basePrice),
-      oldPrice:
-        apiProduct.compareAtPrice &&
-        Number(apiProduct.compareAtPrice) > Number(apiProduct.basePrice)
-          ? parseFloat(apiProduct.compareAtPrice)
-          : null,
-      images: apiProduct.thumbnail ? [apiProduct.thumbnail] : [],
-      colorIds: apiProduct.colorIds || [],
-      storageOptionIds: apiProduct.storageOptionIds || [],
-    };
+    return { badge, badgeColor };
   };
 
   useEffect(() => {
@@ -534,8 +520,8 @@ export default function Products() {
         if (priceMin > 0) params.append('priceMin', priceMin);
         if (priceMax < 2000) params.append('priceMax', priceMax);
         if (search) params.append('search', search);
-        if (page) params.append('page', page);
-        if (limit) params.append('limit', limit);
+        params.append('page', '1');
+        params.append('limit', String(FETCH_LIMIT));
         const sortValue = getSortByValue(sortBy);
         if (sortValue) params.append('sortBy', sortValue);
 
@@ -543,7 +529,7 @@ export default function Products() {
         if (!response.ok) throw new Error('Failed to fetch products');
         const data = await response.json();
         if (data.success && data.data) {
-          setProducts((data.data.items || []).map(transformProduct));
+          setProducts(data.data.items || []);
           setMeta(data.data.meta || { total: 0, page: 1, limit: 24, totalPages: 0 });
         } else {
           setProducts([]);
@@ -558,7 +544,35 @@ export default function Products() {
       }
     };
     if (!isLoadingAttributes) fetchProducts();
-  }, [categoryId, seriesId, deviceModelId, colorId, storageId, priceMin, priceMax, search, page, limit, sortBy, isLoadingAttributes]);
+  }, [categoryId, seriesId, deviceModelId, colorId, storageId, priceMin, priceMax, search, sortBy, isLoadingAttributes]);
+
+  const variantCards = useMemo(() => {
+    const badgeById = new Map(
+      products.map((product) => [product.id, getProductBadge(product)]),
+    );
+    return expandProductsToVariantCards(products, {
+      maxPerProduct: Infinity,
+      inStockFirst: true,
+      colorId,
+      storageOptionId: storageId,
+    }).map((card) => {
+      const badge = badgeById.get(card.id);
+      return badge
+        ? { ...card, badge: badge.badge, badgeColor: badge.badgeColor }
+        : card;
+    });
+  }, [products, colorId, storageId]);
+
+  const totalPages = Math.max(1, Math.ceil(variantCards.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedCards = variantCards.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const closeFilterPanel = () => setIsFilterOpen(false);
 
@@ -622,14 +636,14 @@ export default function Products() {
                   </select>
                 </div>
                 <span className="block text-xs text-[#64748B]">
-                  Showing <strong className="text-gray-700">{products.length}</strong> of{" "}
-                  <strong className="text-gray-700">{meta.total}</strong> products
+                  Showing <strong className="text-gray-700">{pagedCards.length}</strong> of{" "}
+                  <strong className="text-gray-700">{variantCards.length}</strong> products
                 </span>
               </div>
               <div className="hidden lg:flex items-center gap-3">
                 <span className="text-sm text-[#64748B]">
-                  Showing <strong className="text-gray-700">{products.length}</strong> of{" "}
-                  <strong className="text-gray-700">{meta.total}</strong> products
+                  Showing <strong className="text-gray-700">{pagedCards.length}</strong> of{" "}
+                  <strong className="text-gray-700">{variantCards.length}</strong> products
                 </span>
                 <select
                   value={sortBy}
@@ -659,7 +673,7 @@ export default function Products() {
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-            <div className="hidden lg:block">
+            <div className="hidden lg:block lg:self-start lg:sticky lg:top-20">
               <Filter {...filterProps} />
             </div>
             <div className="flex-1">
@@ -667,15 +681,21 @@ export default function Products() {
                 <div className="flex items-center justify-center py-20">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-custom"></div>
                 </div>
-              ) : products.length === 0 ? (
+              ) : variantCards.length === 0 ? (
                 <EmptyState />
               ) : (
                 <div className="grid grid-cols-1 min-[350px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 lg:gap-4">
-                  {products.map((p) => <ProductCard key={p.id} product={p} />)}
+                  {pagedCards.map((p) => (
+                    <ProductCard key={p.cardKey} product={p} />
+                  ))}
                 </div>
               )}
-              {!isLoadingProducts && products.length > 0 && meta.totalPages > 1 && (
-                <Pagination currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+              {!isLoadingProducts && variantCards.length > PAGE_SIZE && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
               )}
             </div>
           </div>

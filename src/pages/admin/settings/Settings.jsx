@@ -891,8 +891,8 @@ const Settings = () => {
 
             if (!res.ok) {
                 const label = entry.storageName && entry.conditionName
-                    ? `${entry.storageName} / ${entry.conditionName}`
-                    : entry.storageName || 'entry';
+                    ? `${formatStorageLabel(entry.storageName)} / ${entry.conditionName}`
+                    : formatStorageLabel(entry.storageName) || 'entry';
                 throw new Error(
                     await readApiErrorMessage(
                         res,
