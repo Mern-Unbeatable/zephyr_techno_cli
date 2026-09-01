@@ -450,6 +450,28 @@ const Filter = ({
 
         {!isLoadingAttributes && (
           <>
+            {/* Availability */}
+            <FilterSection title="Availability">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative flex items-center">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={inStockOnly}
+                    onChange={(e) => {
+                      setInStockOnly(e.target.checked);
+                      apply();
+                    }}
+                  />
+                  <div className={`w-10 h-5.5 rounded-full transition-colors ${inStockOnly ? 'bg-custom' : 'bg-gray-200'}`}></div>
+                  <div className={`absolute left-0.5 top-0.5 w-4.5 h-4.5 bg-white rounded-full transition-transform shadow-sm ${inStockOnly ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                </div>
+                <span className="text-[14px] text-[#4A5565] font-medium select-none">
+                  In Stock Only
+                </span>
+              </label>
+            </FilterSection>
+
             {/* Category */}
             {categoryFilters.length > 0 && (
               <FilterSection title="Category">
@@ -521,27 +543,6 @@ const Filter = ({
               </FilterSection>
             )}
 
-            {/* Availability */}
-            <FilterSection title="Availability">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={inStockOnly}
-                    onChange={(e) => {
-                      setInStockOnly(e.target.checked);
-                      apply();
-                    }}
-                  />
-                  <div className={`w-10 h-5.5 rounded-full transition-colors ${inStockOnly ? 'bg-custom' : 'bg-gray-200'}`}></div>
-                  <div className={`absolute left-0.5 top-0.5 w-4.5 h-4.5 bg-white rounded-full transition-transform shadow-sm ${inStockOnly ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
-                </div>
-                <span className="text-[14px] text-[#4A5565] font-medium select-none">
-                  In Stock Only
-                </span>
-              </label>
-            </FilterSection>
 
             {/* Price Range */}
             <FilterSection title="Price Range">

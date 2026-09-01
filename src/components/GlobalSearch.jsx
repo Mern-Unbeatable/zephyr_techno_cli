@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { FiSearch, FiX } from 'react-icons/fi';
+import { expandProductsToVariantCards } from '../utils/variantPreviewCards';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
@@ -8,8 +9,9 @@ const normalize = (value) => String(value || '').toLowerCase().trim();
 
 const matchesQuery = (name, query) => {
   const q = normalize(query);
-  if (!q) return false;
-  return normalize(name).includes(q);
+  const n = normalize(name);
+  if (!q || !n) return false;
+  return n.includes(q) || q.includes(n);
 };
 
 const formatPrice = (value) => {
@@ -219,23 +221,38 @@ const GlobalSearch = ({ className = '', mobile = false, onClose }) => {
 
       {!loading && products.length > 0 ? (
         <ul>
-          {products.map((item) => {
-            const price = formatPrice(item.basePrice);
-            const meta = [item.deviceModel?.name || item.series?.name, price]
-              .filter(Boolean)
-              .join(' · ');
+          {(() => {
+            const allCards = expandProductsToVariantCards(products, { maxPerProduct: Infinity });
+            const terms = normalize(query).split(/\s+/).filter(Boolean);
+            const filteredCards = allCards.filter(card => {
+              const text = `${card.title} ${card.variant}`.toLowerCase();
+              return terms.every(term => text.includes(term));
+            });
+
+            if (filteredCards.length === 0) {
+              return <p className="px-3 py-3 text-sm text-gray-500">No specific variants match your search</p>;
+            }
+
+            return filteredCards.slice(0, 20).map((card) => {
+            const price = formatPrice(card.price);
+            const meta = [card.variant, price].filter(Boolean).join(' · ');
+            const queryParams = new URLSearchParams();
+            if (card.colorId) queryParams.set('colorId', card.colorId);
+            if (card.storageOptionId) queryParams.set('storageOptionId', card.storageOptionId);
+            const qs = queryParams.toString();
+            const url = qs ? `/product-details/${card.id}?${qs}` : `/product-details/${card.id}`;
 
             return (
-              <li key={item.id}>
+              <li key={card.cardKey}>
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => goTo(`/product-details/${item.id}`)}
+                  onClick={() => goTo(url)}
                   className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 relative"
                 >
-                  {item.thumbnail ? (
+                  {card.images?.[0] ? (
                     <img
-                      src={item.thumbnail}
+                      src={card.images[0]}
                       alt=""
                       className="h-10 w-10 shrink-0 rounded-md object-cover bg-gray-100"
                     />
@@ -244,10 +261,10 @@ const GlobalSearch = ({ className = '', mobile = false, onClose }) => {
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
-                      {(item.title?.includes('256GB') || (item.availableStorageOptions || []).some(s => s.name?.includes('256GB'))) ? (
-                        <span className="shrink-0 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
-                          BEST SELLER
+                      <p className="truncate text-sm font-medium text-gray-900">{card.title}</p>
+                      {card.badge ? (
+                        <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${card.badgeColor}`}>
+                          {card.badge}
                         </span>
                       ) : null}
                     </div>
@@ -258,7 +275,8 @@ const GlobalSearch = ({ className = '', mobile = false, onClose }) => {
                 </button>
               </li>
             );
-          })}
+            });
+          })()}
         </ul>
       ) : null}
 

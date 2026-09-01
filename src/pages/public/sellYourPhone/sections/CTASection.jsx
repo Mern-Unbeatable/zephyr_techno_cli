@@ -15,7 +15,7 @@ const CTASection = () => {
             Get started with a fast online quote today.
           </p>
           <Link
-            to={"/sell-your-phone"}
+            to={"/sell-worth"}
             className="mt-2 flex items-center bg-custom py-3 px-6 sm:py-3.5 sm:px-8 gap-2.5 rounded-lg border-0 cursor-pointer hover:brightness-110 transition-all duration-300 hover:scale-105"
           >
             <Smartphone className="w-5 h-5 text-white" />

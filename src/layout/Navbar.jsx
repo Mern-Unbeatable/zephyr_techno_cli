@@ -113,9 +113,9 @@ const Navbar = () => {
             </button>
             <Link
               to="/sell"
-              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 hidden sm:flex whitespace-nowrap"
+              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 flex whitespace-nowrap"
             >
-              Sell Your Phone
+              Sell<span className="hidden sm:inline">&nbsp;Your Phone</span>
             </Link>
             <Link
               to="/cart"
