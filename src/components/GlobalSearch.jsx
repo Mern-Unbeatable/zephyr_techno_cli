@@ -231,7 +231,7 @@ const GlobalSearch = ({ className = '', mobile = false, onClose }) => {
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => goTo(`/product-details/${item.id}`)}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50"
+                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 relative"
                 >
                   {item.thumbnail ? (
                     <img
@@ -243,7 +243,14 @@ const GlobalSearch = ({ className = '', mobile = false, onClose }) => {
                     <div className="h-10 w-10 shrink-0 rounded-md bg-gray-100" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                      {(item.title?.includes('256GB') || (item.availableStorageOptions || []).some(s => s.name?.includes('256GB'))) ? (
+                        <span className="shrink-0 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-bold text-orange-600">
+                          BEST SELLER
+                        </span>
+                      ) : null}
+                    </div>
                     {meta ? (
                       <p className="truncate text-xs text-gray-500">{meta}</p>
                     ) : null}

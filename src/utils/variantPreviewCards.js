@@ -93,12 +93,17 @@ export function expandProductToVariantCards(
         ? storage.compareAtPrice
         : product.compareAtPrice;
 
+    const is256GB = storageLabel === '256GB' || storage?.name?.includes('256GB');
+    const badgeText = is256GB ? 'BEST SELLER' : null;
+    const badgeColor = is256GB ? 'bg-orange-500' : 'bg-transparent';
+
     return {
       id: product.id,
       cardKey: `${product.id}-${pair.colorId}-${pair.storageOptionId}`,
       title: product.title,
-      tag: product.category?.name,
-      badgeColor: product.isFeatured ? 'bg-cyan-500' : 'bg-gray-400',
+      tag: badgeText,
+      badge: badgeText,
+      badgeColor: badgeColor,
       variant: [colorName, storageLabel].filter(Boolean).join(' · '),
       price,
       oldPrice,

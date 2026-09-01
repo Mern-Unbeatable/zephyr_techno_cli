@@ -113,7 +113,7 @@ const Navbar = () => {
             </button>
             <Link
               to="/sell"
-              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 flex whitespace-nowrap"
+              className="btn-custom border-none text-sm font-medium px-3 sm:px-4 hidden sm:flex whitespace-nowrap"
             >
               Sell Your Phone
             </Link>
@@ -216,14 +216,27 @@ const Navbar = () => {
                 className="h-6 w-auto object-contain"
               />
             </Link>
-            <button
-              type="button"
-              className="btn btn-ghost btn-circle btn-sm"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close menu"
-            >
-              <FiX size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                className="btn btn-ghost btn-circle btn-sm"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  setSearchOpen(true);
+                }}
+                aria-label="Open search"
+              >
+                <FiSearch size={20} />
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-circle btn-sm"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close menu"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
           </div>
 
           <ul className="flex flex-col px-4 py-6 gap-1 flex-1">

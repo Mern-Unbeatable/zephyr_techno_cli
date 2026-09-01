@@ -420,6 +420,7 @@ export default function Products() {
   // ── NEW: track which main filter key is selected (ALL / NEW / USED)
   const [selectedFilterKey, setSelectedFilterKey] = useState('ALL');
 
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [attributes, setAttributes] = useState(null);
   const [isLoadingAttributes, setIsLoadingAttributes] = useState(true);
@@ -438,20 +439,7 @@ export default function Products() {
     }
   };
 
-  const getProductBadge = (apiProduct) => {
-    const categoryName = apiProduct.category?.name || "NEW";
-    let badge = String(categoryName).toUpperCase();
-    let badgeColor = "bg-custom";
-    if (apiProduct.isFeatured) {
-      badge = "FEATURED";
-      badgeColor = "bg-[#FF6B6B]";
-    } else if (/used|old/i.test(categoryName)) {
-      badgeColor = "bg-[#1E293B]";
-    } else if (/seal/i.test(categoryName)) {
-      badgeColor = "bg-[#0F766E]";
-    }
-    return { badge, badgeColor };
-  };
+
 
   useEffect(() => {
     const fetchAttributes = async () => {
@@ -547,21 +535,13 @@ export default function Products() {
   }, [categoryId, seriesId, deviceModelId, colorId, storageId, priceMin, priceMax, search, sortBy, isLoadingAttributes]);
 
   const variantCards = useMemo(() => {
-    const badgeById = new Map(
-      products.map((product) => [product.id, getProductBadge(product)]),
-    );
     return expandProductsToVariantCards(products, {
       maxPerProduct: Infinity,
       inStockFirst: true,
       colorId,
       storageOptionId: storageId,
-    }).map((card) => {
-      const badge = badgeById.get(card.id);
-      return badge
-        ? { ...card, badge: badge.badge, badgeColor: badge.badgeColor }
-        : card;
-    });
-  }, [products, colorId, storageId]);
+    }).filter(card => !inStockOnly || card.inStock);
+  }, [products, colorId, storageId, inStockOnly]);
 
   const totalPages = Math.max(1, Math.ceil(variantCards.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -591,6 +571,7 @@ export default function Products() {
     setPriceMax(2000);
     setSearch("");
     setPage(1);
+    setInStockOnly(false);
     setSelectedFilterKey('ALL'); // ── reset key
   };
 
@@ -604,8 +585,10 @@ export default function Products() {
     priceMax, setPriceMax,
     attributes,
     isLoadingAttributes,
-    selectedFilterKey,       // ── pass down
-    setSelectedFilterKey,    // ── pass down
+    selectedFilterKey,
+    setSelectedFilterKey,
+    inStockOnly,
+    setInStockOnly,
     onClearAll: clearAllFilters,
   };
 

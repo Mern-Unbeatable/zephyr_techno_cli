@@ -79,11 +79,13 @@ const Card = ({
       className="group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white transition-all duration-300"
     >
       <div className="relative h-52 w-full shrink-0 overflow-hidden bg-transparent">
-        <span
-          className={`absolute top-0 left-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${badgeColor}`}
-        >
-          {tag}
-        </span>
+        {tag ? (
+          <span
+            className={`absolute top-0 left-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${badgeColor}`}
+          >
+            {tag}
+          </span>
+        ) : null}
         {showStockBadge ? (
           <span
             className={`absolute top-0 right-3 z-10 rounded-bl-lg rounded-br-lg px-2 py-0.5 text-[10px] font-bold tracking-wider text-white ${

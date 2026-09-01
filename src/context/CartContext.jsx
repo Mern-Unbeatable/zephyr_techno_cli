@@ -9,6 +9,13 @@ import {
 
 const CartContext = createContext(null);
 
+const formatStockError = (message) => {
+  if (!message) return message;
+  return message.replace(/only (\d+) items in stock/i, (match, num) => {
+    return num === '1' ? 'Only 1 Item In Stock' : `Only ${num} Items In Stock`;
+  });
+};
+
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [subtotal, setSubtotal] = useState(0);
@@ -37,13 +44,21 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = useCallback(async (params) => {
     const data = await apiAddToCart(params);
-    if (data.success) await fetchCart();
+    if (data.success) {
+      await fetchCart();
+    } else if (data.message) {
+      data.message = formatStockError(data.message);
+    }
     return data;
   }, [fetchCart]);
 
   const updateCartItem = useCallback(async (cartItemId, quantity) => {
     const data = await apiUpdateCartItem(cartItemId, quantity);
-    if (data.success) await fetchCart();
+    if (data.success) {
+      await fetchCart();
+    } else if (data.message) {
+      data.message = formatStockError(data.message);
+    }
     return data;
   }, [fetchCart]);
 

@@ -402,6 +402,8 @@ const Filter = ({
   isLoadingAttributes,
   selectedFilterKey,       // ── 'ALL' | 'NEW' | 'USED'
   setSelectedFilterKey,    // ── setter
+  inStockOnly,
+  setInStockOnly,
   onClearAll,
   onApply,
 }) => {
@@ -409,6 +411,12 @@ const Filter = ({
 
   const categoryFilters = attributes?.categoryFilters || [];
   const seriesList = attributes?.series || [];
+  const modelsList = [...(attributes?.models || [])].sort((a, b) => {
+    const aIsIphone = a.name?.toLowerCase().includes("iphone") ? -1 : 1;
+    const bIsIphone = b.name?.toLowerCase().includes("iphone") ? -1 : 1;
+    if (aIsIphone !== bIsIphone) return aIsIphone - bIsIphone;
+    return (a.name || "").localeCompare(b.name || "", undefined, { numeric: true });
+  });
   const storageOptions = sortStorageOptionsBySize(attributes?.storageOptions || []);
   const colorsList = attributes?.colors || [];
 
@@ -501,6 +509,40 @@ const Filter = ({
               </FilterSection>
             )}
 
+            {/* Models */}
+            {modelsList.length > 0 && (
+              <FilterSection title="Models">
+                <div className="flex flex-col gap-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  <CustomRadio label="All" value={null} currentValue={deviceModelId} onChange={() => { setDeviceModelId(null); apply(); }} />
+                  {modelsList.map((m) => (
+                    <CustomRadio key={m.id} label={m.name} value={m.id} currentValue={deviceModelId} onChange={(id) => { setDeviceModelId(id); apply(); }} />
+                  ))}
+                </div>
+              </FilterSection>
+            )}
+
+            {/* Availability */}
+            <FilterSection title="Availability">
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className="relative flex items-center">
+                  <input
+                    type="checkbox"
+                    className="sr-only"
+                    checked={inStockOnly}
+                    onChange={(e) => {
+                      setInStockOnly(e.target.checked);
+                      apply();
+                    }}
+                  />
+                  <div className={`w-10 h-5.5 rounded-full transition-colors ${inStockOnly ? 'bg-custom' : 'bg-gray-200'}`}></div>
+                  <div className={`absolute left-0.5 top-0.5 w-4.5 h-4.5 bg-white rounded-full transition-transform shadow-sm ${inStockOnly ? 'translate-x-4.5' : 'translate-x-0'}`}></div>
+                </div>
+                <span className="text-[14px] text-[#4A5565] font-medium select-none">
+                  In Stock Only
+                </span>
+              </label>
+            </FilterSection>
+
             {/* Price Range */}
             <FilterSection title="Price Range">
               <input type="range" min={0} max={2000} step={50} value={priceMax}
@@ -541,6 +583,7 @@ const Filter = ({
                 </div>
               </FilterSection>
             )}
+
 
             {/* Color */}
             {colorsList.length > 0 && (

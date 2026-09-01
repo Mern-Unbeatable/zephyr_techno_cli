@@ -179,7 +179,7 @@ const Contact = () => {
                         pattern="[0-9()+\\-\\s]*"
                         value={form.phone}
                         onChange={handleChange}
-                        placeholder="+1 (555) 000-0000"
+                        placeholder="+44 7911 123456"
                         className="w-full border border-[#BDC9CC] rounded px-4 py-2.5 text-sm text-[#151A2A] bg-white focus:outline-none focus:ring-2 focus:ring-cyan-300 transition-shadow"
                       />
                     </div>
