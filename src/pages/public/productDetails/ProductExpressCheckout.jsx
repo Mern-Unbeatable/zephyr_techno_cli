@@ -8,8 +8,6 @@ import React, {
 import { useNavigate } from "react-router";
 import {
   Elements,
-  ExpressCheckoutElement,
-  PaymentElement,
   PaymentRequestButtonElement,
   useElements,
   useStripe,
@@ -136,11 +134,9 @@ function WalletCheckoutForm({
   const elements = useElements();
   const navigate = useNavigate();
   const payLock = useRef(false);
-  const pendingIntent = useRef(null);
   const [walletRequest, setWalletRequest] = useState(null);
   const isApple = walletType === "apple";
   const isGoogle = walletType === "google";
-  const isPayPal = walletType === "paypal";
   const walletShippingRates = useMemo(
     () => shippingRatesForVariant(expressDeliveryEnabled),
     [expressDeliveryEnabled],
@@ -332,179 +328,6 @@ function WalletCheckoutForm({
     stripe,
   ]);
 
-  const handleClick = useCallback(
-    (event) => {
-      pendingIntent.current = createIntent({ shippingCost: 0 });
-      event.resolve({
-        lineItems: lineItemsFor(amountPence, 0),
-        emailRequired: true,
-        phoneNumberRequired: true,
-        billingAddressRequired: true,
-        shippingAddressRequired: true,
-        shippingRates: walletShippingRates,
-        allowedShippingCountries: ["GB"],
-      });
-    },
-    [amountPence, createIntent],
-  );
-
-  const handleConfirm = useCallback(
-    async (event) => {
-      if (!stripe || !elements || payLock.current || disabled) {
-        event.paymentFailed({ reason: "fail" });
-        return;
-      }
-
-      payLock.current = true;
-      try {
-        const shipping = shippingFromWalletRate(event.shippingRate);
-        const shippingCost = shipping.shippingCost;
-
-        const intentPromise =
-          pendingIntent.current ||
-          createIntent({
-            shippingCost,
-            shippingAddress: mapWalletAddressToOrder(event),
-            guestEmail: event.billingDetails?.email || null,
-          });
-        pendingIntent.current = null;
-
-        const { error: submitError } = await elements.submit();
-        if (submitError) {
-          event.paymentFailed({ reason: "fail" });
-          return;
-        }
-
-        const intent = await intentPromise;
-        if (!intent?.success || !intent.data?.clientSecret) {
-          event.paymentFailed({ reason: "fail" });
-          return;
-        }
-
-        const { clientSecret, paymentIntentId } = intent.data;
-        sessionStorage.setItem("stripePaymentIntentId", paymentIntentId);
-
-        const { error, paymentIntent } = await stripe.confirmPayment({
-          elements,
-          clientSecret,
-          confirmParams: {
-            return_url: `${window.location.origin}/checkout/success`,
-          },
-        });
-
-        if (error) {
-          event.paymentFailed({ reason: "fail" });
-          return;
-        }
-
-        if (
-          paymentIntent?.status === "processing" ||
-          paymentIntent?.status === "requires_action" ||
-          !paymentIntent
-        ) {
-          return;
-        }
-
-        if (
-          paymentIntent.status !== "succeeded" &&
-          paymentIntent.status !== "requires_capture"
-        ) {
-          event.paymentFailed({ reason: "fail" });
-          return;
-        }
-
-        const result = await confirmExpressPayment(paymentIntentId);
-        if (!result?.success) {
-          event.paymentFailed({ reason: "fail" });
-          return;
-        }
-
-        navigate("/checkout/success", { state: { order: result.data } });
-      } catch (error) {
-        console.error("[Express checkout] confirm failed", error);
-        event.paymentFailed({ reason: "fail" });
-      } finally {
-        payLock.current = false;
-      }
-    },
-    [createIntent, disabled, elements, navigate, stripe],
-  );
-
-  const handleShippingAddressChange = useCallback(
-    (event) => {
-      event.resolve({
-        lineItems: lineItemsFor(amountPence, 0),
-        shippingRates: walletShippingRates,
-      });
-    },
-    [amountPence],
-  );
-
-  const handleShippingRateChange = useCallback(
-    (event) => {
-      event.resolve({
-        lineItems: lineItemsFor(
-          amountPence,
-          Number(event.shippingRate?.amount || 0),
-        ),
-      });
-    },
-    [amountPence],
-  );
-
-  const handleCancel = useCallback(() => {
-    pendingIntent.current = null;
-    payLock.current = false;
-  }, []);
-
-  const walletAvailable = useCallback(
-    (methods) => {
-      if (!methods) return;
-      const appleOn = Boolean(methods.applePay?.available ?? methods.applePay);
-      const googleOn = Boolean(
-        methods.googlePay?.available ?? methods.googlePay,
-      );
-      onAvailabilityChange?.(appleOn || googleOn);
-    },
-    [onAvailabilityChange],
-  );
-
-  const expressOptions = useMemo(
-    () => ({
-      emailRequired: true,
-      phoneNumberRequired: true,
-      billingAddressRequired: true,
-      shippingAddressRequired: true,
-      lineItems: lineItemsFor(amountPence, 0),
-      paymentMethodOrder: isApple
-        ? ["apple_pay"]
-        : isGoogle
-          ? ["google_pay"]
-          : ["paypal"],
-      paymentMethods: {
-        applePay: isApple ? "always" : "never",
-        googlePay: isGoogle ? "always" : "never",
-        paypal: "never",
-        klarna: "never",
-        link: "never",
-        amazonPay: "never",
-      },
-      buttonType: {
-        applePay: "buy",
-        googlePay: "buy",
-        paypal: "paypal",
-      },
-      buttonTheme: {
-        applePay: "black",
-        googlePay: "black",
-        paypal: "gold",
-      },
-      buttonHeight: 48,
-      layout: { maxColumns: 1, maxRows: 1, overflow: "never" },
-    }),
-    [amountPence, isApple],
-  );
-
   const busyClass = disabled ? "opacity-60 pointer-events-none" : "";
 
   if (walletRequest) {
@@ -526,24 +349,89 @@ function WalletCheckoutForm({
     );
   }
 
+  return null;
+}
+
+function PayPalCheckoutButton({
+  productId,
+  colorId,
+  storageOptionId,
+  quantity,
+  disabled,
+  expressDeliveryEnabled = true,
+}) {
+  const [paying, setPaying] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handlePayPal = async (event) => {
+    event.preventDefault();
+    if (paying || disabled) return;
+
+    setPaying(true);
+    setErrorMessage("");
+    try {
+      const stripe = await getStripe();
+      const intent = await createExpressCheckoutIntent({
+        productId,
+        colorId,
+        storageOptionId,
+        quantity,
+        shippingMethod: "Standard Delivery",
+        shippingCost: 0,
+        paymentMethodTypes: ["paypal"],
+      });
+
+      if (!intent?.success || !intent.data?.clientSecret) {
+        setErrorMessage(
+          intent?.message || "Unable to start PayPal checkout.",
+        );
+        setPaying(false);
+        return;
+      }
+
+      const { clientSecret, paymentIntentId } = intent.data;
+      sessionStorage.setItem("stripePaymentIntentId", paymentIntentId);
+      if (intent.data?.orderId) {
+        sessionStorage.setItem("pendingOrderId", intent.data.orderId);
+      }
+
+      const { error } = await stripe.confirmPayPalPayment(clientSecret, {
+        return_url: `${window.location.origin}/checkout/success`,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || "PayPal checkout was cancelled.");
+        setPaying(false);
+      }
+    } catch (error) {
+      console.error("[PayPal] Direct checkout failed", error);
+      setErrorMessage("Something went wrong. Please try again.");
+      setPaying(false);
+    }
+  };
+
   return (
-    <div className={`min-h-12 ${busyClass}`}>
-      <ExpressCheckoutElement
-        onClick={handleClick}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-        onShippingAddressChange={handleShippingAddressChange}
-        onShippingRateChange={handleShippingRateChange}
-        onLoadError={() => {}}
-        onReady={({ availablePaymentMethods }) => {
-          walletAvailable(availablePaymentMethods);
-        }}
-        onAvailablePaymentMethodsChange={({ paymentMethods }) =>
-          walletAvailable(paymentMethods)
-        }
-        options={expressOptions}
-      />
-    </div>
+    <form onSubmit={handlePayPal} className="space-y-2">
+      {errorMessage ? (
+        <p className="text-sm text-red-500">{errorMessage}</p>
+      ) : null}
+      <button
+        type="submit"
+        disabled={paying || disabled}
+        className="flex h-12 w-full items-center justify-center rounded-sm bg-[#FFC439] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {paying ? (
+          <span className="loading loading-spinner loading-xs text-[#003087]" />
+        ) : (
+          <PayPalWordmark className="h-6 w-auto" />
+        )}
+      </button>
+      {!expressDeliveryEnabled ? (
+        <p className="text-[11px] text-gray-500">
+          PayPal checkout uses Standard Delivery for this variant.
+        </p>
+      ) : null}
+    </form>
   );
 }
 
@@ -632,43 +520,19 @@ export default function ProductExpressCheckout({
     }),
     [amountPence],
   );
-  const paypalElementsOptions = useMemo(
-    () => ({
-      mode: "payment",
-      amount: amountPence,
-      currency: "gbp",
-      paymentMethodTypes: ["paypal"],
-    }),
-    [amountPence],
-  );
-  const klarnaElementsOptions = useMemo(
-    () => ({
-      mode: "payment",
-      amount: amountPence,
-      currency: "gbp",
-      paymentMethodTypes: ["klarna"],
-    }),
-    [amountPence],
-  );
 
   useEffect(() => {
+    if (walletType !== "apple" && walletType !== "google") return undefined;
+
     getStripe()
       .then(setStripePromise)
       .catch(() => {
         setLoadError(true);
         onAvailabilityChange?.(false);
       });
-  }, [onAvailabilityChange]);
 
-  if (loadError) return null;
-
-  if (!stripePromise) {
-    return (
-      <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
-        <span className="loading loading-spinner loading-xs text-gray-400" />
-      </div>
-    );
-  }
+    return undefined;
+  }, [onAvailabilityChange, walletType]);
 
   return (
     <div className="space-y-3">
@@ -679,32 +543,34 @@ export default function ProductExpressCheckout({
         </p>
       ) : null}
       {walletType === "apple" || walletType === "google" ? (
-        <Elements stripe={stripePromise} options={walletElementsOptions}>
-          <WalletCheckoutForm
-            productId={productId}
-            colorId={colorId}
-            storageOptionId={storageOptionId}
-            quantity={quantity}
-            amountPence={amountPence}
-            disabled={disabled}
-            walletType={walletType}
-            onAvailabilityChange={onAvailabilityChange}
-            expressDeliveryEnabled={expressDeliveryEnabled}
-          />
-        </Elements>
+        loadError ? null : stripePromise ? (
+          <Elements stripe={stripePromise} options={walletElementsOptions}>
+            <WalletCheckoutForm
+              productId={productId}
+              colorId={colorId}
+              storageOptionId={storageOptionId}
+              quantity={quantity}
+              amountPence={amountPence}
+              disabled={disabled}
+              walletType={walletType}
+              onAvailabilityChange={onAvailabilityChange}
+              expressDeliveryEnabled={expressDeliveryEnabled}
+            />
+          </Elements>
+        ) : (
+          <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
+            <span className="loading loading-spinner loading-xs text-gray-400" />
+          </div>
+        )
       ) : null}
-      <Elements stripe={stripePromise} options={paypalElementsOptions}>
-        <WalletCheckoutForm
-          productId={productId}
-          colorId={colorId}
-          storageOptionId={storageOptionId}
-          quantity={quantity}
-          amountPence={amountPence}
-          disabled={disabled}
-          walletType="paypal"
-          expressDeliveryEnabled={expressDeliveryEnabled}
-        />
-      </Elements>
+      <PayPalCheckoutButton
+        productId={productId}
+        colorId={colorId}
+        storageOptionId={storageOptionId}
+        quantity={quantity}
+        disabled={disabled}
+        expressDeliveryEnabled={expressDeliveryEnabled}
+      />
       <KlarnaPaymentForm
         productId={productId}
         colorId={colorId}
