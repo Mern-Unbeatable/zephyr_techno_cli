@@ -1,5 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate } from "react-router";
 import {
   Elements,
   ExpressCheckoutElement,
@@ -7,20 +13,24 @@ import {
   PaymentRequestButtonElement,
   useElements,
   useStripe,
-} from '@stripe/react-stripe-js';
-import { getStripe } from '../../../utils/stripe';
-import { confirmExpressPayment, createExpressCheckoutIntent } from '../../../utils/cartApi';
-import PayPalWordmark from '../../../components/shared/PayPalWordmark';
+} from "@stripe/react-stripe-js";
+import { getStripe } from "../../../utils/stripe";
+import {
+  confirmExpressPayment,
+  createExpressCheckoutIntent,
+  checkout,
+} from "../../../utils/cartApi";
+import PayPalWordmark from "../../../components/shared/PayPalWordmark";
 
 const STANDARD_SHIPPING = {
-  id: 'standard',
-  displayName: 'Standard Delivery',
+  id: "standard",
+  displayName: "Standard Delivery",
   amount: 0,
 };
 
 const EXPRESS_SHIPPING = {
-  id: 'express',
-  displayName: 'Express Delivery',
+  id: "express",
+  displayName: "Express Delivery",
   amount: 1500,
 };
 
@@ -28,15 +38,15 @@ const WALLET_SHIPPING_RATES = [STANDARD_SHIPPING, EXPRESS_SHIPPING];
 
 const PR_SHIPPING_OPTIONS = [
   {
-    id: 'standard',
-    label: 'Standard Delivery',
-    detail: '3-5 working days',
+    id: "standard",
+    label: "Standard Delivery",
+    detail: "3-5 working days",
     amount: 0,
   },
   {
-    id: 'express',
-    label: 'Express Delivery',
-    detail: '1-2 working days',
+    id: "express",
+    label: "Express Delivery",
+    detail: "1-2 working days",
     amount: 1500,
   },
 ];
@@ -48,24 +58,24 @@ function shippingRatesForVariant(expressDeliveryEnabled = true) {
 
 function paymentRequestOptionsForVariant(expressDeliveryEnabled = true) {
   if (expressDeliveryEnabled) return PR_SHIPPING_OPTIONS;
-  return PR_SHIPPING_OPTIONS.filter((option) => option.id !== 'express');
+  return PR_SHIPPING_OPTIONS.filter((option) => option.id !== "express");
 }
 
 function shippingFromWalletRate(rate) {
   const amountPence = Number(rate?.amount || 0);
-  const isExpress = rate?.id === 'express' || amountPence >= 1500;
+  const isExpress = rate?.id === "express" || amountPence >= 1500;
   return {
-    shippingMethod: isExpress ? 'Express Delivery' : 'Standard Delivery',
+    shippingMethod: isExpress ? "Express Delivery" : "Standard Delivery",
     shippingCost: amountPence / 100,
   };
 }
 
 function lineItemsFor(amountPence, shippingPence = 0) {
-  const items = [{ name: 'Subtotal', amount: amountPence }];
+  const items = [{ name: "Subtotal", amount: amountPence }];
   if (shippingPence > 0) {
-    items.push({ name: 'Express Delivery', amount: shippingPence });
+    items.push({ name: "Express Delivery", amount: shippingPence });
   } else {
-    items.push({ name: 'Standard Delivery', amount: 0 });
+    items.push({ name: "Standard Delivery", amount: 0 });
   }
   return items;
 }
@@ -74,16 +84,19 @@ function mapWalletAddressToOrder(event) {
   const shipping = event.shippingAddress;
   if (!shipping?.address) return null;
   const addr = shipping.address;
-  const street = [addr.line1, addr.line2].filter(Boolean).join(', ');
+  const street = [addr.line1, addr.line2].filter(Boolean).join(", ");
   if (!street) return null;
   return {
-    fullName: shipping.name || event.billingDetails?.name || 'Customer',
+    fullName: shipping.name || event.billingDetails?.name || "Customer",
     phone: event.billingDetails?.phone || null,
     street,
-    city: addr.city || 'To be confirmed',
+    city: addr.city || "To be confirmed",
     state: addr.state || null,
-    zipCode: addr.postal_code || 'TBC',
-    country: addr.country === 'GB' ? 'United Kingdom' : addr.country || 'United Kingdom',
+    zipCode: addr.postal_code || "TBC",
+    country:
+      addr.country === "GB"
+        ? "United Kingdom"
+        : addr.country || "United Kingdom",
   };
 }
 
@@ -92,16 +105,19 @@ function mapPaymentRequestShipping(ev) {
   if (!addr) return null;
   const line1 = addr.addressLine?.[0] || addr.address?.line1;
   const line2 = addr.addressLine?.[1] || addr.address?.line2;
-  const street = [line1, line2].filter(Boolean).join(', ');
+  const street = [line1, line2].filter(Boolean).join(", ");
   if (!street) return null;
   return {
-    fullName: addr.recipient || ev.payerName || 'Customer',
+    fullName: addr.recipient || ev.payerName || "Customer",
     phone: addr.phone || ev.payerPhone || null,
     street,
-    city: addr.city || 'To be confirmed',
+    city: addr.city || "To be confirmed",
     state: addr.region || null,
-    zipCode: addr.postalCode || 'TBC',
-    country: addr.country === 'GB' ? 'United Kingdom' : addr.country || 'United Kingdom',
+    zipCode: addr.postalCode || "TBC",
+    country:
+      addr.country === "GB"
+        ? "United Kingdom"
+        : addr.country || "United Kingdom",
   };
 }
 
@@ -122,8 +138,9 @@ function WalletCheckoutForm({
   const payLock = useRef(false);
   const pendingIntent = useRef(null);
   const [walletRequest, setWalletRequest] = useState(null);
-  const isApple = walletType === 'apple';
-  const isGoogle = walletType === 'google';
+  const isApple = walletType === "apple";
+  const isGoogle = walletType === "google";
+  const isPayPal = walletType === "paypal";
   const walletShippingRates = useMemo(
     () => shippingRatesForVariant(expressDeliveryEnabled),
     [expressDeliveryEnabled],
@@ -147,14 +164,17 @@ function WalletCheckoutForm({
         quantity,
         shippingMethod:
           !expressDeliveryEnabled || shippingCost < 15
-            ? 'Standard Delivery'
-            : 'Express Delivery',
+            ? "Standard Delivery"
+            : "Express Delivery",
         shippingCost: expressDeliveryEnabled ? shippingCost : 0,
         shippingAddress,
         guestEmail,
-        paymentMethodTypes: ['card'],
+        paymentMethodTypes: ["card"],
       }).catch((error) => {
-        console.error('[Express checkout] Failed to start payment intent', error);
+        console.error(
+          "[Express checkout] Failed to start payment intent",
+          error,
+        );
         return null;
       }),
     [productId, colorId, storageOptionId, quantity, expressDeliveryEnabled],
@@ -171,23 +191,23 @@ function WalletCheckoutForm({
 
     const onShippingAddressChange = (ev) => {
       ev.updateWith({
-        status: 'success',
+        status: "success",
         shippingOptions: paymentRequestShippingOptions,
-        total: { label: 'Zephyr Technology', amount: amountPence },
+        total: { label: "Zephyr Technology", amount: amountPence },
       });
     };
 
     const onShippingOptionChange = (ev) => {
       const extra = Number(ev.shippingOption?.amount || 0);
       ev.updateWith({
-        status: 'success',
-        total: { label: 'Zephyr Technology', amount: amountPence + extra },
+        status: "success",
+        total: { label: "Zephyr Technology", amount: amountPence + extra },
       });
     };
 
     const onPaymentMethod = async (ev) => {
       if (payLock.current || disabled) {
-        ev.complete('fail');
+        ev.complete("fail");
         return;
       }
 
@@ -201,12 +221,12 @@ function WalletCheckoutForm({
         });
 
         if (!intent?.success || !intent.data?.clientSecret) {
-          ev.complete('fail');
+          ev.complete("fail");
           return;
         }
 
         const { clientSecret, paymentIntentId } = intent.data;
-        sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
+        sessionStorage.setItem("stripePaymentIntentId", paymentIntentId);
 
         const { error, paymentIntent } = await stripe.confirmCardPayment(
           clientSecret,
@@ -215,24 +235,25 @@ function WalletCheckoutForm({
         );
 
         if (error) {
-          ev.complete('fail');
+          ev.complete("fail");
           return;
         }
 
-        ev.complete('success');
+        ev.complete("success");
 
-        if (paymentIntent?.status === 'requires_action') {
-          const { error: actionError } = await stripe.confirmCardPayment(clientSecret);
+        if (paymentIntent?.status === "requires_action") {
+          const { error: actionError } =
+            await stripe.confirmCardPayment(clientSecret);
           if (actionError) return;
         }
 
         const result = await confirmExpressPayment(paymentIntentId);
         if (result?.success) {
-          navigate('/checkout/success', { state: { order: result.data } });
+          navigate("/checkout/success", { state: { order: result.data } });
         }
       } catch (error) {
-        console.error('[Wallet] Payment Request failed', error);
-        ev.complete('fail');
+        console.error("[Wallet] Payment Request failed", error);
+        ev.complete("fail");
       } finally {
         payLock.current = false;
       }
@@ -240,22 +261,25 @@ function WalletCheckoutForm({
 
     const makeRequest = (withShipping) => {
       const pr = stripe.paymentRequest({
-        country: 'GB',
-        currency: 'gbp',
+        country: "GB",
+        currency: "gbp",
         total: {
-          label: 'Zephyr Technology',
+          label: "Zephyr Technology",
           amount: amountPence,
         },
         requestPayerName: true,
         requestPayerEmail: true,
         requestPayerPhone: true,
         ...(withShipping
-          ? { requestShipping: true, shippingOptions: paymentRequestShippingOptions }
+          ? {
+              requestShipping: true,
+              shippingOptions: paymentRequestShippingOptions,
+            }
           : {}),
       });
-      pr.on('shippingaddresschange', onShippingAddressChange);
-      pr.on('shippingoptionchange', onShippingOptionChange);
-      pr.on('paymentmethod', onPaymentMethod);
+      pr.on("shippingaddresschange", onShippingAddressChange);
+      pr.on("shippingoptionchange", onShippingOptionChange);
+      pr.on("paymentmethod", onPaymentMethod);
       requests.push(pr);
       return pr;
     };
@@ -291,9 +315,9 @@ function WalletCheckoutForm({
     return () => {
       cancelled = true;
       requests.forEach((pr) => {
-        pr.off('shippingaddresschange');
-        pr.off('shippingoptionchange');
-        pr.off('paymentmethod');
+        pr.off("shippingaddresschange");
+        pr.off("shippingoptionchange");
+        pr.off("paymentmethod");
       });
       setWalletRequest(null);
     };
@@ -313,12 +337,12 @@ function WalletCheckoutForm({
       pendingIntent.current = createIntent({ shippingCost: 0 });
       event.resolve({
         lineItems: lineItemsFor(amountPence, 0),
-        emailRequired: false,
-        phoneNumberRequired: false,
-        billingAddressRequired: false,
+        emailRequired: true,
+        phoneNumberRequired: true,
+        billingAddressRequired: true,
         shippingAddressRequired: true,
         shippingRates: walletShippingRates,
-        allowedShippingCountries: ['GB'],
+        allowedShippingCountries: ["GB"],
       });
     },
     [amountPence, createIntent],
@@ -327,7 +351,7 @@ function WalletCheckoutForm({
   const handleConfirm = useCallback(
     async (event) => {
       if (!stripe || !elements || payLock.current || disabled) {
-        event.paymentFailed({ reason: 'fail' });
+        event.paymentFailed({ reason: "fail" });
         return;
       }
 
@@ -347,18 +371,18 @@ function WalletCheckoutForm({
 
         const { error: submitError } = await elements.submit();
         if (submitError) {
-          event.paymentFailed({ reason: 'fail' });
+          event.paymentFailed({ reason: "fail" });
           return;
         }
 
         const intent = await intentPromise;
         if (!intent?.success || !intent.data?.clientSecret) {
-          event.paymentFailed({ reason: 'fail' });
+          event.paymentFailed({ reason: "fail" });
           return;
         }
 
         const { clientSecret, paymentIntentId } = intent.data;
-        sessionStorage.setItem('stripePaymentIntentId', paymentIntentId);
+        sessionStorage.setItem("stripePaymentIntentId", paymentIntentId);
 
         const { error, paymentIntent } = await stripe.confirmPayment({
           elements,
@@ -369,33 +393,36 @@ function WalletCheckoutForm({
         });
 
         if (error) {
-          event.paymentFailed({ reason: 'fail' });
+          event.paymentFailed({ reason: "fail" });
           return;
         }
 
         if (
-          paymentIntent?.status === 'processing' ||
-          paymentIntent?.status === 'requires_action' ||
+          paymentIntent?.status === "processing" ||
+          paymentIntent?.status === "requires_action" ||
           !paymentIntent
         ) {
           return;
         }
 
-        if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'requires_capture') {
-          event.paymentFailed({ reason: 'fail' });
+        if (
+          paymentIntent.status !== "succeeded" &&
+          paymentIntent.status !== "requires_capture"
+        ) {
+          event.paymentFailed({ reason: "fail" });
           return;
         }
 
         const result = await confirmExpressPayment(paymentIntentId);
         if (!result?.success) {
-          event.paymentFailed({ reason: 'fail' });
+          event.paymentFailed({ reason: "fail" });
           return;
         }
 
-        navigate('/checkout/success', { state: { order: result.data } });
+        navigate("/checkout/success", { state: { order: result.data } });
       } catch (error) {
-        console.error('[Express checkout] confirm failed', error);
-        event.paymentFailed({ reason: 'fail' });
+        console.error("[Express checkout] confirm failed", error);
+        event.paymentFailed({ reason: "fail" });
       } finally {
         payLock.current = false;
       }
@@ -413,11 +440,17 @@ function WalletCheckoutForm({
     [amountPence],
   );
 
-  const handleShippingRateChange = useCallback((event) => {
-    event.resolve({
-      lineItems: lineItemsFor(amountPence, Number(event.shippingRate?.amount || 0)),
-    });
-  }, [amountPence]);
+  const handleShippingRateChange = useCallback(
+    (event) => {
+      event.resolve({
+        lineItems: lineItemsFor(
+          amountPence,
+          Number(event.shippingRate?.amount || 0),
+        ),
+      });
+    },
+    [amountPence],
+  );
 
   const handleCancel = useCallback(() => {
     pendingIntent.current = null;
@@ -428,7 +461,9 @@ function WalletCheckoutForm({
     (methods) => {
       if (!methods) return;
       const appleOn = Boolean(methods.applePay?.available ?? methods.applePay);
-      const googleOn = Boolean(methods.googlePay?.available ?? methods.googlePay);
+      const googleOn = Boolean(
+        methods.googlePay?.available ?? methods.googlePay,
+      );
       onAvailabilityChange?.(appleOn || googleOn);
     },
     [onAvailabilityChange],
@@ -436,35 +471,41 @@ function WalletCheckoutForm({
 
   const expressOptions = useMemo(
     () => ({
-      emailRequired: false,
-      phoneNumberRequired: false,
-      billingAddressRequired: false,
-      shippingAddressRequired: false,
+      emailRequired: true,
+      phoneNumberRequired: true,
+      billingAddressRequired: true,
+      shippingAddressRequired: true,
       lineItems: lineItemsFor(amountPence, 0),
-      paymentMethodOrder: isApple ? ['apple_pay'] : ['google_pay'],
+      paymentMethodOrder: isApple
+        ? ["apple_pay"]
+        : isGoogle
+          ? ["google_pay"]
+          : ["paypal"],
       paymentMethods: {
-        applePay: isApple ? 'always' : 'never',
-        googlePay: isApple ? 'never' : 'always',
-        paypal: 'never',
-        klarna: 'never',
-        link: 'never',
-        amazonPay: 'never',
+        applePay: isApple ? "always" : "never",
+        googlePay: isGoogle ? "always" : "never",
+        paypal: isPayPal ? "always" : "never",
+        klarna: "never",
+        link: "never",
+        amazonPay: "never",
       },
       buttonType: {
-        applePay: 'buy',
-        googlePay: 'buy',
+        applePay: "buy",
+        googlePay: "buy",
+        paypal: "buy",
       },
       buttonTheme: {
-        applePay: 'black',
-        googlePay: 'black',
+        applePay: "black",
+        googlePay: "black",
+        paypal: "gold",
       },
       buttonHeight: 48,
-      layout: { maxColumns: 1, maxRows: 1, overflow: 'never' },
+      layout: { maxColumns: 1, maxRows: 1, overflow: "never" },
     }),
     [amountPence, isApple],
   );
 
-  const busyClass = disabled ? 'opacity-60 pointer-events-none' : '';
+  const busyClass = disabled ? "opacity-60 pointer-events-none" : "";
 
   if (walletRequest) {
     return (
@@ -474,9 +515,9 @@ function WalletCheckoutForm({
             paymentRequest: walletRequest,
             style: {
               paymentRequestButton: {
-                type: 'buy',
-                theme: 'dark',
-                height: '48px',
+                type: "buy",
+                theme: "dark",
+                height: "48px",
               },
             },
           }}
@@ -497,127 +538,12 @@ function WalletCheckoutForm({
         onReady={({ availablePaymentMethods }) => {
           walletAvailable(availablePaymentMethods);
         }}
-        onAvailablePaymentMethodsChange={({ paymentMethods }) => walletAvailable(paymentMethods)}
+        onAvailablePaymentMethodsChange={({ paymentMethods }) =>
+          walletAvailable(paymentMethods)
+        }
         options={expressOptions}
       />
     </div>
-  );
-}
-
-function PayPalPaymentForm({
-  productId,
-  colorId,
-  storageOptionId,
-  quantity,
-  amountPence,
-  disabled,
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [ready, setReady] = useState(false);
-  const [available, setAvailable] = useState(true);
-  const [paying, setPaying] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  useEffect(() => {
-    if (!elements || !amountPence) return;
-    elements.update({ amount: amountPence }).catch(() => {});
-  }, [elements, amountPence]);
-
-  const handlePayPal = async (event) => {
-    event.preventDefault();
-    if (!stripe || !elements || paying || disabled) return;
-
-    setPaying(true);
-    setErrorMessage('');
-    try {
-      const { error: submitError } = await elements.submit();
-      if (submitError) {
-        setErrorMessage(submitError.message || 'PayPal could not start.');
-        return;
-      }
-
-      const intent = await createExpressCheckoutIntent({
-        productId,
-        colorId,
-        storageOptionId,
-        quantity,
-        shippingMethod: 'Standard Delivery',
-        shippingCost: 0,
-        shippingAddress: null,
-        guestEmail: null,
-        paymentMethodTypes: ['paypal'],
-      });
-
-      if (!intent?.success || !intent.data?.clientSecret) {
-        setErrorMessage(intent?.message || 'Unable to start PayPal payment.');
-        return;
-      }
-
-      sessionStorage.setItem('stripePaymentIntentId', intent.data.paymentIntentId);
-
-      const { error } = await stripe.confirmPayment({
-        elements,
-        clientSecret: intent.data.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout/success`,
-        },
-      });
-
-      if (error) {
-        setErrorMessage(error.message || 'PayPal payment failed.');
-      }
-    } catch (error) {
-      console.error('[PayPal] Payment Element confirm failed', error);
-      setErrorMessage('Something went wrong. Please try again.');
-    } finally {
-      setPaying(false);
-    }
-  };
-
-  if (!available) return null;
-
-  return (
-    <form onSubmit={handlePayPal} className="relative space-y-2">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
-      >
-        <PaymentElement
-          onReady={() => setReady(true)}
-          onLoadError={() => setAvailable(false)}
-          options={{
-            layout: 'tabs',
-            paymentMethodOrder: ['paypal'],
-            terms: { paypal: 'never' },
-            wallets: {
-              applePay: 'never',
-              googlePay: 'never',
-              link: 'never',
-            },
-          }}
-        />
-      </div>
-      {errorMessage ? (
-        <p className="text-sm text-red-500">{errorMessage}</p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={!stripe || !ready || paying || disabled}
-        className="flex h-11 w-full items-center justify-center rounded-sm bg-[#FFC439] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {paying ? (
-          <span className="loading loading-spinner loading-xs text-[#003087]" />
-        ) : (
-          <span className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold leading-none text-[#003087]">
-              Pay with
-            </span>
-            <PayPalWordmark className="h-4 w-auto shrink-0" />
-          </span>
-        )}
-      </button>
-    </form>
   );
 }
 
@@ -642,7 +568,7 @@ function KlarnaPaymentForm({
   const [ready, setReady] = useState(false);
   const [available, setAvailable] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (!elements || !amountPence) return;
@@ -654,11 +580,11 @@ function KlarnaPaymentForm({
     if (!stripe || !elements || paying || disabled) return;
 
     setPaying(true);
-    setErrorMessage('');
+    setErrorMessage("");
     try {
       const { error: submitError } = await elements.submit();
       if (submitError) {
-        setErrorMessage(submitError.message || 'Klarna could not start.');
+        setErrorMessage(submitError.message || "Klarna could not start.");
         return;
       }
 
@@ -667,19 +593,22 @@ function KlarnaPaymentForm({
         colorId,
         storageOptionId,
         quantity,
-        shippingMethod: 'Standard Delivery',
+        shippingMethod: "Standard Delivery",
         shippingCost: 0,
         shippingAddress: null,
         guestEmail: null,
-        paymentMethodTypes: ['klarna'],
+        paymentMethodTypes: ["klarna"],
       });
 
       if (!intent?.success || !intent.data?.clientSecret) {
-        setErrorMessage(intent?.message || 'Unable to start Klarna payment.');
+        setErrorMessage(intent?.message || "Unable to start Klarna payment.");
         return;
       }
 
-      sessionStorage.setItem('stripePaymentIntentId', intent.data.paymentIntentId);
+      sessionStorage.setItem(
+        "stripePaymentIntentId",
+        intent.data.paymentIntentId,
+      );
 
       const { error } = await stripe.confirmPayment({
         elements,
@@ -690,11 +619,11 @@ function KlarnaPaymentForm({
       });
 
       if (error) {
-        setErrorMessage(error.message || 'Klarna payment failed.');
+        setErrorMessage(error.message || "Klarna payment failed.");
       }
     } catch (error) {
-      console.error('[Klarna] Payment Element confirm failed', error);
-      setErrorMessage('Something went wrong. Please try again.');
+      console.error("[Klarna] Payment Element confirm failed", error);
+      setErrorMessage("Something went wrong. Please try again.");
     } finally {
       setPaying(false);
     }
@@ -712,13 +641,13 @@ function KlarnaPaymentForm({
           onReady={() => setReady(true)}
           onLoadError={() => setAvailable(false)}
           options={{
-            layout: 'tabs',
-            paymentMethodOrder: ['klarna'],
-            terms: { klarna: 'never' },
+            layout: "tabs",
+            paymentMethodOrder: ["klarna"],
+            terms: { klarna: "never" },
             wallets: {
-              applePay: 'never',
-              googlePay: 'never',
-              link: 'never',
+              applePay: "never",
+              googlePay: "never",
+              link: "never",
             },
           }}
         />
@@ -762,28 +691,28 @@ export default function ProductExpressCheckout({
   const amountPence = Math.max(50, Math.round((Number(amount) || 0) * 100));
   const walletElementsOptions = useMemo(
     () => ({
-      mode: 'payment',
+      mode: "payment",
       amount: amountPence,
-      currency: 'gbp',
-      paymentMethodTypes: ['card'],
+      currency: "gbp",
+      paymentMethodTypes: ["card"],
     }),
     [amountPence],
   );
   const paypalElementsOptions = useMemo(
     () => ({
-      mode: 'payment',
+      mode: "payment",
       amount: amountPence,
-      currency: 'gbp',
-      paymentMethodTypes: ['paypal'],
+      currency: "gbp",
+      paymentMethodTypes: ["paypal"],
     }),
     [amountPence],
   );
   const klarnaElementsOptions = useMemo(
     () => ({
-      mode: 'payment',
+      mode: "payment",
       amount: amountPence,
-      currency: 'gbp',
-      paymentMethodTypes: ['klarna'],
+      currency: "gbp",
+      paymentMethodTypes: ["klarna"],
     }),
     [amountPence],
   );
@@ -811,10 +740,11 @@ export default function ProductExpressCheckout({
     <div className="space-y-3">
       {!expressDeliveryEnabled ? (
         <p className="text-xs text-gray-500">
-          Express Delivery is not available for this colour / storage. Standard Delivery only.
+          Express Delivery is not available for this colour / storage. Standard
+          Delivery only.
         </p>
       ) : null}
-      {walletType === 'apple' || walletType === 'google' ? (
+      {walletType === "apple" || walletType === "google" ? (
         <Elements stripe={stripePromise} options={walletElementsOptions}>
           <WalletCheckoutForm
             productId={productId}
@@ -830,25 +760,24 @@ export default function ProductExpressCheckout({
         </Elements>
       ) : null}
       <Elements stripe={stripePromise} options={paypalElementsOptions}>
-        <PayPalPaymentForm
+        <WalletCheckoutForm
           productId={productId}
           colorId={colorId}
           storageOptionId={storageOptionId}
           quantity={quantity}
           amountPence={amountPence}
           disabled={disabled}
+          walletType="paypal"
+          expressDeliveryEnabled={expressDeliveryEnabled}
         />
       </Elements>
-      <Elements stripe={stripePromise} options={klarnaElementsOptions}>
-        <KlarnaPaymentForm
-          productId={productId}
-          colorId={colorId}
-          storageOptionId={storageOptionId}
-          quantity={quantity}
-          amountPence={amountPence}
-          disabled={disabled}
-        />
-      </Elements>
+      <KlarnaPaymentForm
+        productId={productId}
+        colorId={colorId}
+        storageOptionId={storageOptionId}
+        quantity={quantity}
+        disabled={disabled}
+      />
     </div>
   );
 }
