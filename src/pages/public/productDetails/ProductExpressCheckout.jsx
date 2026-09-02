@@ -560,104 +560,38 @@ function KlarnaPaymentForm({
   colorId,
   storageOptionId,
   quantity,
-  amountPence,
   disabled,
 }) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [ready, setReady] = useState(false);
-  const [available, setAvailable] = useState(true);
-  const [paying, setPaying] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  useEffect(() => {
-    if (!elements || !amountPence) return;
-    elements.update({ amount: amountPence }).catch(() => {});
-  }, [elements, amountPence]);
+  const [paying, setPaying] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState("");
 
   const handleKlarna = async (event) => {
     event.preventDefault();
-    if (!stripe || !elements || paying || disabled) return;
+    if (paying || disabled) return;
 
     setPaying(true);
     setErrorMessage("");
     try {
-      const { error: submitError } = await elements.submit();
-      if (submitError) {
-        setErrorMessage(submitError.message || "Klarna could not start.");
-        return;
-      }
-
-      const intent = await createExpressCheckoutIntent({
-        productId,
-        colorId,
-        storageOptionId,
-        quantity,
-        shippingMethod: "Standard Delivery",
-        shippingCost: 0,
-        shippingAddress: null,
-        guestEmail: null,
-        paymentMethodTypes: ["klarna"],
+      await checkout({
+        directProduct: { productId, colorId, storageOptionId, quantity },
+        collectAddressOnStripe: true,
       });
-
-      if (!intent?.success || !intent.data?.clientSecret) {
-        setErrorMessage(intent?.message || "Unable to start Klarna payment.");
-        return;
-      }
-
-      sessionStorage.setItem(
-        "stripePaymentIntentId",
-        intent.data.paymentIntentId,
-      );
-
-      const { error } = await stripe.confirmPayment({
-        elements,
-        clientSecret: intent.data.clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout/success`,
-        },
-      });
-
-      if (error) {
-        setErrorMessage(error.message || "Klarna payment failed.");
-      }
+      // Checkout will redirect the user
     } catch (error) {
-      console.error("[Klarna] Payment Element confirm failed", error);
+      console.error("[Klarna] Checkout failed", error);
       setErrorMessage("Something went wrong. Please try again.");
-    } finally {
       setPaying(false);
     }
   };
 
-  if (!available) return null;
-
   return (
     <form onSubmit={handleKlarna} className="relative space-y-2">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
-      >
-        <PaymentElement
-          onReady={() => setReady(true)}
-          onLoadError={() => setAvailable(false)}
-          options={{
-            layout: "tabs",
-            paymentMethodOrder: ["klarna"],
-            terms: { klarna: "never" },
-            wallets: {
-              applePay: "never",
-              googlePay: "never",
-              link: "never",
-            },
-          }}
-        />
-      </div>
       {errorMessage ? (
         <p className="text-sm text-red-500">{errorMessage}</p>
       ) : null}
       <button
         type="submit"
-        disabled={!stripe || !ready || paying || disabled}
+        disabled={paying || disabled}
         className="flex h-11 w-full items-center justify-center rounded-md bg-[#0B051D] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {paying ? (
