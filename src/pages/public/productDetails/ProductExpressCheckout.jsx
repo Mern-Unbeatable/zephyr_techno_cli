@@ -418,12 +418,17 @@ function PayPalCheckoutButton({
       <button
         type="submit"
         disabled={paying || disabled}
-        className="flex h-12 w-full items-center justify-center rounded-sm bg-[#FFC439] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-[45px] w-full items-center justify-center gap-2 rounded-[4px] bg-[#FFC439] transition hover:brightness-[0.98] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {paying ? (
           <span className="loading loading-spinner loading-xs text-[#003087]" />
         ) : (
-          <PayPalWordmark className="h-6 w-auto" />
+          <span className="flex items-center gap-2">
+            <span className="text-[15px] font-medium leading-none text-[#2C2E2F]">
+              Pay with
+            </span>
+            <PayPalWordmark className="h-[22px] w-auto" />
+          </span>
         )}
       </button>
       {!expressDeliveryEnabled ? (
