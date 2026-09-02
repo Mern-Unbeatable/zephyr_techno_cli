@@ -492,7 +492,7 @@ function WalletCheckoutForm({
       buttonType: {
         applePay: "buy",
         googlePay: "buy",
-        paypal: "buy",
+        paypal: "paypal",
       },
       buttonTheme: {
         applePay: "black",
