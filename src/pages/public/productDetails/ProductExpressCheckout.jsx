@@ -484,7 +484,7 @@ function WalletCheckoutForm({
       paymentMethods: {
         applePay: isApple ? "always" : "never",
         googlePay: isGoogle ? "always" : "never",
-        paypal: isPayPal ? "always" : "never",
+        paypal: isPayPal ? "auto" : "never",
         klarna: "never",
         link: "never",
         amazonPay: "never",
