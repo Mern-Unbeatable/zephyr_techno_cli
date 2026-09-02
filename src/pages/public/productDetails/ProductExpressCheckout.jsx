@@ -423,11 +423,11 @@ function PayPalCheckoutButton({
         {paying ? (
           <span className="loading loading-spinner loading-xs text-[#003087]" />
         ) : (
-          <span className="flex items-center gap-2">
-            <span className="text-[15px] font-medium leading-none text-[#2C2E2F]">
+          <span className="flex items-center gap-1.5">
+            <span className="text-[14px] font-medium leading-none text-[#2C2E2F]">
               Pay with
             </span>
-            <PayPalWordmark className="h-[22px] w-auto" />
+            <PayPalWordmark className="h-[19px] w-auto" />
           </span>
         )}
       </button>
