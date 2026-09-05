@@ -88,9 +88,9 @@ function mapWalletAddressToOrder(event) {
     fullName: shipping.name || event.billingDetails?.name || "Customer",
     phone: event.billingDetails?.phone || null,
     street,
-    city: addr.city || "To be confirmed",
+    city: addr.city,
     state: addr.state || null,
-    zipCode: addr.postal_code || "TBC",
+    zipCode: addr.postal_code,
     country:
       addr.country === "GB"
         ? "United Kingdom"
@@ -109,9 +109,9 @@ function mapPaymentRequestShipping(ev) {
     fullName: addr.recipient || ev.payerName || "Customer",
     phone: addr.phone || ev.payerPhone || null,
     street,
-    city: addr.city || "To be confirmed",
+    city: addr.city,
     state: addr.region || null,
-    zipCode: addr.postalCode || "TBC",
+    zipCode: addr.postalCode,
     country:
       addr.country === "GB"
         ? "United Kingdom"
