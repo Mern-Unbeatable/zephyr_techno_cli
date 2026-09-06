@@ -9,6 +9,7 @@ import { useNavigate } from "react-router";
 import {
   Elements,
   PaymentRequestButtonElement,
+  ExpressCheckoutElement,
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
@@ -360,17 +361,35 @@ function PayPalCheckoutButton({
   disabled,
   expressDeliveryEnabled = true,
 }) {
-  const [paying, setPaying] = useState(false);
+  const stripe = useStripe();
+  const elements = useElements();
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handlePayPal = async (event) => {
-    event.preventDefault();
-    if (paying || disabled) return;
+  const expressCheckoutOptions = useMemo(
+    () => ({
+      buttonType: {
+        paypal: "paypal",
+      },
+      paymentMethods: {
+        paypal: "auto",
+        applePay: "never",
+        googlePay: "never",
+        link: "never",
+      },
+    }),
+    []
+  );
 
-    setPaying(true);
-    setErrorMessage("");
+  const onConfirm = async (event) => {
+    if (disabled) return;
+    const { elements: currentElements } = event;
+    const { error: submitError } = await currentElements.submit();
+    if (submitError) {
+      setErrorMessage(submitError.message);
+      return;
+    }
+
     try {
-      const stripe = await getStripe();
       const intent = await createExpressCheckoutIntent({
         productId,
         colorId,
@@ -382,10 +401,7 @@ function PayPalCheckoutButton({
       });
 
       if (!intent?.success || !intent.data?.clientSecret) {
-        setErrorMessage(
-          intent?.message || "Unable to start PayPal checkout.",
-        );
-        setPaying(false);
+        setErrorMessage(intent?.message || "Unable to start PayPal checkout.");
         return;
       }
 
@@ -395,48 +411,42 @@ function PayPalCheckoutButton({
         sessionStorage.setItem("pendingOrderId", intent.data.orderId);
       }
 
-      const { error } = await stripe.confirmPayPalPayment(clientSecret, {
-        return_url: `${window.location.origin}/checkout/success`,
+      const { error } = await stripe.confirmPayment({
+        elements: currentElements,
+        clientSecret,
+        confirmParams: {
+          return_url: `${window.location.origin}/checkout/success`,
+        },
       });
 
       if (error) {
         setErrorMessage(error.message || "PayPal checkout was cancelled.");
-        setPaying(false);
       }
-    } catch (error) {
-      console.error("[PayPal] Direct checkout failed", error);
+    } catch (err) {
+      console.error("[PayPal] Express Checkout Error", err);
       setErrorMessage("Something went wrong. Please try again.");
-      setPaying(false);
     }
   };
 
+  if (!stripe || !elements) return null;
+
   return (
-    <form onSubmit={handlePayPal} className="space-y-2">
+    <div className="space-y-2">
       {errorMessage ? (
         <p className="text-sm text-red-500">{errorMessage}</p>
       ) : null}
-      <button
-        type="submit"
-        disabled={paying || disabled}
-        className="flex h-[45px] w-full items-center justify-center gap-2 rounded-[4px] bg-[#FFC439] transition hover:brightness-[0.98] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {paying ? (
-          <span className="loading loading-spinner loading-xs text-[#003087]" />
-        ) : (
-          <span className="flex items-center gap-1.5">
-            <span className="text-[14px] font-medium leading-none text-[#2C2E2F]">
-              Pay with
-            </span>
-            <PayPalWordmark className="h-[19px] w-auto" />
-          </span>
-        )}
-      </button>
+      <div className={`h-[45px] w-full rounded-[4px] overflow-hidden ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
+        <ExpressCheckoutElement
+          onConfirm={onConfirm}
+          options={expressCheckoutOptions}
+        />
+      </div>
       {!expressDeliveryEnabled ? (
         <p className="text-[11px] text-gray-500">
           PayPal checkout uses Standard Delivery for this variant.
         </p>
       ) : null}
-    </form>
+    </div>
   );
 }
 
@@ -527,16 +537,14 @@ export default function ProductExpressCheckout({
   );
 
   useEffect(() => {
-    if (walletType !== "apple" && walletType !== "google") return undefined;
-
     getStripe()
       .then(setStripePromise)
       .catch(() => {
         setLoadError(true);
-        onAvailabilityChange?.(false);
+        if (walletType === "apple" || walletType === "google") {
+          onAvailabilityChange?.(false);
+        }
       });
-
-    return undefined;
   }, [onAvailabilityChange, walletType]);
 
   return (
@@ -547,9 +555,9 @@ export default function ProductExpressCheckout({
           Delivery only.
         </p>
       ) : null}
-      {walletType === "apple" || walletType === "google" ? (
-        loadError ? null : stripePromise ? (
-          <Elements stripe={stripePromise} options={walletElementsOptions}>
+      {loadError ? null : stripePromise ? (
+        <Elements stripe={stripePromise} options={walletElementsOptions}>
+          {walletType === "apple" || walletType === "google" ? (
             <WalletCheckoutForm
               productId={productId}
               colorId={colorId}
@@ -561,21 +569,21 @@ export default function ProductExpressCheckout({
               onAvailabilityChange={onAvailabilityChange}
               expressDeliveryEnabled={expressDeliveryEnabled}
             />
-          </Elements>
-        ) : (
-          <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
-            <span className="loading loading-spinner loading-xs text-gray-400" />
-          </div>
-        )
-      ) : null}
-      <PayPalCheckoutButton
-        productId={productId}
-        colorId={colorId}
-        storageOptionId={storageOptionId}
-        quantity={quantity}
-        disabled={disabled}
-        expressDeliveryEnabled={expressDeliveryEnabled}
-      />
+          ) : null}
+          <PayPalCheckoutButton
+            productId={productId}
+            colorId={colorId}
+            storageOptionId={storageOptionId}
+            quantity={quantity}
+            disabled={disabled}
+            expressDeliveryEnabled={expressDeliveryEnabled}
+          />
+        </Elements>
+      ) : (
+        <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
+          <span className="loading loading-spinner loading-xs text-gray-400" />
+        </div>
+      )}
       <KlarnaPaymentForm
         productId={productId}
         colorId={colorId}

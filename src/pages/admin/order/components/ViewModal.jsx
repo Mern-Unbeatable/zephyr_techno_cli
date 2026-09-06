@@ -31,7 +31,12 @@ const ViewModal = ({
 
     const orderStatus = selectedOrder.status.charAt(0) + selectedOrder.status.slice(1).toLowerCase();
     const shippingAddr = selectedOrder.shippingAddress;
-    const fullAddress = `${shippingAddr.street}, ${shippingAddr.city}, ${shippingAddr.state} ${shippingAddr.zipCode}, ${shippingAddr.country}`;
+    const fullAddress = [
+        shippingAddr.street,
+        shippingAddr.city,
+        [shippingAddr.state, shippingAddr.zipCode].filter(Boolean).join(' '),
+        shippingAddr.country
+    ].filter(Boolean).join(', ');
 
     return (
         <div
