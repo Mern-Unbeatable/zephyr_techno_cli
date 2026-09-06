@@ -531,7 +531,7 @@ export default function ProductExpressCheckout({
       mode: "payment",
       amount: amountPence,
       currency: "gbp",
-      paymentMethodTypes: ["card"],
+      paymentMethodTypes: ["card", "paypal"],
     }),
     [amountPence],
   );
