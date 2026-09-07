@@ -23,25 +23,32 @@ const CheckoutSuccess = () => {
             return undefined;
         }
 
+        let cancelled = false;
         const confirm = async () => {
             try {
                 const data = await confirmPayment();
+                if (cancelled) return;
                 if (data.success) {
                     clearCheckoutSession();
                     setOrder(data.data);
-                    await fetchCart(); // refresh cart count (now empty)
+                    await fetchCart();
                 } else {
                     setError(data.message || 'Could not confirm your payment.');
                 }
             } catch (err) {
-                setError(err.message || 'Something went wrong confirming your order.');
+                if (!cancelled) {
+                    setError(err.message || 'Something went wrong confirming your order.');
+                }
             } finally {
-                setLoading(false);
+                if (!cancelled) setLoading(false);
             }
         };
 
         confirm();
-    }, [location.state]);
+        return () => {
+            cancelled = true;
+        };
+    }, [location.state, searchParams, fetchCart]);
 
     const orderLineItems = order?.orderItems || order?.items || [];
 
