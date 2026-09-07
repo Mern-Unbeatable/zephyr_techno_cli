@@ -312,37 +312,26 @@ function PayPalCheckoutButton({
     setPaying(true);
     setErrorMessage("");
     try {
-      const stripe = await getStripe();
-      const intent = await createExpressCheckoutIntent({
-        productId,
-        colorId,
-        storageOptionId,
-        quantity,
+      // Route through Stripe Checkout Session (not a raw PaymentIntent) so
+      // Stripe collects the buyer's shipping address on their hosted page
+      // and returns it on the session. A raw PayPal PaymentIntent does not
+      // surface the buyer's PayPal shipping address back to us, which left
+      // the order with the "To be confirmed" placeholder.
+      const result = await checkout({
+        collectAddressOnStripe: true,
+        paymentMethodTypes: ["paypal"],
         shippingMethod: "Standard Delivery",
         shippingCost: 0,
-        paymentMethodTypes: ["paypal"],
+        directProduct: {
+          productId,
+          colorId,
+          storageOptionId,
+          quantity,
+        },
       });
 
-      if (!intent?.success || !intent.data?.clientSecret) {
-        setErrorMessage(intent?.message || "Unable to start PayPal checkout.");
-        setPaying(false);
-        return;
-      }
-
-      const { clientSecret, paymentIntentId, orderId } = intent.data;
-      setCheckoutRef("stripePaymentIntentId", paymentIntentId);
-      if (orderId) setCheckoutRef("pendingOrderId", orderId);
-
-      const { error } = await stripe.confirmPayPalPayment(clientSecret, {
-        return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
-      });
-
-
-
-
-      
-      if (error) {
-        setErrorMessage(error.message || "PayPal checkout was cancelled.");
+      if (!result?.success) {
+        setErrorMessage(result?.message || "Unable to start PayPal checkout.");
         setPaying(false);
       }
     } catch (error) {
@@ -407,59 +396,15 @@ function KlarnaPaymentForm({
     setPaying(true);
     setErrorMessage("");
     try {
-      const stripe = await getStripe();
-
-      // PaymentIntent → redirect to Klarna (Klarna collects email on its own page)
-      const intent = await createExpressCheckoutIntent({
-        productId,
-        colorId,
-        storageOptionId,
-        quantity,
-        shippingMethod: "Standard Delivery",
-        shippingCost: 0,
-        paymentMethodTypes: ["klarna"],
-      });
-
-      if (intent?.success && intent.data?.clientSecret) {
-        const { clientSecret, paymentIntentId, orderId } = intent.data;
-        setCheckoutRef("stripePaymentIntentId", paymentIntentId);
-        if (orderId) setCheckoutRef("pendingOrderId", orderId);
-
-        const confirm =
-          typeof stripe.confirmKlarnaPayment === "function"
-            ? stripe.confirmKlarnaPayment(clientSecret, {
-                payment_method: {
-                  billing_details: {
-                    address: { country: "GB" },
-                  },
-                },
-                return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
-              })
-            : stripe.confirmPayment({
-                clientSecret,
-                confirmParams: {
-                  return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
-                  payment_method_data: {
-                    type: "klarna",
-                    billing_details: {
-                      address: { country: "GB" },
-                    },
-                  },
-                },
-              });
-
-        const { error } = await confirm;
-        if (error) {
-          setErrorMessage(error.message || "Klarna checkout was cancelled.");
-          setPaying(false);
-        }
-        return;
-      }
-
-      // Fallback: Klarna-only Stripe session (not full card/PayPal checkout)
+      // Route through Stripe Checkout Session so Stripe collects the buyer's
+      // shipping address on their hosted page. A raw Klarna PaymentIntent
+      // never returns shipping back to us, which left the order with the
+      // "To be confirmed" placeholder in the DB.
       const result = await checkout({
         collectAddressOnStripe: true,
         paymentMethodTypes: ["klarna"],
+        shippingMethod: "Standard Delivery",
+        shippingCost: 0,
         directProduct: {
           productId,
           colorId,
@@ -467,12 +412,9 @@ function KlarnaPaymentForm({
           quantity,
         },
       });
+
       if (!result?.success) {
-        setErrorMessage(
-          intent?.message ||
-            result?.message ||
-            "Unable to start Klarna checkout.",
-        );
+        setErrorMessage(result?.message || "Unable to start Klarna checkout.");
         setPaying(false);
       }
     } catch (error) {
