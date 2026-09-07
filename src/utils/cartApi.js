@@ -173,6 +173,43 @@ export async function validatePromo({ promoCode, cartItemIds = [] }) {
   return res.json();
 }
 
+// Persist Stripe refs in both session + local storage so PayPal redirects
+// (which often wipe sessionStorage on mobile) can still confirm the order.
+function setCheckoutRef(key, value) {
+  if (!value || typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(key, value);
+    localStorage.setItem(key, value);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function getCheckoutRef(key) {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(key) || localStorage.getItem(key) || null;
+  } catch {
+    return null;
+  }
+}
+
+function clearCheckoutRefs() {
+  if (typeof window === "undefined") return;
+  for (const key of [
+    "stripePaymentIntentId",
+    "stripeSessionId",
+    "pendingOrderId",
+  ]) {
+    try {
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 // ─── Checkout ─────────────────────────────────────────────────────────────────
 
 export async function checkout({
@@ -229,14 +266,20 @@ export async function checkout({
 
   if (data.success) {
     clearCheckoutSession();
-    sessionStorage.removeItem("stripePaymentIntentId");
-    sessionStorage.setItem("stripeSessionId", data.data.sessionId);
-    sessionStorage.setItem("pendingOrderId", data.data.orderId);
+    clearCheckoutRefs();
+    setCheckoutRef("stripeSessionId", data.data.sessionId);
+    setCheckoutRef("pendingOrderId", data.data.orderId);
     window.location.href = data.data.checkoutUrl;
   }
 
   return data;
 }
+
+export {
+  setCheckoutRef,
+  getCheckoutRef,
+  clearCheckoutRefs,
+};
 
 // ─── Express Checkout (Apple Pay / Google Pay / PayPal / Klarna) ─────────────
 
@@ -284,7 +327,7 @@ export async function createExpressCheckoutIntent({
 }
 
 export async function confirmExpressPayment(paymentIntentId) {
-  const id = paymentIntentId || sessionStorage.getItem("stripePaymentIntentId");
+  const id = paymentIntentId || getCheckoutRef("stripePaymentIntentId");
   if (!id) throw new Error("No pending payment intent found");
 
   const res = await fetch(
@@ -299,8 +342,7 @@ export async function confirmExpressPayment(paymentIntentId) {
   const data = await res.json();
 
   if (data.success) {
-    sessionStorage.removeItem("stripePaymentIntentId");
-    sessionStorage.removeItem("pendingOrderId");
+    clearCheckoutRefs();
     if (!isLoggedIn()) {
       clearGuestSessionId();
     }
@@ -322,8 +364,7 @@ export async function cancelUnpaidCheckout(orderId) {
       body: JSON.stringify({ orderId: id }),
     });
     const data = await res.json().catch(() => ({}));
-    sessionStorage.removeItem("stripeSessionId");
-    sessionStorage.removeItem("pendingOrderId");
+    clearCheckoutRefs();
     return data;
   } catch {
     return { success: false };
@@ -333,30 +374,41 @@ export async function cancelUnpaidCheckout(orderId) {
 // ─── Payment Confirmation ─────────────────────────────────────────────────────
 
 export async function confirmPayment() {
-  const redirectedIntentId =
+  const params =
     typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("payment_intent")
+      ? new URLSearchParams(window.location.search)
       : null;
+
+  const redirectedIntentId = params?.get("payment_intent") || null;
+  const redirectedSessionId = params?.get("session_id") || null;
+  const redirectedOrderId = params?.get("orderId") || null;
+
   const paymentIntentId =
-    redirectedIntentId || sessionStorage.getItem("stripePaymentIntentId");
+    redirectedIntentId || getCheckoutRef("stripePaymentIntentId");
   if (paymentIntentId) {
     return confirmExpressPayment(paymentIntentId);
   }
 
-  const sessionId = sessionStorage.getItem("stripeSessionId");
-  if (!sessionId) throw new Error("No pending Stripe session found");
+  const sessionId = redirectedSessionId || getCheckoutRef("stripeSessionId");
+  const orderId = redirectedOrderId || getCheckoutRef("pendingOrderId");
+
+  if (!sessionId && !orderId) {
+    throw new Error("No pending Stripe session found");
+  }
 
   const res = await fetch(`${BASE_URL}/api/public/product/checkout/confirm`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sessionId }),
+    body: JSON.stringify({
+      ...(sessionId ? { sessionId } : {}),
+      ...(orderId ? { orderId } : {}),
+    }),
   });
 
   const data = await res.json();
 
   if (data.success) {
-    sessionStorage.removeItem("stripeSessionId");
-    sessionStorage.removeItem("pendingOrderId");
+    clearCheckoutRefs();
     if (!isLoggedIn()) {
       clearGuestSessionId();
     }

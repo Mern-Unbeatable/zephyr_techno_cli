@@ -9,7 +9,6 @@ import { useNavigate } from "react-router";
 import {
   Elements,
   PaymentRequestButtonElement,
-  ExpressCheckoutElement,
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
@@ -17,23 +16,9 @@ import { getStripe } from "../../../utils/stripe";
 import {
   confirmExpressPayment,
   createExpressCheckoutIntent,
-  checkout,
+  setCheckoutRef,
 } from "../../../utils/cartApi";
 import PayPalWordmark from "../../../components/shared/PayPalWordmark";
-
-const STANDARD_SHIPPING = {
-  id: "standard",
-  displayName: "Standard Delivery",
-  amount: 0,
-};
-
-const EXPRESS_SHIPPING = {
-  id: "express",
-  displayName: "Express Delivery",
-  amount: 1500,
-};
-
-const WALLET_SHIPPING_RATES = [STANDARD_SHIPPING, EXPRESS_SHIPPING];
 
 const PR_SHIPPING_OPTIONS = [
   {
@@ -50,53 +35,9 @@ const PR_SHIPPING_OPTIONS = [
   },
 ];
 
-function shippingRatesForVariant(expressDeliveryEnabled = true) {
-  if (expressDeliveryEnabled) return WALLET_SHIPPING_RATES;
-  return [STANDARD_SHIPPING];
-}
-
 function paymentRequestOptionsForVariant(expressDeliveryEnabled = true) {
   if (expressDeliveryEnabled) return PR_SHIPPING_OPTIONS;
   return PR_SHIPPING_OPTIONS.filter((option) => option.id !== "express");
-}
-
-function shippingFromWalletRate(rate) {
-  const amountPence = Number(rate?.amount || 0);
-  const isExpress = rate?.id === "express" || amountPence >= 1500;
-  return {
-    shippingMethod: isExpress ? "Express Delivery" : "Standard Delivery",
-    shippingCost: amountPence / 100,
-  };
-}
-
-function lineItemsFor(amountPence, shippingPence = 0) {
-  const items = [{ name: "Subtotal", amount: amountPence }];
-  if (shippingPence > 0) {
-    items.push({ name: "Express Delivery", amount: shippingPence });
-  } else {
-    items.push({ name: "Standard Delivery", amount: 0 });
-  }
-  return items;
-}
-
-function mapWalletAddressToOrder(event) {
-  const shipping = event.shippingAddress;
-  if (!shipping?.address) return null;
-  const addr = shipping.address;
-  const street = [addr.line1, addr.line2].filter(Boolean).join(", ");
-  if (!street) return null;
-  return {
-    fullName: shipping.name || event.billingDetails?.name || "Customer",
-    phone: event.billingDetails?.phone || null,
-    street,
-    city: addr.city,
-    state: addr.state || null,
-    zipCode: addr.postal_code,
-    country:
-      addr.country === "GB"
-        ? "United Kingdom"
-        : addr.country || "United Kingdom",
-  };
 }
 
 function mapPaymentRequestShipping(ev) {
@@ -138,10 +79,6 @@ function WalletCheckoutForm({
   const [walletRequest, setWalletRequest] = useState(null);
   const isApple = walletType === "apple";
   const isGoogle = walletType === "google";
-  const walletShippingRates = useMemo(
-    () => shippingRatesForVariant(expressDeliveryEnabled),
-    [expressDeliveryEnabled],
-  );
   const paymentRequestShippingOptions = useMemo(
     () => paymentRequestOptionsForVariant(expressDeliveryEnabled),
     [expressDeliveryEnabled],
@@ -223,7 +160,10 @@ function WalletCheckoutForm({
         }
 
         const { clientSecret, paymentIntentId } = intent.data;
-        sessionStorage.setItem("stripePaymentIntentId", paymentIntentId);
+        setCheckoutRef("stripePaymentIntentId", paymentIntentId);
+        if (intent.data?.orderId) {
+          setCheckoutRef("pendingOrderId", intent.data.orderId);
+        }
 
         const { error, paymentIntent } = await stripe.confirmCardPayment(
           clientSecret,
@@ -361,35 +301,17 @@ function PayPalCheckoutButton({
   disabled,
   expressDeliveryEnabled = true,
 }) {
-  const stripe = useStripe();
-  const elements = useElements();
+  const [paying, setPaying] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const expressCheckoutOptions = useMemo(
-    () => ({
-      buttonType: {
-        paypal: "paypal",
-      },
-      paymentMethods: {
-        paypal: "auto",
-        applePay: "never",
-        googlePay: "never",
-        link: "never",
-      },
-    }),
-    []
-  );
+  const handlePayPal = async (event) => {
+    event.preventDefault();
+    if (paying || disabled) return;
 
-  const onConfirm = async (event) => {
-    if (disabled) return;
-    const { elements: currentElements } = event;
-    const { error: submitError } = await currentElements.submit();
-    if (submitError) {
-      setErrorMessage(submitError.message);
-      return;
-    }
-
+    setPaying(true);
+    setErrorMessage("");
     try {
+      const stripe = await getStripe();
       const intent = await createExpressCheckoutIntent({
         productId,
         colorId,
@@ -402,51 +324,56 @@ function PayPalCheckoutButton({
 
       if (!intent?.success || !intent.data?.clientSecret) {
         setErrorMessage(intent?.message || "Unable to start PayPal checkout.");
+        setPaying(false);
         return;
       }
 
-      const { clientSecret, paymentIntentId } = intent.data;
-      sessionStorage.setItem("stripePaymentIntentId", paymentIntentId);
-      if (intent.data?.orderId) {
-        sessionStorage.setItem("pendingOrderId", intent.data.orderId);
-      }
+      const { clientSecret, paymentIntentId, orderId } = intent.data;
+      setCheckoutRef("stripePaymentIntentId", paymentIntentId);
+      if (orderId) setCheckoutRef("pendingOrderId", orderId);
 
-      const { error } = await stripe.confirmPayment({
-        elements: currentElements,
-        clientSecret,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout/success`,
-        },
+      const { error } = await stripe.confirmPayPalPayment(clientSecret, {
+        return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
       });
 
       if (error) {
         setErrorMessage(error.message || "PayPal checkout was cancelled.");
+        setPaying(false);
       }
-    } catch (err) {
-      console.error("[PayPal] Express Checkout Error", err);
+    } catch (error) {
+      console.error("[PayPal] Direct checkout failed", error);
       setErrorMessage("Something went wrong. Please try again.");
+      setPaying(false);
     }
   };
 
-  if (!stripe || !elements) return null;
-
   return (
-    <div className="space-y-2">
+    <form onSubmit={handlePayPal} className="space-y-2">
       {errorMessage ? (
         <p className="text-sm text-red-500">{errorMessage}</p>
       ) : null}
-      <div className={`h-[45px] w-full rounded-[4px] overflow-hidden ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-        <ExpressCheckoutElement
-          onConfirm={onConfirm}
-          options={expressCheckoutOptions}
-        />
-      </div>
+      <button
+        type="submit"
+        disabled={paying || disabled}
+        className="flex h-[45px] w-full items-center justify-center gap-1.5 rounded-[4px] bg-[#FFC439] transition hover:brightness-[0.98] active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {paying ? (
+          <span className="loading loading-spinner loading-xs text-[#003087]" />
+        ) : (
+          <span className="flex items-center gap-1.5">
+            <span className="text-[14px] font-medium leading-none text-[#2C2E2F]">
+              Pay with
+            </span>
+            <PayPalWordmark className="h-[19px] w-auto" />
+          </span>
+        )}
+      </button>
       {!expressDeliveryEnabled ? (
         <p className="text-[11px] text-gray-500">
           PayPal checkout uses Standard Delivery for this variant.
         </p>
       ) : null}
-    </div>
+    </form>
   );
 }
 
@@ -465,8 +392,8 @@ function KlarnaPaymentForm({
   quantity,
   disabled,
 }) {
-  const [paying, setPaying] = React.useState(false);
-  const [errorMessage, setErrorMessage] = React.useState("");
+  const [paying, setPaying] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleKlarna = async (event) => {
     event.preventDefault();
@@ -475,13 +402,42 @@ function KlarnaPaymentForm({
     setPaying(true);
     setErrorMessage("");
     try {
-      await checkout({
-        directProduct: { productId, colorId, storageOptionId, quantity },
-        collectAddressOnStripe: true,
+      const stripe = await getStripe();
+      const intent = await createExpressCheckoutIntent({
+        productId,
+        colorId,
+        storageOptionId,
+        quantity,
+        shippingMethod: "Standard Delivery",
+        shippingCost: 0,
+        paymentMethodTypes: ["klarna"],
       });
-      // Checkout will redirect the user
+
+      if (!intent?.success || !intent.data?.clientSecret) {
+        setErrorMessage(intent?.message || "Unable to start Klarna checkout.");
+        setPaying(false);
+        return;
+      }
+
+      const { clientSecret, paymentIntentId, orderId } = intent.data;
+      setCheckoutRef("stripePaymentIntentId", paymentIntentId);
+      if (orderId) setCheckoutRef("pendingOrderId", orderId);
+
+      const { error } = await stripe.confirmKlarnaPayment(clientSecret, {
+        payment_method: {
+          billing_details: {
+            address: { country: "GB" },
+          },
+        },
+        return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
+      });
+
+      if (error) {
+        setErrorMessage(error.message || "Klarna checkout was cancelled.");
+        setPaying(false);
+      }
     } catch (error) {
-      console.error("[Klarna] Checkout failed", error);
+      console.error("[Klarna] Direct checkout failed", error);
       setErrorMessage("Something went wrong. Please try again.");
       setPaying(false);
     }
@@ -531,20 +487,22 @@ export default function ProductExpressCheckout({
       mode: "payment",
       amount: amountPence,
       currency: "gbp",
-      paymentMethodTypes: ["card", "paypal"],
+      paymentMethodTypes: ["card"],
     }),
     [amountPence],
   );
 
   useEffect(() => {
+    if (walletType !== "apple" && walletType !== "google") return undefined;
+
     getStripe()
       .then(setStripePromise)
       .catch(() => {
         setLoadError(true);
-        if (walletType === "apple" || walletType === "google") {
-          onAvailabilityChange?.(false);
-        }
+        onAvailabilityChange?.(false);
       });
+
+    return undefined;
   }, [onAvailabilityChange, walletType]);
 
   return (
@@ -555,9 +513,9 @@ export default function ProductExpressCheckout({
           Delivery only.
         </p>
       ) : null}
-      {loadError ? null : stripePromise ? (
-        <Elements stripe={stripePromise} options={walletElementsOptions}>
-          {walletType === "apple" || walletType === "google" ? (
+      {walletType === "apple" || walletType === "google" ? (
+        loadError ? null : stripePromise ? (
+          <Elements stripe={stripePromise} options={walletElementsOptions}>
             <WalletCheckoutForm
               productId={productId}
               colorId={colorId}
@@ -569,21 +527,21 @@ export default function ProductExpressCheckout({
               onAvailabilityChange={onAvailabilityChange}
               expressDeliveryEnabled={expressDeliveryEnabled}
             />
-          ) : null}
-          <PayPalCheckoutButton
-            productId={productId}
-            colorId={colorId}
-            storageOptionId={storageOptionId}
-            quantity={quantity}
-            disabled={disabled}
-            expressDeliveryEnabled={expressDeliveryEnabled}
-          />
-        </Elements>
-      ) : (
-        <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
-          <span className="loading loading-spinner loading-xs text-gray-400" />
-        </div>
-      )}
+          </Elements>
+        ) : (
+          <div className="h-12 flex items-center justify-center rounded-sm bg-[#F6F7F9]">
+            <span className="loading loading-spinner loading-xs text-gray-400" />
+          </div>
+        )
+      ) : null}
+      <PayPalCheckoutButton
+        productId={productId}
+        colorId={colorId}
+        storageOptionId={storageOptionId}
+        quantity={quantity}
+        disabled={disabled}
+        expressDeliveryEnabled={expressDeliveryEnabled}
+      />
       <KlarnaPaymentForm
         productId={productId}
         colorId={colorId}
