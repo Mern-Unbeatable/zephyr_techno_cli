@@ -221,6 +221,7 @@ export async function checkout({
   cartItemIds,
   directProduct,
   collectAddressOnStripe = false,
+  paymentMethodTypes = null,
 } = {}) {
   const shared = {
     shippingMethod: shippingMethod || "Standard Delivery",
@@ -231,6 +232,10 @@ export async function checkout({
 
   if (shippingAddress) {
     shared.shippingAddress = shippingAddress;
+  }
+
+  if (Array.isArray(paymentMethodTypes) && paymentMethodTypes.length > 0) {
+    shared.paymentMethodTypes = paymentMethodTypes;
   }
 
   if (directProduct?.productId) {

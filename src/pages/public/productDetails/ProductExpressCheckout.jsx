@@ -17,6 +17,7 @@ import {
   confirmExpressPayment,
   createExpressCheckoutIntent,
   setCheckoutRef,
+  checkout,
 } from "../../../utils/cartApi";
 import PayPalWordmark from "../../../components/shared/PayPalWordmark";
 
@@ -394,15 +395,24 @@ function KlarnaPaymentForm({
 }) {
   const [paying, setPaying] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [email, setEmail] = useState("");
 
   const handleKlarna = async (event) => {
     event.preventDefault();
     if (paying || disabled) return;
 
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setErrorMessage("Enter your email to continue with Klarna.");
+      return;
+    }
+
     setPaying(true);
     setErrorMessage("");
     try {
       const stripe = await getStripe();
+
+      // 1) Preferred: PaymentIntent → redirect straight to Klarna (funds still settle in Stripe)
       const intent = await createExpressCheckoutIntent({
         productId,
         colorId,
@@ -410,35 +420,71 @@ function KlarnaPaymentForm({
         quantity,
         shippingMethod: "Standard Delivery",
         shippingCost: 0,
+        guestEmail: trimmedEmail,
         paymentMethodTypes: ["klarna"],
       });
 
-      if (!intent?.success || !intent.data?.clientSecret) {
-        setErrorMessage(intent?.message || "Unable to start Klarna checkout.");
-        setPaying(false);
+      if (intent?.success && intent.data?.clientSecret) {
+        const { clientSecret, paymentIntentId, orderId } = intent.data;
+        setCheckoutRef("stripePaymentIntentId", paymentIntentId);
+        if (orderId) setCheckoutRef("pendingOrderId", orderId);
+
+        const confirm =
+          typeof stripe.confirmKlarnaPayment === "function"
+            ? stripe.confirmKlarnaPayment(clientSecret, {
+                payment_method: {
+                  billing_details: {
+                    email: trimmedEmail,
+                    address: { country: "GB" },
+                  },
+                },
+                return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
+              })
+            : stripe.confirmPayment({
+                clientSecret,
+                confirmParams: {
+                  return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
+                  payment_method_data: {
+                    type: "klarna",
+                    billing_details: {
+                      email: trimmedEmail,
+                      address: { country: "GB" },
+                    },
+                  },
+                },
+              });
+
+        const { error } = await confirm;
+        if (error) {
+          setErrorMessage(error.message || "Klarna checkout was cancelled.");
+          setPaying(false);
+        }
         return;
       }
 
-      const { clientSecret, paymentIntentId, orderId } = intent.data;
-      setCheckoutRef("stripePaymentIntentId", paymentIntentId);
-      if (orderId) setCheckoutRef("pendingOrderId", orderId);
-
-      const { error } = await stripe.confirmKlarnaPayment(clientSecret, {
-        payment_method: {
-          billing_details: {
-            address: { country: "GB" },
-          },
+      // 2) Fallback: Stripe Checkout session locked to Klarna only (not full card/PayPal page)
+      const result = await checkout({
+        guestEmail: trimmedEmail,
+        collectAddressOnStripe: true,
+        paymentMethodTypes: ["klarna"],
+        directProduct: {
+          productId,
+          colorId,
+          storageOptionId,
+          quantity,
         },
-        return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
       });
-
-      if (error) {
-        setErrorMessage(error.message || "Klarna checkout was cancelled.");
+      if (!result?.success) {
+        setErrorMessage(
+          intent?.message ||
+            result?.message ||
+            "Unable to start Klarna checkout.",
+        );
         setPaying(false);
       }
     } catch (error) {
       console.error("[Klarna] Direct checkout failed", error);
-      setErrorMessage("Something went wrong. Please try again.");
+      setErrorMessage(error?.message || "Something went wrong. Please try again.");
       setPaying(false);
     }
   };
@@ -448,6 +494,17 @@ function KlarnaPaymentForm({
       {errorMessage ? (
         <p className="text-sm text-red-500">{errorMessage}</p>
       ) : null}
+      <input
+        type="email"
+        name="klarna-email"
+        autoComplete="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email for Klarna"
+        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 outline-none focus:border-custom"
+        disabled={paying || disabled}
+      />
       <button
         type="submit"
         disabled={paying || disabled}
