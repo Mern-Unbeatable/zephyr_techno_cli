@@ -337,6 +337,10 @@ function PayPalCheckoutButton({
         return_url: `${window.location.origin}/checkout/success?orderId=${encodeURIComponent(orderId || "")}`,
       });
 
+
+
+
+      
       if (error) {
         setErrorMessage(error.message || "PayPal checkout was cancelled.");
         setPaying(false);
