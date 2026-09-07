@@ -399,24 +399,17 @@ function KlarnaPaymentForm({
 }) {
   const [paying, setPaying] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [email, setEmail] = useState("");
 
   const handleKlarna = async (event) => {
     event.preventDefault();
     if (paying || disabled) return;
-
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes("@")) {
-      setErrorMessage("Enter your email to continue with Klarna.");
-      return;
-    }
 
     setPaying(true);
     setErrorMessage("");
     try {
       const stripe = await getStripe();
 
-      // 1) Preferred: PaymentIntent → redirect straight to Klarna (funds still settle in Stripe)
+      // PaymentIntent → redirect to Klarna (Klarna collects email on its own page)
       const intent = await createExpressCheckoutIntent({
         productId,
         colorId,
@@ -424,7 +417,6 @@ function KlarnaPaymentForm({
         quantity,
         shippingMethod: "Standard Delivery",
         shippingCost: 0,
-        guestEmail: trimmedEmail,
         paymentMethodTypes: ["klarna"],
       });
 
@@ -438,7 +430,6 @@ function KlarnaPaymentForm({
             ? stripe.confirmKlarnaPayment(clientSecret, {
                 payment_method: {
                   billing_details: {
-                    email: trimmedEmail,
                     address: { country: "GB" },
                   },
                 },
@@ -451,7 +442,6 @@ function KlarnaPaymentForm({
                   payment_method_data: {
                     type: "klarna",
                     billing_details: {
-                      email: trimmedEmail,
                       address: { country: "GB" },
                     },
                   },
@@ -466,9 +456,8 @@ function KlarnaPaymentForm({
         return;
       }
 
-      // 2) Fallback: Stripe Checkout session locked to Klarna only (not full card/PayPal page)
+      // Fallback: Klarna-only Stripe session (not full card/PayPal checkout)
       const result = await checkout({
-        guestEmail: trimmedEmail,
         collectAddressOnStripe: true,
         paymentMethodTypes: ["klarna"],
         directProduct: {
@@ -498,17 +487,6 @@ function KlarnaPaymentForm({
       {errorMessage ? (
         <p className="text-sm text-red-500">{errorMessage}</p>
       ) : null}
-      <input
-        type="email"
-        name="klarna-email"
-        autoComplete="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email for Klarna"
-        className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-800 outline-none focus:border-custom"
-        disabled={paying || disabled}
-      />
       <button
         type="submit"
         disabled={paying || disabled}
