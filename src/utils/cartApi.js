@@ -247,12 +247,14 @@ export async function checkout({
   let body;
   let headers;
 
+  // Always include guestSessionId so expired tokens still work as guest checkout.
+  const guestSessionId = getOrCreateGuestSessionId();
+
   if (isLoggedIn()) {
     headers = authHeaders();
-    body = { ...shared };
+    body = { ...shared, guestSessionId };
   } else {
     headers = guestHeaders();
-    const guestSessionId = getOrCreateGuestSessionId();
     body = { guestSessionId, guestEmail, ...shared };
   }
 
@@ -306,12 +308,16 @@ export async function createExpressCheckoutIntent({
     paymentMethodTypes: paymentMethodTypes || undefined,
   };
 
+  // Always attach a guest session as fallback. If the stored JWT is expired/
+  // invalid, optionalAuthenticate leaves userId null — without guestSessionId
+  // the API returns "Either login or provide guestSessionId".
+  body.guestSessionId = getOrCreateGuestSessionId();
+
   let headers;
   if (isLoggedIn()) {
     headers = authHeaders();
   } else {
     headers = guestHeaders();
-    body.guestSessionId = getOrCreateGuestSessionId();
   }
 
   const res = await fetch(
