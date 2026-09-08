@@ -135,10 +135,21 @@ const CheckoutSuccess = () => {
                                 <span className="text-green-600 font-medium">{order.paymentStatus}</span>
                             </div>
                             {order.shippingAddress && (
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">Ship to</span>
+                                <div className="flex justify-between gap-4 text-sm">
+                                    <span className="text-gray-500 shrink-0">Ship to</span>
                                     <span className="text-gray-700 text-right">
-                                        {order.shippingAddress.fullName}, {order.shippingAddress.city}, {order.shippingAddress.country}
+                                        {[
+                                            order.shippingAddress.street,
+                                            [
+                                                order.shippingAddress.city,
+                                                order.shippingAddress.zipCode,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' '),
+                                            order.shippingAddress.country,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(', ')}
                                     </span>
                                 </div>
                             )}

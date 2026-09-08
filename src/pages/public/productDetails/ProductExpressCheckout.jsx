@@ -312,11 +312,9 @@ function PayPalCheckoutButton({
     setPaying(true);
     setErrorMessage("");
     try {
-      // Route through Stripe Checkout Session (not a raw PaymentIntent) so
-      // Stripe collects the buyer's shipping address on their hosted page
-      // and returns it on the session. A raw PayPal PaymentIntent does not
-      // surface the buyer's PayPal shipping address back to us, which left
-      // the order with the "To be confirmed" placeholder.
+      // Stripe Checkout Session first: collect shipping address on Stripe's
+      // hosted page, then redirect to PayPal to complete payment. This puts
+      // the address in our admin order and on the Stripe/PayPal transaction.
       const result = await checkout({
         collectAddressOnStripe: true,
         paymentMethodTypes: ["paypal"],
@@ -335,7 +333,7 @@ function PayPalCheckoutButton({
         setPaying(false);
       }
     } catch (error) {
-      console.error("[PayPal] Direct checkout failed", error);
+      console.error("[PayPal] Checkout session failed", error);
       setErrorMessage("Something went wrong. Please try again.");
       setPaying(false);
     }
@@ -396,10 +394,8 @@ function KlarnaPaymentForm({
     setPaying(true);
     setErrorMessage("");
     try {
-      // Route through Stripe Checkout Session so Stripe collects the buyer's
-      // shipping address on their hosted page. A raw Klarna PaymentIntent
-      // never returns shipping back to us, which left the order with the
-      // "To be confirmed" placeholder in the DB.
+      // Stripe Checkout Session first: collect shipping address on Stripe's
+      // hosted page, then redirect to Klarna to complete payment.
       const result = await checkout({
         collectAddressOnStripe: true,
         paymentMethodTypes: ["klarna"],
@@ -418,7 +414,7 @@ function KlarnaPaymentForm({
         setPaying(false);
       }
     } catch (error) {
-      console.error("[Klarna] Direct checkout failed", error);
+      console.error("[Klarna] Checkout session failed", error);
       setErrorMessage(error?.message || "Something went wrong. Please try again.");
       setPaying(false);
     }

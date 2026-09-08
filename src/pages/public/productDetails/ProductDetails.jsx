@@ -976,18 +976,18 @@ const WHY_CHOOSE_ITEMS = [
   {
     title: 'Genuine Devices',
     description:
-      'Every device is 100% genuine and sourced from trusted suppliers.',
+      'Every Device Is 100% Genuine And Sourced From Trusted Suppliers.',
     icon: FiCheckCircle,
   },
   {
     title: 'Brand New & Factory Sealed',
     description:
-      'New devices arrive factory sealed unless stated otherwise.',
+      'New Devices Arrive Factory Sealed Unless Stated Otherwise.',
     icon: FiPackage,
   },
   {
     title: 'Fast UK Delivery',
-    description: 'Tracked UK delivery with secure packaging.',
+    description: 'Tracked UK Delivery With Secure Packaging.',
     icon: FiTruck,
   },
   {
