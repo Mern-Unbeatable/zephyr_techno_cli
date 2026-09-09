@@ -55,6 +55,63 @@ const seedMapForKeys = (prev, keys, defaultValue) => {
   return next;
 };
 
+/** Prefer "New (Sealed)", else any category name containing "sealed". */
+const findSealedCategory = (categoryList = []) => {
+  if (!Array.isArray(categoryList) || !categoryList.length) return null;
+  const normalized = categoryList.map((c) => ({
+    ...c,
+    nameNorm: String(c?.name || "")
+      .trim()
+      .toLowerCase(),
+  }));
+  const exactNewSealed = normalized.find(
+    (c) =>
+      c.nameNorm === "new (sealed)" ||
+      c.nameNorm === "new sealed" ||
+      c.nameNorm.includes("new (sealed)"),
+  );
+  if (exactNewSealed) return exactNewSealed;
+  return normalized.find((c) => /sealed/i.test(c.nameNorm)) || null;
+};
+
+/**
+ * Copy ""::color::storage (no-condition) cells into conditionId::color::storage
+ * when those condition cells are still empty / newly seeded.
+ */
+const bridgeLegacyMatrixMap = (
+  prev,
+  next,
+  conditionIds,
+  colorIds,
+  storageIds,
+  { isEmpty, copyOnlyIfNewKey = false } = {},
+) => {
+  if (!conditionIds.length || !colorIds.length || !storageIds.length) {
+    return next;
+  }
+
+  colorIds.forEach((colorId) => {
+    storageIds.forEach((storageId) => {
+      const legacyKey = variantCellKey(null, colorId, storageId);
+      if (!Object.prototype.hasOwnProperty.call(prev, legacyKey)) return;
+
+      conditionIds.forEach((conditionId) => {
+        const key = variantCellKey(conditionId, colorId, storageId);
+        if (copyOnlyIfNewKey) {
+          if (Object.prototype.hasOwnProperty.call(prev, key)) return;
+          next[key] = prev[legacyKey];
+          return;
+        }
+        if (isEmpty?.(next[key])) {
+          next[key] = prev[legacyKey];
+        }
+      });
+    });
+  });
+
+  return next;
+};
+
 const Addlisting = ({ isEdit = false, listingId = null }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -115,7 +172,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           throw new Error("Failed to load options");
 
         const data = payload.data;
-        setCategories(data.categories || []);
+        const loadedCategories = data.categories || [];
+        setCategories(loadedCategories);
         setAllSeries(data.series || []);
         setAllModels(data.models || []);
         setColors(data.colors || []);
@@ -128,6 +186,20 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           });
           return next;
         });
+
+        // New listings: default-tick New (Sealed) so matrix keys use the condition
+        // namespace from the start (avoids wiping prices on first condition tick).
+        if (!isEdit) {
+          const sealed = findSealedCategory(loadedCategories);
+          if (sealed?.id) {
+            setConditionCategoryIds((prev) =>
+              prev.length > 0 ? prev : [sealed.id],
+            );
+            setFormData((prev) =>
+              prev.categoryId ? prev : { ...prev, categoryId: sealed.id },
+            );
+          }
+        }
       } catch (err) {
         await Swal.fire({
           icon: "error",
@@ -138,7 +210,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       }
     };
     fetchOptions();
-  }, []);
+  }, [isEdit]);
 
   // Filter models when series changes
   useEffect(() => {
@@ -439,10 +511,49 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
 
   const syncMatrixMaps = (conditionIds, colorIds, storageIds) => {
     const keys = buildMatrixKeys(conditionIds, colorIds, storageIds);
-    setVariantStocks((prev) => seedMapForKeys(prev, keys, ""));
-    setVariantPrices((prev) => seedMapForKeys(prev, keys, ""));
-    setVariantCompareAt((prev) => seedMapForKeys(prev, keys, ""));
-    setVariantExpress((prev) => seedMapForKeys(prev, keys, true));
+    const isBlank = (value) =>
+      value === undefined || value === null || value === "";
+
+    setVariantStocks((prev) =>
+      bridgeLegacyMatrixMap(
+        prev,
+        seedMapForKeys(prev, keys, ""),
+        conditionIds,
+        colorIds,
+        storageIds,
+        { isEmpty: isBlank },
+      ),
+    );
+    setVariantPrices((prev) =>
+      bridgeLegacyMatrixMap(
+        prev,
+        seedMapForKeys(prev, keys, ""),
+        conditionIds,
+        colorIds,
+        storageIds,
+        { isEmpty: isBlank },
+      ),
+    );
+    setVariantCompareAt((prev) =>
+      bridgeLegacyMatrixMap(
+        prev,
+        seedMapForKeys(prev, keys, ""),
+        conditionIds,
+        colorIds,
+        storageIds,
+        { isEmpty: isBlank },
+      ),
+    );
+    setVariantExpress((prev) =>
+      bridgeLegacyMatrixMap(
+        prev,
+        seedMapForKeys(prev, keys, true),
+        conditionIds,
+        colorIds,
+        storageIds,
+        { copyOnlyIfNewKey: true },
+      ),
+    );
   };
 
   // Handle category change
