@@ -5,10 +5,11 @@ import { Outlet } from 'react-router';
 import Footer from './Footer';
 import ScrollToTop from '../components/ScrollToTop';
 import MobileBottomNav from '../components/MobileBottomNav';
+import MaintenanceGate from '../components/MaintenanceGate';
 
 const MainLayout = () => {
     return (
-        <>
+        <MaintenanceGate>
             <ScrollToTop />
             <div className="flex flex-col min-h-screen">
                 <div className="sticky top-0 z-50 bg-white shadow-sm">
@@ -20,7 +21,7 @@ const MainLayout = () => {
                 <Footer/>
                 <MobileBottomNav />
             </div>
-        </>
+        </MaintenanceGate>
     );
 };
 

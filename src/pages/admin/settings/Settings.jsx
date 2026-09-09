@@ -24,10 +24,34 @@ const Settings = () => {
         conditionModelPrices: [],
         conditionModelPricesMap: {},
     });
+    const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
+    const [maintenanceMessage, setMaintenanceMessage] = useState('');
+    const [maintenanceLoading, setMaintenanceLoading] = useState(true);
+    const [maintenanceSaving, setMaintenanceSaving] = useState(false);
     const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 
     useEffect(() => {
         const token = localStorage.getItem('token');
+
+        const loadMaintenance = async () => {
+            try {
+                const res = await fetch(
+                    `${API_BASE_URL}/api/admin/site-settings/maintenance`,
+                    {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    },
+                );
+                if (!res.ok) return;
+                const payload = await res.json();
+                setMaintenanceEnabled(Boolean(payload?.data?.enabled));
+                setMaintenanceMessage(payload?.data?.message || '');
+            } catch {
+                /* ignore */
+            } finally {
+                setMaintenanceLoading(false);
+            }
+        };
+        loadMaintenance();
 
         const loadCategories = async () => {
             try {
@@ -808,6 +832,52 @@ const Settings = () => {
         }));
     };
 
+    const saveMaintenanceMode = async (nextEnabled) => {
+        const token = localStorage.getItem('token');
+        setMaintenanceSaving(true);
+        try {
+            const res = await fetch(
+                `${API_BASE_URL}/api/admin/site-settings/maintenance`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({
+                        enabled: nextEnabled,
+                        message: maintenanceMessage || undefined,
+                    }),
+                },
+            );
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok || payload.success === false) {
+                throw new Error(payload.message || 'Failed to update maintenance mode');
+            }
+            setMaintenanceEnabled(Boolean(payload?.data?.enabled));
+            setMaintenanceMessage(payload?.data?.message || '');
+            await Swal.fire({
+                icon: 'success',
+                title: nextEnabled ? 'Maintenance ON' : 'Maintenance OFF',
+                text: nextEnabled
+                    ? 'Storefront is now showing the maintenance page.'
+                    : 'Storefront is live again.',
+                confirmButtonColor: '#0891b2',
+                timer: 2200,
+                showConfirmButton: false,
+            });
+        } catch (err) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.message || 'Could not update maintenance mode.',
+                confirmButtonColor: '#0891b2',
+            });
+        } finally {
+            setMaintenanceSaving(false);
+        }
+    };
+
     const renderSection = (section) => (
         <SettingsCard
                 key={section.key}
@@ -977,6 +1047,65 @@ const Settings = () => {
             </div>
 
             <div className="space-y-4">
+                <SettingsCard title="Storefront · Maintenance Mode">
+                    {maintenanceLoading ? (
+                        <p className="text-sm text-gray-400">Loading…</p>
+                    ) : (
+                        <div className="space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800">
+                                        {maintenanceEnabled
+                                            ? 'Maintenance is ON — only the maintenance page is public'
+                                            : 'Maintenance is OFF — store is live'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        When ON, customers only see the maintenance screen. Admins
+                                        open /login and work in the admin panel only — the public
+                                        website stays locked.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={maintenanceSaving}
+                                    onClick={() => saveMaintenanceMode(!maintenanceEnabled)}
+                                    className={`shrink-0 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
+                                        maintenanceEnabled
+                                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                            : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                    }`}
+                                >
+                                    {maintenanceSaving
+                                        ? 'Saving…'
+                                        : maintenanceEnabled
+                                          ? 'Turn OFF maintenance'
+                                          : 'Turn ON maintenance'}
+                                </button>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">
+                                    Optional message on the maintenance page
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    value={maintenanceMessage}
+                                    onChange={(e) => setMaintenanceMessage(e.target.value)}
+                                    placeholder="We're upgrading systems — back shortly."
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+                                />
+                                <button
+                                    type="button"
+                                    disabled={maintenanceSaving}
+                                    onClick={() => saveMaintenanceMode(maintenanceEnabled)}
+                                    className="mt-2 text-xs font-medium text-teal-700 hover:text-teal-800"
+                                >
+                                    Save message
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </SettingsCard>
+
                 {beforePrice.map(renderSection)}
 
                 {renderSection(conditionsSection)}

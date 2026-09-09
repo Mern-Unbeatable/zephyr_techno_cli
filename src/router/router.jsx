@@ -44,6 +44,7 @@ import Terms from "../pages/public/terms-condition/Terms";
 import Refund from "../pages/public/refund-policy/Refund";
 import Shipping from "../pages/public/shipping-policy/Shipping";
 import TrackRequest from "../pages/public/trackRequest/TrackRequest";
+import MaintenanceGate from "../components/MaintenanceGate";
 
 const router = createBrowserRouter([
   {
@@ -158,21 +159,58 @@ const router = createBrowserRouter([
     ],
   },
 
-  // auth routes
+  // auth routes — during maintenance only /login stays open (see MaintenanceGate ALLOWED_PATHS)
   { path: "/login", element: <Login /> },
-  { path: "/register", element: <Register /> },
-  { path: "/forget-password", element: <ForgetPass /> },
-  { path: "/reset-password", element: <ResetPass /> },
-  { path: "/otp-verification", element: <Otp /> },
-  { path: "/verify-code", element: <ForgetCode /> },
-
-  // not found route
   {
-    path: "*",
-    element: <NotFound />,
+    path: "/register",
+    element: (
+      <MaintenanceGate>
+        <Register />
+      </MaintenanceGate>
+    ),
+  },
+  {
+    path: "/forget-password",
+    element: (
+      <MaintenanceGate>
+        <ForgetPass />
+      </MaintenanceGate>
+    ),
+  },
+  {
+    path: "/reset-password",
+    element: (
+      <MaintenanceGate>
+        <ResetPass />
+      </MaintenanceGate>
+    ),
+  },
+  {
+    path: "/otp-verification",
+    element: (
+      <MaintenanceGate>
+        <Otp />
+      </MaintenanceGate>
+    ),
+  },
+  {
+    path: "/verify-code",
+    element: (
+      <MaintenanceGate>
+        <ForgetCode />
+      </MaintenanceGate>
+    ),
   },
 
-  
+  // not found — still blocked by maintenance
+  {
+    path: "*",
+    element: (
+      <MaintenanceGate>
+        <NotFound />
+      </MaintenanceGate>
+    ),
+  },
 ]);
 
 export default router;
