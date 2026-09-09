@@ -5,6 +5,8 @@ const MAX_CARDS_PER_PRODUCT = 4;
 /**
  * Expand one product into colour × storage preview cards for Featured/Home.
  * Prefers in-stock variants first; caps cards per product.
+ * Prices prefer min from availableVariantStocks (any condition) for that pair.
+ * Stock is summed across conditions for the color×storage pair.
  */
 export function expandProductToVariantCards(
   product,
@@ -29,12 +31,33 @@ export function expandProductToVariantCards(
   let pairs = [];
 
   if (stocks.length > 0) {
-    pairs = stocks.map((row) => ({
-      colorId: row.colorId,
-      storageOptionId: row.storageOptionId,
-      stockQuantity: Math.max(0, Number(row.stockQuantity) || 0),
-      expressDeliveryEnabled: row.expressDeliveryEnabled !== false,
-    }));
+    const byPair = new Map();
+    stocks.forEach((row) => {
+      if (!row?.colorId || !row?.storageOptionId) return;
+      const key = `${row.colorId}::${row.storageOptionId}`;
+      const existing = byPair.get(key) || {
+        colorId: row.colorId,
+        storageOptionId: row.storageOptionId,
+        stockQuantity: 0,
+        prices: [],
+        compareAts: [],
+        expressDeliveryEnabled: false,
+      };
+      existing.stockQuantity += Math.max(0, Number(row.stockQuantity) || 0);
+      const price = Number(row.price);
+      if (Number.isFinite(price) && price > 0) {
+        existing.prices.push(price);
+      }
+      const compareAt = Number(row.compareAtPrice);
+      if (Number.isFinite(compareAt) && compareAt > 0) {
+        existing.compareAts.push(compareAt);
+      }
+      if (row.expressDeliveryEnabled !== false) {
+        existing.expressDeliveryEnabled = true;
+      }
+      byPair.set(key, existing);
+    });
+    pairs = [...byPair.values()];
   } else {
     for (const color of colors) {
       for (const storage of storages) {
@@ -42,6 +65,8 @@ export function expandProductToVariantCards(
           colorId: color.id,
           storageOptionId: storage.id,
           stockQuantity: Math.max(0, Number(product.stockQuantity) || 0),
+          prices: [],
+          compareAts: [],
           expressDeliveryEnabled: true,
         });
       }
@@ -61,6 +86,8 @@ export function expandProductToVariantCards(
         colorId: colors[0]?.id || null,
         storageOptionId: storages[0]?.id || null,
         stockQuantity: Math.max(0, Number(product.stockQuantity) || 0),
+        prices: [],
+        compareAts: [],
         expressDeliveryEnabled: true,
       },
     ];
@@ -86,12 +113,24 @@ export function expandProductToVariantCards(
     const storageLabel = storage ? formatStorageLabel(storage.name) : '';
     const image =
       colorThumbById.get(pair.colorId) || product.thumbnail || null;
+
+    const minMatrixPrice =
+      pair.prices?.length > 0 ? Math.min(...pair.prices) : null;
     const price =
-      storage?.price != null ? storage.price : product.basePrice;
+      minMatrixPrice != null
+        ? minMatrixPrice
+        : storage?.price != null
+          ? storage.price
+          : product.basePrice;
+
+    const minMatrixCompare =
+      pair.compareAts?.length > 0 ? Math.min(...pair.compareAts) : null;
     const oldPrice =
-      storage?.compareAtPrice != null
-        ? storage.compareAtPrice
-        : product.compareAtPrice;
+      minMatrixCompare != null
+        ? minMatrixCompare
+        : storage?.compareAtPrice != null
+          ? storage.compareAtPrice
+          : product.compareAtPrice;
 
     const is256GB = storageLabel === '256GB' || storage?.name?.includes('256GB');
     const badgeText = is256GB ? 'BEST SELLER' : null;

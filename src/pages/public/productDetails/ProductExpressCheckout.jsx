@@ -66,6 +66,7 @@ function WalletCheckoutForm({
   productId,
   colorId,
   storageOptionId,
+  conditionCategoryId,
   quantity,
   amountPence,
   disabled,
@@ -96,6 +97,7 @@ function WalletCheckoutForm({
         productId,
         colorId,
         storageOptionId,
+        conditionCategoryId,
         quantity,
         shippingMethod:
           !expressDeliveryEnabled || shippingCost < 15
@@ -112,7 +114,7 @@ function WalletCheckoutForm({
         );
         return null;
       }),
-    [productId, colorId, storageOptionId, quantity, expressDeliveryEnabled],
+    [productId, colorId, storageOptionId, conditionCategoryId, quantity, expressDeliveryEnabled],
   );
 
   useEffect(() => {
@@ -298,6 +300,7 @@ function PayPalCheckoutButton({
   productId,
   colorId,
   storageOptionId,
+  conditionCategoryId,
   quantity,
   disabled,
   expressDeliveryEnabled = true,
@@ -324,6 +327,7 @@ function PayPalCheckoutButton({
           productId,
           colorId,
           storageOptionId,
+          conditionCategoryId,
           quantity,
         },
       });
@@ -381,6 +385,7 @@ function KlarnaPaymentForm({
   productId,
   colorId,
   storageOptionId,
+  conditionCategoryId,
   quantity,
   disabled,
 }) {
@@ -405,6 +410,7 @@ function KlarnaPaymentForm({
           productId,
           colorId,
           storageOptionId,
+          conditionCategoryId,
           quantity,
         },
       });
@@ -449,6 +455,7 @@ export default function ProductExpressCheckout({
   productId,
   colorId,
   storageOptionId,
+  conditionCategoryId,
   quantity,
   amount,
   disabled,
@@ -497,6 +504,7 @@ export default function ProductExpressCheckout({
               productId={productId}
               colorId={colorId}
               storageOptionId={storageOptionId}
+              conditionCategoryId={conditionCategoryId}
               quantity={quantity}
               amountPence={amountPence}
               disabled={disabled}
@@ -515,6 +523,7 @@ export default function ProductExpressCheckout({
         productId={productId}
         colorId={colorId}
         storageOptionId={storageOptionId}
+        conditionCategoryId={conditionCategoryId}
         quantity={quantity}
         disabled={disabled}
         expressDeliveryEnabled={expressDeliveryEnabled}
@@ -523,6 +532,7 @@ export default function ProductExpressCheckout({
         productId={productId}
         colorId={colorId}
         storageOptionId={storageOptionId}
+        conditionCategoryId={conditionCategoryId}
         quantity={quantity}
         disabled={disabled}
       />

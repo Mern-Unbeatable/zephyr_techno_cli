@@ -4,6 +4,7 @@ const getSelectedOptionLines = (options) => {
     if (!options) return [];
 
     return [
+        { label: 'condition', value: options.condition?.name ?? options.condition },
         { label: 'color', value: options.color?.name ?? options.color },
         { label: 'storage', value: options.storage?.name ?? options.storage },
     ].filter((entry) => entry.value);

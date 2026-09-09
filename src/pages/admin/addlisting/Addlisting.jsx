@@ -27,6 +27,34 @@ const API_BASE_URL =
   import.meta.env.VITE_BASE_URL ||
   "https://api.zephyrtechnology.co.uk";
 
+/** Cell key: conditionCategoryId (or '') × colorId × storageOptionId */
+const variantCellKey = (conditionCategoryId, colorId, storageId) =>
+  `${conditionCategoryId || ""}::${colorId}::${storageId}`;
+
+const buildMatrixKeys = (conditionIds, colorIds, storageIds) => {
+  if (!colorIds.length || !storageIds.length) return [];
+  const conditions = conditionIds.length ? conditionIds : [null];
+  const keys = [];
+  conditions.forEach((conditionId) => {
+    colorIds.forEach((colorId) => {
+      storageIds.forEach((storageId) => {
+        keys.push(variantCellKey(conditionId, colorId, storageId));
+      });
+    });
+  });
+  return keys;
+};
+
+const seedMapForKeys = (prev, keys, defaultValue) => {
+  const next = {};
+  keys.forEach((key) => {
+    next[key] = Object.prototype.hasOwnProperty.call(prev, key)
+      ? prev[key]
+      : defaultValue;
+  });
+  return next;
+};
+
 const Addlisting = ({ isEdit = false, listingId = null }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -48,9 +76,10 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     { name: "", value: "" },
   ]);
   const [includedItems, setIncludedItems] = useState([{ label: "" }]);
-  const [storagePrices, setStoragePrices] = useState({});
-  const [storageCompareAtPrices, setStorageCompareAtPrices] = useState({});
+  const [conditionCategoryIds, setConditionCategoryIds] = useState([]);
   const [variantStocks, setVariantStocks] = useState({});
+  const [variantPrices, setVariantPrices] = useState({});
+  const [variantCompareAt, setVariantCompareAt] = useState({});
   const [variantExpress, setVariantExpress] = useState({});
   const [colorImages, setColorImages] = useState({});
   const [removedImageIds, setRemovedImageIds] = useState([]);
@@ -131,21 +160,21 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     if (pruned.length === formData.storageOptionIds.length) return;
 
     setFormData((prev) => ({ ...prev, storageOptionIds: pruned }));
-    setStorageStocks((prev) => {
-      const next = {};
-      pruned.forEach((id) => {
-        if (prev[id] !== undefined) next[id] = prev[id];
-      });
-      return next;
-    });
-    setStoragePrices((prev) => {
-      const next = {};
-      pruned.forEach((id) => {
-        if (prev[id] !== undefined) next[id] = prev[id];
-      });
-      return next;
-    });
-  }, [storageOptions, formData.storageOptionIds]);
+    const keys = buildMatrixKeys(
+      conditionCategoryIds,
+      formData.colorIds,
+      pruned,
+    );
+    setVariantStocks((prev) => seedMapForKeys(prev, keys, ""));
+    setVariantPrices((prev) => seedMapForKeys(prev, keys, ""));
+    setVariantCompareAt((prev) => seedMapForKeys(prev, keys, ""));
+    setVariantExpress((prev) => seedMapForKeys(prev, keys, true));
+  }, [
+    storageOptions,
+    formData.storageOptionIds,
+    formData.colorIds,
+    conditionCategoryIds,
+  ]);
 
   // Fetch listing data when in edit mode
   useEffect(() => {
@@ -208,55 +237,148 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             introduction: listing.introduction || "",
             listingStatus: listing.listingStatus || "ACTIVE",
           });
-          const nextStoragePrices = {};
-          const nextStorageCompareAt = {};
-          listingStorages.forEach((storage) => {
-            if (!listingStorageNames[storage.id]) return;
-            nextStoragePrices[storage.id] =
-              storage.price != null && Number(storage.price) > 0
-                ? String(storage.price)
-                : "";
-            nextStorageCompareAt[storage.id] =
-              storage.compareAtPrice != null && Number(storage.compareAtPrice) > 0
-                ? String(storage.compareAtPrice)
-                : "";
-          });
-          setStoragePrices(nextStoragePrices);
-          setStorageCompareAtPrices(nextStorageCompareAt);
+
+          const listingConditions = listing.availableConditions || [];
+          const nextConditionIds = listingConditions
+            .map((row) => row.id)
+            .filter(Boolean);
+          setConditionCategoryIds(nextConditionIds);
+
+          const loadedColorIds =
+            listing.availableColors?.map((c) => c.id) || [];
           const nextVariantStocks = {};
+          const nextVariantPrices = {};
+          const nextVariantCompareAt = {};
           const nextVariantExpress = {};
           (listing.availableVariantStocks || []).forEach((row) => {
             if (!row?.colorId || !row?.storageOptionId) return;
-            const key = `${row.colorId}::${row.storageOptionId}`;
+            const key = variantCellKey(
+              row.conditionCategoryId,
+              row.colorId,
+              row.storageOptionId,
+            );
             nextVariantStocks[key] =
               Number(row.stockQuantity) > 0 ? String(row.stockQuantity) : "";
+            nextVariantPrices[key] =
+              row.price != null && Number(row.price) > 0
+                ? String(row.price)
+                : "";
+            nextVariantCompareAt[key] =
+              row.compareAtPrice != null && Number(row.compareAtPrice) > 0
+                ? String(row.compareAtPrice)
+                : "";
             nextVariantExpress[key] = row.expressDeliveryEnabled !== false;
           });
-          // Fallback: if matrix empty, seed from flat color/storage stocks
+
+          // Fallback: seed empty matrix from flat color/storage stocks
+          const desiredKeys = buildMatrixKeys(
+            nextConditionIds,
+            loadedColorIds,
+            validStorageIds,
+          );
           if (
             Object.keys(nextVariantStocks).length === 0 &&
-            (listing.availableColors || []).length &&
-            listingStorages.length
+            desiredKeys.length > 0
           ) {
-            (listing.availableColors || []).forEach((color) => {
-              listingStorages.forEach((storage) => {
-                if (!listingStorageNames[storage.id]) return;
-                const colorStock = Number(color.stockQuantity) || 0;
+            const listingStoragesForFallback = listingStorages.filter((s) =>
+              listingStorageNames[s.id],
+            );
+            loadedColorIds.forEach((colorId) => {
+              const color = (listing.availableColors || []).find(
+                (c) => c.id === colorId,
+              );
+              listingStoragesForFallback.forEach((storage) => {
+                const colorStock = Number(color?.stockQuantity) || 0;
                 const storageStock = Number(storage.stockQuantity) || 0;
-                const cell =
+                const cellStock =
                   colorStock > 0
                     ? Math.min(colorStock, storageStock || colorStock)
                     : Math.floor(
-                        storageStock /
-                          Math.max((listing.availableColors || []).length, 1),
+                        storageStock / Math.max(loadedColorIds.length, 1),
                       );
-                nextVariantStocks[`${color.id}::${storage.id}`] =
-                  cell > 0 ? String(cell) : "";
-                nextVariantExpress[`${color.id}::${storage.id}`] = true;
+                const storagePrice =
+                  storage.price != null && Number(storage.price) > 0
+                    ? String(storage.price)
+                    : "";
+                const storageCompare =
+                  storage.compareAtPrice != null &&
+                  Number(storage.compareAtPrice) > 0
+                    ? String(storage.compareAtPrice)
+                    : "";
+                const conditions =
+                  nextConditionIds.length > 0 ? nextConditionIds : [null];
+                conditions.forEach((conditionId) => {
+                  const key = variantCellKey(
+                    conditionId,
+                    colorId,
+                    storage.id,
+                  );
+                  nextVariantStocks[key] =
+                    cellStock > 0 ? String(cellStock) : "";
+                  nextVariantPrices[key] = storagePrice;
+                  nextVariantCompareAt[key] = storageCompare;
+                  nextVariantExpress[key] = true;
+                });
               });
             });
           }
+
+          // Ensure every current combo has a key (seed blanks for missing)
+          desiredKeys.forEach((key) => {
+            if (nextVariantStocks[key] === undefined) nextVariantStocks[key] = "";
+            if (nextVariantPrices[key] === undefined) nextVariantPrices[key] = "";
+            if (nextVariantCompareAt[key] === undefined)
+              nextVariantCompareAt[key] = "";
+            if (nextVariantExpress[key] === undefined)
+              nextVariantExpress[key] = true;
+          });
+
+          // Bridge legacy color×storage rows (no conditionCategoryId) into each condition
+          if (nextConditionIds.length > 0) {
+            loadedColorIds.forEach((colorId) => {
+              validStorageIds.forEach((storageId) => {
+                const legacyKey = variantCellKey(null, colorId, storageId);
+                const hasLegacy =
+                  nextVariantPrices[legacyKey] ||
+                  nextVariantStocks[legacyKey] ||
+                  nextVariantCompareAt[legacyKey] ||
+                  Object.prototype.hasOwnProperty.call(
+                    nextVariantExpress,
+                    legacyKey,
+                  );
+                if (!hasLegacy) return;
+                nextConditionIds.forEach((conditionId) => {
+                  const key = variantCellKey(conditionId, colorId, storageId);
+                  if (!nextVariantPrices[key]) {
+                    nextVariantPrices[key] = nextVariantPrices[legacyKey] || "";
+                  }
+                  if (!nextVariantStocks[key]) {
+                    nextVariantStocks[key] = nextVariantStocks[legacyKey] || "";
+                  }
+                  if (!nextVariantCompareAt[key]) {
+                    nextVariantCompareAt[key] =
+                      nextVariantCompareAt[legacyKey] || "";
+                  }
+                  if (
+                    !Object.prototype.hasOwnProperty.call(
+                      nextVariantExpress,
+                      key,
+                    ) &&
+                    Object.prototype.hasOwnProperty.call(
+                      nextVariantExpress,
+                      legacyKey,
+                    )
+                  ) {
+                    nextVariantExpress[key] = nextVariantExpress[legacyKey];
+                  }
+                });
+              });
+            });
+          }
+
           setVariantStocks(nextVariantStocks);
+          setVariantPrices(nextVariantPrices);
+          setVariantCompareAt(nextVariantCompareAt);
           setVariantExpress(nextVariantExpress);
           if (listing.faqs?.length) {
             setFaqs(
@@ -315,37 +437,41 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const syncMatrixMaps = (conditionIds, colorIds, storageIds) => {
+    const keys = buildMatrixKeys(conditionIds, colorIds, storageIds);
+    setVariantStocks((prev) => seedMapForKeys(prev, keys, ""));
+    setVariantPrices((prev) => seedMapForKeys(prev, keys, ""));
+    setVariantCompareAt((prev) => seedMapForKeys(prev, keys, ""));
+    setVariantExpress((prev) => seedMapForKeys(prev, keys, true));
+  };
+
   // Handle category change
   const handleCategoryChange = (e) => {
     updateField("categoryId", e.target.value);
   };
 
-  const getStoragePriceInputValue = (storageId) => {
-    const value = storagePrices[storageId];
-    if (value === undefined || value === null || value === "") {
-      return "";
-    }
-    return String(value);
+  const toggleConditionCategory = (categoryId) => {
+    setConditionCategoryIds((prev) => {
+      const isRemoving = prev.includes(categoryId);
+      const next = isRemoving
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId];
+
+      syncMatrixMaps(next, formData.colorIds, formData.storageOptionIds);
+
+      // Keep primary category in sync when conditions are used.
+      if (!isRemoving && !formData.categoryId) {
+        updateField("categoryId", categoryId);
+      } else if (isRemoving && formData.categoryId === categoryId && next[0]) {
+        updateField("categoryId", next[0]);
+      }
+
+      return next;
+    });
   };
 
-  const handleStoragePriceChange = (storageId, value) => {
-    setStoragePrices((prev) => ({ ...prev, [storageId]: value }));
-  };
-
-  const getStorageCompareAtInputValue = (storageId) => {
-    const value = storageCompareAtPrices[storageId];
-    if (value === undefined || value === null || value === "") return "";
-    return String(value);
-  };
-
-  const handleStorageCompareAtChange = (storageId, value) => {
-    setStorageCompareAtPrices((prev) => ({ ...prev, [storageId]: value }));
-  };
-
-  const variantStockKey = (colorId, storageId) => `${colorId}::${storageId}`;
-
-  const getVariantStockInputValue = (colorId, storageId) => {
-    const value = variantStocks[variantStockKey(colorId, storageId)];
+  const getVariantStockInputValue = (key) => {
+    const value = variantStocks[key];
     if (
       value === undefined ||
       value === null ||
@@ -358,22 +484,35 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     return String(value);
   };
 
-  const handleVariantStockChange = (colorId, storageId, value) => {
-    setVariantStocks((prev) => ({
-      ...prev,
-      [variantStockKey(colorId, storageId)]: value,
-    }));
+  const getVariantPriceInputValue = (key) => {
+    const value = variantPrices[key];
+    if (value === undefined || value === null || value === "") return "";
+    return String(value);
   };
 
-  const handleVariantExpressChange = (colorId, storageId, enabled) => {
-    setVariantExpress((prev) => ({
-      ...prev,
-      [variantStockKey(colorId, storageId)]: enabled,
-    }));
+  const getVariantCompareAtInputValue = (key) => {
+    const value = variantCompareAt[key];
+    if (value === undefined || value === null || value === "") return "";
+    return String(value);
   };
 
-  const isVariantExpressEnabled = (colorId, storageId) => {
-    const key = variantStockKey(colorId, storageId);
+  const handleVariantStockChange = (key, value) => {
+    setVariantStocks((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleVariantPriceChange = (key, value) => {
+    setVariantPrices((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleVariantCompareAtChange = (key, value) => {
+    setVariantCompareAt((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleVariantExpressChange = (key, enabled) => {
+    setVariantExpress((prev) => ({ ...prev, [key]: enabled }));
+  };
+
+  const isVariantExpressEnabled = (key) => {
     if (Object.prototype.hasOwnProperty.call(variantExpress, key)) {
       return Boolean(variantExpress[key]);
     }
@@ -389,48 +528,16 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     setFormData((prev) => {
       const current = prev[field];
       const isRemoving = current.includes(id);
+      const nextIds = isRemoving
+        ? current.filter((v) => v !== id)
+        : [...current, id];
 
-      if (field === "storageOptionIds") {
-        setStoragePrices((prevPrices) => {
-          const nextPrices = { ...prevPrices };
-          if (isRemoving) {
-            delete nextPrices[id];
-          } else {
-            nextPrices[id] = prevPrices[id] ?? "";
-          }
-          return nextPrices;
-        });
-        setVariantStocks((prevStocks) => {
-          const next = { ...prevStocks };
-          if (isRemoving) {
-            Object.keys(next).forEach((key) => {
-              if (key.endsWith(`::${id}`)) delete next[key];
-            });
-          } else {
-            prev.colorIds.forEach((colorId) => {
-              const key = `${colorId}::${id}`;
-              if (next[key] === undefined) next[key] = "";
-            });
-          }
-          return next;
-        });
-      }
+      const nextColorIds = field === "colorIds" ? nextIds : prev.colorIds;
+      const nextStorageIds =
+        field === "storageOptionIds" ? nextIds : prev.storageOptionIds;
+      syncMatrixMaps(conditionCategoryIds, nextColorIds, nextStorageIds);
 
       if (field === "colorIds") {
-        setVariantStocks((prevStocks) => {
-          const next = { ...prevStocks };
-          if (isRemoving) {
-            Object.keys(next).forEach((key) => {
-              if (key.startsWith(`${id}::`)) delete next[key];
-            });
-          } else {
-            prev.storageOptionIds.forEach((storageId) => {
-              const key = `${id}::${storageId}`;
-              if (next[key] === undefined) next[key] = "";
-            });
-          }
-          return next;
-        });
         if (isRemoving) {
           const removedExisting = (colorImages[id] || [])
             .filter((img) => img.id)
@@ -455,9 +562,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
 
       return {
         ...prev,
-        [field]: isRemoving
-          ? current.filter((v) => v !== id)
-          : [...current, id],
+        [field]: nextIds,
       };
     });
   };
@@ -622,17 +727,25 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       .filter((f) => !formData[f.key])
       .map((f) => f.label);
 
-    if (formData.storageOptionIds.length > 0) {
-      const missingStoragePrices = formData.storageOptionIds.filter((storageId) => {
-        const storageName =
-          storageOptions.find((s) => s.id === storageId)?.name ||
-          storageNameById[storageId];
-        if (!storageName) return false;
-        const price = parseFloat(storagePrices[storageId]);
+    if (!formData.colorIds.length) {
+      missing.push("at least one Color");
+    }
+    if (!formData.storageOptionIds.length) {
+      missing.push("at least one Storage option");
+    }
+
+    const matrixKeys = buildMatrixKeys(
+      conditionCategoryIds,
+      formData.colorIds,
+      formData.storageOptionIds,
+    );
+    if (matrixKeys.length > 0) {
+      const missingPrices = matrixKeys.filter((key) => {
+        const price = parseFloat(variantPrices[key]);
         return !price || price <= 0;
       });
-      if (missingStoragePrices.length > 0) {
-        missing.push("Price for each selected storage option");
+      if (missingPrices.length > 0) {
+        missing.push("Price for every Condition × Colour × Storage row");
       }
     } else if (!formData.basePrice) {
       missing.push("Price");
@@ -658,46 +771,95 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       formDataToSend.append("categoryId", formData.categoryId);
       formDataToSend.append("seriesId", formData.seriesId);
       formDataToSend.append("deviceModelId", formData.deviceModelId);
-      // Listings are category-only — clear any legacy condition on save
+      // Sell-side Condition model is unused on listings — clear any legacy value
       formDataToSend.append("conditionId", "");
+
+      const conditionsForCells = conditionCategoryIds.length
+        ? conditionCategoryIds
+        : [null];
+      const variantEntries = [];
+      conditionsForCells.forEach((conditionCategoryId) => {
+        formData.colorIds.forEach((colorId) => {
+          formData.storageOptionIds.forEach((storageOptionId) => {
+            const key = variantCellKey(
+              conditionCategoryId,
+              colorId,
+              storageOptionId,
+            );
+            const price = parseFloat(variantPrices[key]) || 0;
+            const compareAt = parseFloat(variantCompareAt[key]);
+            const entry = {
+              colorId,
+              storageOptionId,
+              stockQuantity: parseInt(variantStocks[key], 10) || 0,
+              price,
+              compareAtPrice: compareAt > 0 ? compareAt : null,
+              expressDeliveryEnabled: isVariantExpressEnabled(key),
+            };
+            if (conditionCategoryId) {
+              entry.conditionCategoryId = conditionCategoryId;
+            }
+            variantEntries.push(entry);
+          });
+        });
+      });
+
+      // storageStocks rollup: min price per storage from matrix cells
       const storageEntries = formData.storageOptionIds.map((storageOptionId) => {
-        const compareAt = parseFloat(storageCompareAtPrices[storageOptionId]);
+        const cells = variantEntries
+          .filter((entry) => entry.storageOptionId === storageOptionId)
+          .filter((entry) => entry.price > 0)
+          .sort((a, b) => a.price - b.price);
+        const cheapest = cells[0];
         return {
           storageOptionId,
-          stockQuantity: 0,
-          price: parseFloat(storagePrices[storageOptionId]) || 0,
-          compareAtPrice: compareAt > 0 ? compareAt : null,
+          stockQuantity: variantEntries
+            .filter((entry) => entry.storageOptionId === storageOptionId)
+            .reduce((sum, entry) => sum + (entry.stockQuantity || 0), 0),
+          price: cheapest?.price || 0,
+          compareAtPrice: cheapest?.compareAtPrice ?? null,
         };
       });
-      const minStoragePrice = storageEntries.length
-        ? Math.min(...storageEntries.map((entry) => entry.price).filter((price) => price > 0))
+
+      // conditionStocks rollup (bridge): min price + sum stock per condition
+      const conditionEntries = conditionCategoryIds.map((categoryId) => {
+        const cells = variantEntries.filter(
+          (entry) => entry.conditionCategoryId === categoryId,
+        );
+        const priced = cells
+          .filter((entry) => entry.price > 0)
+          .sort((a, b) => a.price - b.price);
+        const cheapest = priced[0];
+        return {
+          categoryId,
+          stockQuantity: cells.reduce(
+            (sum, entry) => sum + (entry.stockQuantity || 0),
+            0,
+          ),
+          price: cheapest?.price || 0,
+          compareAtPrice: cheapest?.compareAtPrice ?? null,
+        };
+      });
+
+      const allCellPrices = variantEntries
+        .map((entry) => entry.price)
+        .filter((price) => price > 0);
+      const resolvedBasePrice = allCellPrices.length
+        ? Math.min(...allCellPrices)
         : parseFloat(formData.basePrice) || 0;
 
-      formDataToSend.append("basePrice", minStoragePrice);
+      formDataToSend.append("basePrice", resolvedBasePrice);
       if (formData.compareAtPrice) {
         formDataToSend.append("compareAtPrice", formData.compareAtPrice);
       } else {
         formDataToSend.append("compareAtPrice", "");
       }
       formDataToSend.append("storageStocks", JSON.stringify(storageEntries));
-      const variantEntries = [];
-      formData.colorIds.forEach((colorId) => {
-        formData.storageOptionIds.forEach((storageOptionId) => {
-          variantEntries.push({
-            colorId,
-            storageOptionId,
-            stockQuantity:
-              parseInt(
-                variantStocks[`${colorId}::${storageOptionId}`],
-                10,
-              ) || 0,
-            expressDeliveryEnabled: isVariantExpressEnabled(
-              colorId,
-              storageOptionId,
-            ),
-          });
-        });
-      });
+      formDataToSend.append(
+        "conditionCategoryIds",
+        JSON.stringify(conditionCategoryIds),
+      );
+      formDataToSend.append("conditionStocks", JSON.stringify(conditionEntries));
       formDataToSend.append("variantStocks", JSON.stringify(variantEntries));
       formDataToSend.append("introduction", formData.introduction);
       formDataToSend.append("listingStatus", formData.listingStatus);
@@ -844,7 +1006,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               onChange={handleChange}
             />
           </FormField>
-          <FormField label="Category">
+          <FormField label="Primary Category">
             <SelectInput
               name="categoryId"
               value={formData.categoryId}
@@ -854,6 +1016,9 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                 ...categories.map((c) => ({ value: c.id, label: c.name })),
               ]}
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Used for shop filters. Add selectable buy conditions below for New Sealed / Used, etc.
+            </p>
           </FormField>
           <FormField label="Series">
             <SelectInput
@@ -881,7 +1046,9 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               disabled={!formData.seriesId}
             />
           </FormField>
-          {formData.storageOptionIds.length === 0 && (
+          {!(
+            formData.colorIds.length > 0 && formData.storageOptionIds.length > 0
+          ) && (
             <FormField label="Price">
               <NumberInput
                 name="basePrice"
@@ -889,6 +1056,9 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                 value={formData.basePrice}
                 onChange={handleChange}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Used only until Colour and Storage are selected — then the matrix below is the source of truth.
+              </p>
             </FormField>
           )}
           <FormField label="Retail / RRP (optional)">
@@ -899,7 +1069,36 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
               onChange={handleChange}
             />
             <p className="text-xs text-gray-500 mt-1">
-              Shown with a strikethrough next to the selling price. Must be higher than the selling price. Per-storage RRP can be set below.
+              Product-level fallback RRP. Prefer per-row RRP in the Condition × Colour × Storage matrix.
+            </p>
+          </FormField>
+        </div>
+
+        <div className="mb-4">
+          <FormField label="Condition options (customer selector)">
+            <div className="flex flex-wrap gap-2">
+              {categories.map((c) => (
+                <label
+                  key={c.id}
+                  className="flex items-center gap-1.5 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={conditionCategoryIds.includes(c.id)}
+                    onChange={() => toggleConditionCategory(c.id)}
+                    className="accent-teal-600"
+                  />
+                  <span className="text-base text-gray-700">{c.name}</span>
+                </label>
+              ))}
+              {categories.length === 0 && (
+                <span className="text-sm text-gray-400">
+                  No categories available — add them in Settings first
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Customers pick one of these on the product page (alongside Colour and Storage). Price, stock, and Express are set per combo in the matrix below.
             </p>
           </FormField>
         </div>
@@ -953,51 +1152,6 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
                 </span>
               )}
             </div>
-            {formData.storageOptionIds.length > 0 && (
-              <div className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                <p className="text-sm font-medium text-gray-700">
-                  Price by Storage
-                </p>
-                {sortStorageOptionsBySize(
-                  formData.storageOptionIds
-                    .map((storageId) => {
-                      const storageName = storageOptions.find(
-                        (s) => s.id === storageId,
-                      )?.name;
-                      if (!storageName) return null;
-                      return { id: storageId, name: storageName };
-                    })
-                    .filter(Boolean),
-                ).map(({ id: storageId, name: storageName }) => {
-                  return (
-                    <div
-                      key={storageId}
-                      className="grid grid-cols-1 sm:grid-cols-[7rem_1fr_1fr] items-center gap-3"
-                    >
-                      <span className="text-sm text-gray-600 shrink-0">
-                        {formatStorageLabel(storageName)}
-                      </span>
-                      <NumberInput
-                        name={`storage-price-${storageId}`}
-                        placeholder="Selling price"
-                        value={getStoragePriceInputValue(storageId)}
-                        onChange={(e) =>
-                          handleStoragePriceChange(storageId, e.target.value)
-                        }
-                      />
-                      <NumberInput
-                        name={`storage-rrp-${storageId}`}
-                        placeholder="RRP (optional)"
-                        value={getStorageCompareAtInputValue(storageId)}
-                        onChange={(e) =>
-                          handleStorageCompareAtChange(storageId, e.target.value)
-                        }
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </FormField>
         </div>
 
@@ -1005,83 +1159,140 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           formData.storageOptionIds.length > 0 && (
             <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4 overflow-x-auto">
               <p className="text-sm font-medium text-gray-700 mb-1">
-                Stock by Color × Storage
+                {conditionCategoryIds.length > 0
+                  ? "Price, stock & Express by Condition × Colour × Storage"
+                  : "Price, stock & Express by Colour × Storage"}
               </p>
               <p className="text-xs text-gray-500 mb-3">
-                Each cell is stock for that exact color and storage combination.
-                Tick <strong>Express</strong> only when that variant is ready to ship immediately.
+                Single source of truth for customer price, RRP, stock, and Express
+                delivery. Every row needs a selling price. Tick{" "}
+                <strong>Express</strong> only when that exact variant is ready to
+                ship immediately.
               </p>
               <table className="min-w-full text-sm border-collapse">
                 <thead>
                   <tr>
-                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200">
+                    {conditionCategoryIds.length > 0 && (
+                      <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 whitespace-nowrap">
+                        Condition
+                      </th>
+                    )}
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 whitespace-nowrap">
+                      Colour
+                    </th>
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 whitespace-nowrap">
                       Storage
                     </th>
-                    {formData.colorIds.map((colorId) => (
-                      <th
-                        key={colorId}
-                        className="p-2 text-gray-600 font-medium border-b border-gray-200 text-center whitespace-nowrap"
-                      >
-                        {colors.find((c) => c.id === colorId)?.name || colorId}
-                      </th>
-                    ))}
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 min-w-[7rem]">
+                      Price
+                    </th>
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 min-w-[7rem]">
+                      RRP
+                    </th>
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 min-w-[5rem]">
+                      Stock
+                    </th>
+                    <th className="text-left p-2 text-gray-600 font-medium border-b border-gray-200 whitespace-nowrap">
+                      Express
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortStorageOptionsBySize(
-                    formData.storageOptionIds
-                      .map((storageId) => {
-                        const storageName = storageOptions.find(
-                          (s) => s.id === storageId,
-                        )?.name;
-                        if (!storageName) return null;
-                        return { id: storageId, name: storageName };
-                      })
-                      .filter(Boolean),
-                  ).map(({ id: storageId, name: storageName }) => (
-                    <tr key={storageId}>
-                      <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100 align-top">
-                        {formatStorageLabel(storageName)}
-                      </td>
-                      {formData.colorIds.map((colorId) => (
-                        <td
-                          key={`${colorId}-${storageId}`}
-                          className="p-2 border-b border-gray-100 min-w-[6.5rem] align-top"
-                        >
-                          <NumberInput
-                            name={`variant-stock-${colorId}-${storageId}`}
-                            placeholder="0"
-                            value={getVariantStockInputValue(
-                              colorId,
-                              storageId,
+                  {(conditionCategoryIds.length > 0
+                    ? conditionCategoryIds
+                    : [null]
+                  ).flatMap((conditionId) => {
+                    const conditionName = conditionId
+                      ? categories.find((c) => c.id === conditionId)?.name ||
+                        conditionId
+                      : null;
+                    const sortedStorages = sortStorageOptionsBySize(
+                      formData.storageOptionIds
+                        .map((storageId) => {
+                          const storageName =
+                            storageOptions.find((s) => s.id === storageId)
+                              ?.name || storageNameById[storageId];
+                          if (!storageName) return null;
+                          return { id: storageId, name: storageName };
+                        })
+                        .filter(Boolean),
+                    );
+                    return formData.colorIds.flatMap((colorId) => {
+                      const colorName =
+                        colors.find((c) => c.id === colorId)?.name || colorId;
+                      return sortedStorages.map(({ id: storageId, name: storageName }) => {
+                        const key = variantCellKey(
+                          conditionId,
+                          colorId,
+                          storageId,
+                        );
+                        return (
+                          <tr key={key}>
+                            {conditionCategoryIds.length > 0 && (
+                              <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100 align-middle">
+                                {conditionName}
+                              </td>
                             )}
-                            onChange={(e) =>
-                              handleVariantStockChange(
-                                colorId,
-                                storageId,
-                                e.target.value,
-                              )
-                            }
-                          />
-                          <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-600">
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                              checked={isVariantExpressEnabled(colorId, storageId)}
-                              onChange={(e) =>
-                                handleVariantExpressChange(
-                                  colorId,
-                                  storageId,
-                                  e.target.checked,
-                                )
-                              }
-                            />
-                            Express
-                          </label>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
+                            <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100 align-middle">
+                              {colorName}
+                            </td>
+                            <td className="p-2 text-gray-600 whitespace-nowrap border-b border-gray-100 align-middle">
+                              {formatStorageLabel(storageName)}
+                            </td>
+                            <td className="p-2 border-b border-gray-100 align-middle">
+                              <NumberInput
+                                name={`variant-price-${key}`}
+                                placeholder="Price"
+                                value={getVariantPriceInputValue(key)}
+                                onChange={(e) =>
+                                  handleVariantPriceChange(key, e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="p-2 border-b border-gray-100 align-middle">
+                              <NumberInput
+                                name={`variant-rrp-${key}`}
+                                placeholder="RRP"
+                                value={getVariantCompareAtInputValue(key)}
+                                onChange={(e) =>
+                                  handleVariantCompareAtChange(
+                                    key,
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="p-2 border-b border-gray-100 align-middle">
+                              <NumberInput
+                                name={`variant-stock-${key}`}
+                                placeholder="0"
+                                value={getVariantStockInputValue(key)}
+                                onChange={(e) =>
+                                  handleVariantStockChange(key, e.target.value)
+                                }
+                              />
+                            </td>
+                            <td className="p-2 border-b border-gray-100 align-middle">
+                              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                                  checked={isVariantExpressEnabled(key)}
+                                  onChange={(e) =>
+                                    handleVariantExpressChange(
+                                      key,
+                                      e.target.checked,
+                                    )
+                                  }
+                                />
+                                Express
+                              </label>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    });
+                  })}
                 </tbody>
               </table>
             </div>

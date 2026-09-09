@@ -1001,23 +1001,85 @@ function sortImages(images = []) {
   return [...images].sort((a, b) => a.displayOrder - b.displayOrder);
 }
 
-function variantStock(variantStocks, colorId, storageId) {
-  if (!colorId || !storageId) return 0;
-  const cell = (variantStocks || []).find(
-    (row) => row.colorId === colorId && row.storageOptionId === storageId,
+function findMatrixCell(variantStocks, conditionId, colorId, storageId) {
+  return (variantStocks || []).find(
+    (row) =>
+      row.colorId === colorId &&
+      row.storageOptionId === storageId &&
+      (conditionId
+        ? row.conditionCategoryId === conditionId
+        : !row.conditionCategoryId),
   );
-  return Math.max(0, Number(cell?.stockQuantity) || 0);
 }
 
-function pickFirstInStockVariant(colors, storages, variantStocks) {
+function matrixCellStock(variantStocks, conditionId, colorId, storageId) {
+  if (!colorId || !storageId) return 0;
+  const cell = findMatrixCell(variantStocks, conditionId, colorId, storageId);
+  if (cell?.stockQuantity != null) {
+    return Math.max(0, Number(cell.stockQuantity) || 0);
+  }
+  // Legacy rows without conditionCategoryId when browsing without conditions
+  if (!conditionId) {
+    const legacy = (variantStocks || []).find(
+      (row) =>
+        row.colorId === colorId &&
+        row.storageOptionId === storageId &&
+        !row.conditionCategoryId,
+    );
+    return Math.max(0, Number(legacy?.stockQuantity) || 0);
+  }
+  return 0;
+}
+
+function pickFirstInStockVariant(
+  colors,
+  storages,
+  variantStocks,
+  conditionId = null,
+) {
   for (const color of colors || []) {
     for (const storage of storages || []) {
-      if (variantStock(variantStocks, color.id, storage.id) > 0) {
+      if (
+        matrixCellStock(variantStocks, conditionId, color.id, storage.id) > 0
+      ) {
         return { colorId: color.id, storageId: storage.id };
       }
     }
   }
+  // When condition filter yields nothing, try any in-stock color×storage for that condition's cells
+  if (conditionId) {
+    for (const color of colors || []) {
+      for (const storage of storages || []) {
+        const anyForPair = (variantStocks || []).some(
+          (row) =>
+            row.colorId === color.id &&
+            row.storageOptionId === storage.id &&
+            row.conditionCategoryId === conditionId &&
+            Math.max(0, Number(row.stockQuantity) || 0) > 0,
+        );
+        if (anyForPair) {
+          return { colorId: color.id, storageId: storage.id };
+        }
+      }
+    }
+  }
   return { colorId: null, storageId: null };
+}
+
+function pickFirstInStockCondition(conditions = [], variantStocks = []) {
+  for (const row of conditions || []) {
+    const hasStock = (variantStocks || []).some(
+      (cell) =>
+        cell.conditionCategoryId === row.id &&
+        Math.max(0, Number(cell.stockQuantity) || 0) > 0,
+    );
+    if (hasStock) return row.id;
+  }
+  // Fallback to rollup stock on availableConditions
+  const inStock = (conditions || []).find(
+    (row) => Math.max(0, Number(row?.stockQuantity) || 0) > 0,
+  );
+  return inStock?.id || conditions?.[0]?.id || null;
 }
 
 function getImageIndexForColor(images, colorId) {
@@ -1064,6 +1126,7 @@ const ProductDetails = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState(null);
   const [selectedStorage, setSelectedStorage] = useState(null);
+  const [selectedCondition, setSelectedCondition] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [walletType, setWalletType] = useState(() => getWalletType());
   const [startingStripeCheckout, setStartingStripeCheckout] = useState(false);
@@ -1082,6 +1145,7 @@ const ProductDetails = () => {
     setError(null);
     const urlColorId = searchParams.get('colorId');
     const urlStorageId = searchParams.get('storageOptionId');
+    const urlConditionId = searchParams.get('conditionCategoryId');
 
     fetch(`${BASE_URL}/api/public/product/${id}`)
       .then((res) => {
@@ -1095,19 +1159,34 @@ const ProductDetails = () => {
         );
         const colors = data.availableColors || [];
         const stocks = data.availableVariantStocks || [];
+        const conditions = data.availableConditions || [];
 
         const urlColorValid = urlColorId && colors.some((c) => c.id === urlColorId);
         const urlStorageValid =
           urlStorageId && sortedStorages.some((s) => s.id === urlStorageId);
+        const urlConditionValid =
+          urlConditionId && conditions.some((c) => c.id === urlConditionId);
 
         let nextColorId = null;
         let nextStorageId = null;
+        let nextConditionId = null;
+
+        if (conditions.length) {
+          nextConditionId =
+            (urlConditionValid ? urlConditionId : null) ??
+            pickFirstInStockCondition(conditions, stocks);
+        }
 
         if (urlColorValid && urlStorageValid) {
           nextColorId = urlColorId;
           nextStorageId = urlStorageId;
         } else {
-          const firstInStock = pickFirstInStockVariant(colors, sortedStorages, stocks);
+          const firstInStock = pickFirstInStockVariant(
+            colors,
+            sortedStorages,
+            stocks,
+            nextConditionId,
+          );
           nextColorId =
             (urlColorValid ? urlColorId : null) ??
             firstInStock.colorId ??
@@ -1123,6 +1202,7 @@ const ProductDetails = () => {
         setProduct({ ...data, availableStorageOptions: sortedStorages });
         setSelectedColor(nextColorId);
         setSelectedStorage(nextStorageId);
+        setSelectedCondition(nextConditionId);
         setSelectedImage(getImageIndexForColor(data.images, nextColorId));
       })
       .catch((err) => setError(err.message))
@@ -1149,16 +1229,39 @@ const ProductDetails = () => {
     }));
   }, [allImages, selectedColor]);
 
+  const hasConditions = (product?.availableConditions || []).length > 0;
+
   const selectedVariantStock = useMemo(() => {
     if (!product) return 0;
+
+    if (hasConditions) {
+      if (!selectedCondition || !selectedColor || !selectedStorage) return 0;
+      return matrixCellStock(
+        product.availableVariantStocks,
+        selectedCondition,
+        selectedColor,
+        selectedStorage,
+      );
+    }
+
     if (selectedColor && selectedStorage) {
-      const cell = product.availableVariantStocks?.find(
+      const cell = findMatrixCell(
+        product.availableVariantStocks,
+        null,
+        selectedColor,
+        selectedStorage,
+      );
+      if (cell?.stockQuantity != null) {
+        return Math.max(0, Number(cell.stockQuantity) || 0);
+      }
+      // Also accept legacy rows that may omit conditionCategoryId field entirely
+      const legacy = product.availableVariantStocks?.find(
         (row) =>
           row.colorId === selectedColor &&
           row.storageOptionId === selectedStorage,
       );
-      if (cell?.stockQuantity != null) {
-        return Math.max(0, Number(cell.stockQuantity) || 0);
+      if (legacy?.stockQuantity != null) {
+        return Math.max(0, Number(legacy.stockQuantity) || 0);
       }
       // Legacy fallback before matrix existed
       const colorStock = product.availableColors?.find(
@@ -1194,10 +1297,24 @@ const ProductDetails = () => {
       );
     }
     return Math.max(0, Number(product.stockQuantity) || 0);
-  }, [product, selectedColor, selectedStorage]);
+  }, [product, selectedColor, selectedStorage, selectedCondition, hasConditions]);
 
   const selectedStoragePrice = useMemo(() => {
     if (!product) return 0;
+    const conditionId = hasConditions ? selectedCondition : null;
+    if (hasConditions && !selectedCondition) {
+      // fall through to storage / base
+    } else if (selectedColor && selectedStorage) {
+      const cell = findMatrixCell(
+        product.availableVariantStocks,
+        conditionId,
+        selectedColor,
+        selectedStorage,
+      );
+      if (cell?.price != null) {
+        return Math.max(0, Number(cell.price) || 0);
+      }
+    }
     const option = product.availableStorageOptions?.find(
       (storage) => storage.id === selectedStorage,
     );
@@ -1205,7 +1322,13 @@ const ProductDetails = () => {
       return Math.max(0, Number(option.price) || 0);
     }
     return Math.max(0, Number(product.basePrice) || 0);
-  }, [product, selectedStorage]);
+  }, [
+    product,
+    selectedStorage,
+    selectedColor,
+    selectedCondition,
+    hasConditions,
+  ]);
 
   const selectedColorName = useMemo(
     () => product?.availableColors?.find((color) => color.id === selectedColor)?.name || '',
@@ -1214,13 +1337,28 @@ const ProductDetails = () => {
 
   const selectedExpressDeliveryEnabled = useMemo(() => {
     if (!selectedColor || !selectedStorage) return true;
-    const cell = product?.availableVariantStocks?.find(
+    if (hasConditions && !selectedCondition) return true;
+    const cell = findMatrixCell(
+      product?.availableVariantStocks,
+      hasConditions ? selectedCondition : null,
+      selectedColor,
+      selectedStorage,
+    );
+    if (cell) return cell.expressDeliveryEnabled !== false;
+    // Legacy: match color×storage ignoring condition
+    const legacy = product?.availableVariantStocks?.find(
       (row) =>
         row.colorId === selectedColor &&
         row.storageOptionId === selectedStorage,
     );
-    return cell?.expressDeliveryEnabled !== false;
-  }, [product, selectedColor, selectedStorage]);
+    return legacy?.expressDeliveryEnabled !== false;
+  }, [
+    product,
+    selectedColor,
+    selectedStorage,
+    selectedCondition,
+    hasConditions,
+  ]);
 
   const selectedStorageName = useMemo(() => {
     const raw =
@@ -1229,22 +1367,45 @@ const ProductDetails = () => {
     return raw ? formatStorageLabel(raw) : '';
   }, [product, selectedStorage]);
 
+  const selectedConditionName = useMemo(
+    () =>
+      product?.availableConditions?.find((row) => row.id === selectedCondition)
+        ?.name || '',
+    [product, selectedCondition],
+  );
+
   useEffect(() => {
     const defaultTitle = 'ZEPHYR TECHNO | BUY & SELL PHONES';
     if (!product?.title) {
       document.title = defaultTitle;
       return undefined;
     }
-    document.title = [product.title, selectedStorageName, selectedColorName]
+    document.title = [
+      product.title,
+      selectedStorageName,
+      selectedColorName,
+      selectedConditionName,
+    ]
       .filter(Boolean)
       .join(' ');
     return () => {
       document.title = defaultTitle;
     };
-  }, [product, selectedColorName, selectedStorageName]);
+  }, [product, selectedColorName, selectedStorageName, selectedConditionName]);
 
   const selectedCompareAtPrice = useMemo(() => {
     if (!product) return null;
+    const conditionId = hasConditions ? selectedCondition : null;
+    if (selectedColor && selectedStorage && (!hasConditions || selectedCondition)) {
+      const cell = findMatrixCell(
+        product.availableVariantStocks,
+        conditionId,
+        selectedColor,
+        selectedStorage,
+      );
+      const fromCell = Number(cell?.compareAtPrice);
+      if (fromCell > 0) return fromCell;
+    }
     const option = product.availableStorageOptions?.find(
       (storage) => storage.id === selectedStorage,
     );
@@ -1252,34 +1413,66 @@ const ProductDetails = () => {
     if (fromStorage > 0) return fromStorage;
     const fromProduct = Number(product.compareAtPrice);
     return fromProduct > 0 ? fromProduct : null;
-  }, [product, selectedStorage]);
+  }, [
+    product,
+    selectedStorage,
+    selectedColor,
+    selectedCondition,
+    hasConditions,
+  ]);
+
+  const isConditionOutOfStock = (conditionId) => {
+    if (!product || !conditionId) return false;
+    const cells = (product.availableVariantStocks || []).filter(
+      (row) => row.conditionCategoryId === conditionId,
+    );
+    if (cells.length > 0) {
+      return cells.every(
+        (row) => Math.max(0, Number(row.stockQuantity) || 0) <= 0,
+      );
+    }
+    const row = product.availableConditions?.find((c) => c.id === conditionId);
+    return Math.max(0, Number(row?.stockQuantity) || 0) <= 0;
+  };
 
   const isStorageOutOfStock = (storageId) => {
     if (!product || !storageId) return false;
+    const stocks = product.availableVariantStocks || [];
+    const conditionId = hasConditions ? selectedCondition : null;
+
+    if (hasConditions && !selectedCondition) return false;
+
     if (selectedColor) {
-      return variantStock(product.availableVariantStocks, selectedColor, storageId) <= 0;
+      return (
+        matrixCellStock(stocks, conditionId, selectedColor, storageId) <= 0
+      );
     }
-    return (product.availableStorageOptions || []).some((s) => s.id === storageId)
-      ? (product.availableColors || []).every(
-          (color) =>
-            variantStock(product.availableVariantStocks, color.id, storageId) <= 0,
-        )
-      : Number(
-          product.availableStorageOptions?.find((s) => s.id === storageId)
-            ?.stockQuantity,
-        ) <= 0;
+
+    const colors = product.availableColors || [];
+    if (!colors.length) return false;
+    return colors.every(
+      (color) =>
+        matrixCellStock(stocks, conditionId, color.id, storageId) <= 0,
+    );
   };
 
   const isColorOutOfStock = (colorId) => {
     if (!product || !colorId) return false;
+    const stocks = product.availableVariantStocks || [];
+    const conditionId = hasConditions ? selectedCondition : null;
+
+    if (hasConditions && !selectedCondition) return false;
+
     if (selectedStorage) {
-      return variantStock(product.availableVariantStocks, colorId, selectedStorage) <= 0;
+      return (
+        matrixCellStock(stocks, conditionId, colorId, selectedStorage) <= 0
+      );
     }
     const storages = product.availableStorageOptions || [];
     if (!storages.length) return false;
     return storages.every(
       (storage) =>
-        variantStock(product.availableVariantStocks, colorId, storage.id) <= 0,
+        matrixCellStock(stocks, conditionId, colorId, storage.id) <= 0,
     );
   };
 
@@ -1295,8 +1488,46 @@ const ProductDetails = () => {
     setSelectedImage(getImageIndexForColor(product?.images, colorId));
   };
 
+  const selectCondition = (conditionId) => {
+    if (isConditionOutOfStock(conditionId)) return;
+    setSelectedCondition(conditionId);
+    setQuantity(1);
+    const stocks = product?.availableVariantStocks || [];
+    if (
+      selectedColor &&
+      selectedStorage &&
+      matrixCellStock(stocks, conditionId, selectedColor, selectedStorage) <= 0
+    ) {
+      const next = pickFirstInStockVariant(
+        product?.availableColors,
+        product?.availableStorageOptions,
+        stocks,
+        conditionId,
+      );
+      if (next.colorId) {
+        setSelectedColor(next.colorId);
+        setSelectedImage(getImageIndexForColor(product?.images, next.colorId));
+      }
+      if (next.storageId) setSelectedStorage(next.storageId);
+    }
+  };
+
   const hasOutOfStockVariants = useMemo(() => {
     if (!product) return false;
+    const stocks = product.availableVariantStocks || [];
+    if (hasConditions) {
+      return (product.availableConditions || []).some((row) => {
+        const cells = stocks.filter(
+          (cell) => cell.conditionCategoryId === row.id,
+        );
+        if (cells.length > 0) {
+          return cells.every(
+            (cell) => Math.max(0, Number(cell.stockQuantity) || 0) <= 0,
+          );
+        }
+        return Math.max(0, Number(row.stockQuantity) || 0) <= 0;
+      });
+    }
     const colors = product.availableColors || [];
     const storages = product.availableStorageOptions || [];
     if (!colors.length || !storages.length) return false;
@@ -1304,10 +1535,10 @@ const ProductDetails = () => {
     return colors.some((color) =>
       storages.some(
         (storage) =>
-          variantStock(product.availableVariantStocks, color.id, storage.id) <= 0,
+          matrixCellStock(stocks, null, color.id, storage.id) <= 0,
       ),
     );
-  }, [product]);
+  }, [product, hasConditions]);
 
   if (loading) {
     return (
@@ -1332,15 +1563,30 @@ const ProductDetails = () => {
         !selectedColor || item.selectedOptions?.color?.id === selectedColor;
       const storageMatch =
         !selectedStorage || item.selectedOptions?.storage?.id === selectedStorage;
-      return colorMatch && storageMatch;
+      const conditionMatch = !hasConditions
+        ? true
+        : item.selectedOptions?.condition?.id === selectedCondition;
+      return colorMatch && storageMatch && conditionMatch;
     });
 
   const handleAddToCart = async () => {
+    if (hasConditions && !selectedCondition) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Select a condition',
+        text: 'Please choose a condition before adding to cart.',
+        confirmButtonColor: '#47B5C9',
+      });
+      return;
+    }
+
     if (selectedVariantStock <= 0) {
       await Swal.fire({
         icon: 'warning',
         title: 'Out of stock',
-        text: 'This item is currently out of stock for the selected storage option. Please choose another option or check back later.',
+        text: hasConditions
+          ? 'This item is currently out of stock for the selected condition. Please choose another option or check back later.'
+          : 'This item is currently out of stock for the selected storage option. Please choose another option or check back later.',
         confirmButtonColor: '#47B5C9',
       });
       return;
@@ -1373,6 +1619,7 @@ const ProductDetails = () => {
         productId: product.id,
         colorId: selectedColor || undefined,
         storageOptionId: selectedStorage || undefined,
+        conditionCategoryId: selectedCondition || undefined,
         quantity,
       });
       if (result?.success) {
@@ -1399,11 +1646,22 @@ const ProductDetails = () => {
   };
 
   const assertCanBuy = () => {
+    if (hasConditions && !selectedCondition) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Select a condition',
+        text: 'Please choose a condition before checkout.',
+        confirmButtonColor: '#47B5C9',
+      });
+      return false;
+    }
     if (selectedVariantStock <= 0) {
       Swal.fire({
         icon: 'warning',
         title: 'Out of stock',
-        text: 'This item is currently out of stock for the selected storage option.',
+        text: hasConditions
+          ? 'This item is currently out of stock for the selected condition.'
+          : 'This item is currently out of stock for the selected storage option.',
         confirmButtonColor: '#47B5C9',
       });
       return false;
@@ -1433,6 +1691,7 @@ const ProductDetails = () => {
           productId: product.id,
           colorId: selectedColor || null,
           storageOptionId: selectedStorage || null,
+          conditionCategoryId: selectedCondition || null,
           quantity,
         },
       });
@@ -1560,15 +1819,48 @@ const ProductDetails = () => {
               </div>
             </div>
 
-            {/* Category */}
-            <div className="mb-6">
-              <p className="text-sm font-bold tracking-widest text-[#151A2A] uppercase mb-2">
-                Category
-              </p>
-              <span className="px-4 py-2 rounded-sm text-[13px] border border-[#151A2A] text-[#151A2A] inline-block">
-                {product.category?.name || 'New'}
-              </span>
-            </div>
+            {/* Condition (or static Category when no selectable conditions) */}
+            {hasConditions ? (
+              <div className="mb-6">
+                <p className="text-[11px] font-bold tracking-widest text-[#151A2A] uppercase mb-2">
+                  Condition
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {product.availableConditions.map((c) => {
+                    const outOfStock = isConditionOutOfStock(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        disabled={outOfStock}
+                        onClick={() => selectCondition(c.id)}
+                        className={`relative overflow-hidden px-4 py-2 rounded-sm text-[13px] border transition-colors ${
+                          outOfStock
+                            ? 'border-gray-300 text-gray-500 bg-white cursor-not-allowed'
+                            : selectedCondition === c.id
+                              ? 'bg-custom border-custom text-white'
+                              : 'border-gray-300 text-gray-500 hover:border-gray-400 bg-white'
+                        }`}
+                      >
+                        {c.name}
+                        {outOfStock ? (
+                          <span className="pointer-events-none absolute left-1/2 top-1/2 h-[1.5px] w-[120%] -translate-x-1/2 -translate-y-1/2 -rotate-12 bg-[#151A2A]/80" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="mb-6">
+                <p className="text-sm font-bold tracking-widest text-[#151A2A] uppercase mb-2">
+                  Category
+                </p>
+                <span className="px-4 py-2 rounded-sm text-[13px] border border-[#151A2A] text-[#151A2A] inline-block">
+                  {product.category?.name || 'New'}
+                </span>
+              </div>
+            )}
 
             {/* Color */}
             {product.availableColors?.length > 0 && (
@@ -1717,6 +2009,7 @@ const ProductDetails = () => {
                   productId={product.id}
                   colorId={selectedColor}
                   storageOptionId={selectedStorage}
+                  conditionCategoryId={selectedCondition}
                   quantity={quantity}
                   amount={selectedStoragePrice * quantity}
                   disabled={addingToCart || startingStripeCheckout || selectedVariantStock === 0}

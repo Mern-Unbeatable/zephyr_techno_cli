@@ -64,9 +64,18 @@ export async function addToCart({
   productId,
   colorId,
   storageOptionId,
+  conditionCategoryId,
   quantity,
 }) {
-  const body = { productId, colorId, storageOptionId, quantity };
+  const body = {
+    productId,
+    colorId,
+    storageOptionId,
+    quantity,
+  };
+  if (conditionCategoryId) {
+    body.conditionCategoryId = conditionCategoryId;
+  }
 
   if (isLoggedIn()) {
     const res = await fetch(`${BASE_URL}/api/cart`, {
@@ -243,6 +252,7 @@ export async function checkout({
       productId: directProduct.productId,
       colorId: directProduct.colorId || null,
       storageOptionId: directProduct.storageOptionId || null,
+      conditionCategoryId: directProduct.conditionCategoryId || null,
       quantity: directProduct.quantity || 1,
     });
   } else {
@@ -294,6 +304,7 @@ export async function createExpressCheckoutIntent({
   productId,
   colorId,
   storageOptionId,
+  conditionCategoryId,
   quantity,
   shippingMethod,
   shippingCost,
@@ -305,6 +316,7 @@ export async function createExpressCheckoutIntent({
     productId,
     colorId: colorId || null,
     storageOptionId: storageOptionId || null,
+    conditionCategoryId: conditionCategoryId || null,
     quantity: quantity || 1,
     shippingMethod,
     shippingCost,

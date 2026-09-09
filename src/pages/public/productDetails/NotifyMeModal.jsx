@@ -25,10 +25,15 @@ const NotifyMeModal = ({
   const [success, setSuccess] = useState(false);
 
   const isVariantOutOfStock = (color, storage) => {
-    const cell = variantStocks.find(
+    const matching = (variantStocks || []).filter(
       (row) => row.colorId === color && row.storageOptionId === storage,
     );
-    return Math.max(0, Number(cell?.stockQuantity) || 0) <= 0;
+    if (!matching.length) return true;
+    const total = matching.reduce(
+      (sum, row) => sum + Math.max(0, Number(row.stockQuantity) || 0),
+      0,
+    );
+    return total <= 0;
   };
 
   const findFirstOutOfStockVariant = () => {

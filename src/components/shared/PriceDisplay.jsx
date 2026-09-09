@@ -32,7 +32,11 @@ export default function PriceDisplay({
         : 'text-lg md:text-xl';
 
   const retailClass =
-    size === 'xl' ? 'text-base md:text-lg' : 'text-xs md:text-sm';
+    size === 'xl'
+      ? 'text-lg md:text-xl lg:text-2xl'
+      : size === 'lg'
+        ? 'text-base md:text-lg'
+        : 'text-sm md:text-base';
 
   return (
     <div className="flex flex-col items-start gap-1.5">
@@ -41,7 +45,7 @@ export default function PriceDisplay({
           £{formatGbp(price)}
         </span>
         {showRetail ? (
-          <span className={`${retailClass} text-gray-400 line-through`}>
+          <span className={`${retailClass} font-medium text-gray-500 line-through`}>
             £{formatGbp(compareAtPrice)}
           </span>
         ) : null}

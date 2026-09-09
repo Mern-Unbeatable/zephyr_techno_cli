@@ -139,13 +139,20 @@ const Cart = () => {
                           {item.title || item.product?.title}
                         </h3>
                         <p className="text-[13px] text-gray-500 mt-1">
-                          {item.selectedOptions?.color?.name ??
-                            item.selectedOptions?.color ??
-                            ""}
-                          {(item.selectedOptions?.storage?.name ??
-                          item.selectedOptions?.storage)
-                            ? ` / ${formatStorageLabel(item.selectedOptions?.storage?.name ?? item.selectedOptions?.storage)}`
-                            : ""}
+                          {[
+                            item.selectedOptions?.condition?.name,
+                            item.selectedOptions?.color?.name ??
+                              item.selectedOptions?.color,
+                            (item.selectedOptions?.storage?.name ??
+                            item.selectedOptions?.storage)
+                              ? formatStorageLabel(
+                                  item.selectedOptions?.storage?.name ??
+                                    item.selectedOptions?.storage,
+                                )
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" / ")}
                         </p>
                         <div className="mt-5 flex items-center border border-gray-300 rounded-sm px-2 py-1 w-fit">
                           <button
