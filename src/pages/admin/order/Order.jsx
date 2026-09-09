@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import { Truck } from 'lucide-react';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 import Stats from './components/Stats';
 import OrderTabs from './components/OrderTabs';
 import ViewModal from './components/ViewModal';
+import ShipOrderModal from './components/ShipOrderModal';
 import Pagination from '../listings/components/Pagination';
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
+
+const canShipOrder = (status) => status === 'Pending' || status === 'Processing';
 
 const Order = () => {
     const [activeTab, setActiveTab] = useState('All');
@@ -14,6 +18,7 @@ const Order = () => {
     const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
     const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [shipModalOrder, setShipModalOrder] = useState(null);
     const [statsData, setStatsData] = useState([]);
     const [ordersData, setOrdersData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -89,6 +94,8 @@ const Order = () => {
                 price: order.totalPrice,
                 date: new Date(order.createdAt).toLocaleDateString(),
                 status: order.status.charAt(0) + order.status.slice(1).toLowerCase(),
+                courierName: order.courierName || '',
+                trackingNumber: order.trackingNumber || '',
             }));
 
             setOrdersData(mapped);
@@ -152,18 +159,36 @@ const Order = () => {
         }
     };
 
-    const handleStatusChange = async (order, newStatus) => {
+    const openShipModal = (order) => {
+        setOpenActionMenu(null);
+        setShipModalOrder({
+            id: order.id || order.orderId,
+            dbId: order.dbId || order.id,
+            customer: order.customer || order.user?.email || 'Guest',
+            courierName: order.courierName || '',
+            trackingNumber: order.trackingNumber || '',
+        });
+    };
+
+    const handleStatusChange = async (order, newStatus, shippingExtras = null) => {
         try {
             const token = localStorage.getItem('token');
             const dbId = order?.dbId ?? order?.id ?? order?._id;
             if (!dbId) throw new Error('Order id is missing');
+
+            const body = { status: newStatus.toUpperCase() };
+            if (shippingExtras) {
+                body.courierName = shippingExtras.courierName;
+                body.trackingNumber = shippingExtras.trackingNumber;
+            }
+
             const res = await fetch(`${API_BASE_URL}/api/admin/orders/${dbId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ status: newStatus.toUpperCase() })
+                body: JSON.stringify(body)
             });
             const payload = await res.json();
 
@@ -174,11 +199,14 @@ const Order = () => {
             // Close details modal immediately so the SweetAlert appears without overlap
             setIsDetailsModalOpen(false);
             setSelectedOrder(null);
+            setShipModalOrder(null);
 
             await Swal.fire({
                 icon: 'success',
                 title: 'Success',
-                text: 'Order status updated successfully.',
+                text: shippingExtras
+                    ? 'Order marked as shipped. Customer email sent.'
+                    : 'Order status updated successfully.',
                 timer: 2000,
                 showConfirmButton: false
             });
@@ -194,7 +222,43 @@ const Order = () => {
                 text: err.message,
                 confirmButtonColor: '#0891b2'
             });
+            throw err;
         }
+    };
+
+    const handleShipSubmit = async ({ order, courierName, trackingNumber, mode }) => {
+        if (mode === 'save') {
+            const token = localStorage.getItem('token');
+            const dbId = order?.dbId;
+            if (!dbId) throw new Error('Order id is missing');
+
+            const res = await fetch(`${API_BASE_URL}/api/admin/orders/${dbId}/shipping`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ courierName, trackingNumber })
+            });
+            const payload = await res.json();
+
+            if (!res.ok || payload.success === false) {
+                throw new Error(payload.message || 'Failed to save shipping details');
+            }
+
+            setShipModalOrder(null);
+            await Swal.fire({
+                icon: 'success',
+                title: 'Saved',
+                text: 'Courier details saved. Status unchanged.',
+                timer: 1800,
+                showConfirmButton: false
+            });
+            fetchOrders(currentPage, activeTab);
+            return;
+        }
+
+        await handleStatusChange(order, 'Shipped', { courierName, trackingNumber });
     };
 
     const handleViewDetails = async (order) => {
@@ -324,17 +388,32 @@ const Order = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-center relative">
-                                        <button
-                                            type="button"
-                                            onClick={(e) => handleToggleMenu(e, order.dbId)}
-                                            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer"
-                                        >
-                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                                <circle cx="12" cy="5" r="2" />
-                                                <circle cx="12" cy="12" r="2" />
-                                                <circle cx="12" cy="19" r="2" />
-                                            </svg>
-                                        </button>
+                                        <div className="inline-flex items-center justify-center gap-1">
+                                            {canShipOrder(order.status) && (
+                                                <button
+                                                    type="button"
+                                                    title="Ship order"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        openShipModal(order);
+                                                    }}
+                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-cyan-600 hover:bg-cyan-50 hover:text-cyan-700 transition cursor-pointer"
+                                                >
+                                                    <Truck className="h-4 w-4" strokeWidth={2} />
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleToggleMenu(e, order.dbId)}
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer"
+                                            >
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                                    <circle cx="12" cy="5" r="2" />
+                                                    <circle cx="12" cy="12" r="2" />
+                                                    <circle cx="12" cy="19" r="2" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -413,6 +492,13 @@ const Order = () => {
                 handleStatusChange={handleStatusChange}
                 statusOptions={statusOptions}
                 formatOrderPrice={formatOrderPrice}
+            />
+
+            <ShipOrderModal
+                isOpen={Boolean(shipModalOrder)}
+                order={shipModalOrder}
+                onClose={() => setShipModalOrder(null)}
+                onSubmit={handleShipSubmit}
             />
 
             {totalPages > 1 && (
