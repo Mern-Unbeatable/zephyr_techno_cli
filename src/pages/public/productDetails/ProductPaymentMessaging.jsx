@@ -53,12 +53,15 @@ export default function ProductPaymentMessaging({ amount }) {
   const plans = useMemo(() => {
     const [clearpay] = splitAmount(total, 4);
     const [klarna] = splitAmount(total, 3);
-    return [
-      {
+    const planList = [];
+    if (total <= 1200) {
+      planList.push({
         id: 'clearpay',
         title: `4 payments of ${formatGbp(clearpay)} every 2 weeks, interest-free`,
         mark: <ClearpayMark />,
-      },
+      });
+    }
+    planList.push(
       {
         id: 'klarna-monthly',
         title: `3 payments of ${formatGbp(klarna)} monthly, interest-free`,
@@ -78,8 +81,9 @@ export default function ProductPaymentMessaging({ amount }) {
         id: 'paypal-full',
         title: 'Pay in full with PayPal',
         mark: <PayPalMark />,
-      },
-    ];
+      }
+    );
+    return planList;
   }, [total]);
 
   useEffect(() => {
@@ -112,7 +116,7 @@ export default function ProductPaymentMessaging({ amount }) {
                 amount: amountPence,
                 currency: 'GBP',
                 countryCode: 'GB',
-                paymentMethodTypes: ['klarna', 'afterpay_clearpay'],
+                paymentMethodTypes: total > 1200 ? ['klarna'] : ['klarna', 'afterpay_clearpay'],
                 logoColor: 'color',
               }}
             />
@@ -187,7 +191,7 @@ export default function ProductPaymentMessaging({ amount }) {
                       Purchase price: {formatGbp(total)}
                     </p>
                     <p className="mt-2 text-[14px] leading-snug text-[#6B7280]">
-                      Select Clearpay, Klarna, or PayPal as your payment method
+                      Select {total <= 1200 ? 'Clearpay, Klarna, or PayPal' : 'Klarna or PayPal'} as your payment method
                       to pay in instalments.
                     </p>
 
@@ -227,14 +231,18 @@ export default function ProductPaymentMessaging({ amount }) {
 
                     <div className="mt-4 rounded-xl bg-[#F3F4F6] px-4 py-3">
                       <p className="text-[11px] leading-relaxed text-[#6B7280]">
-                        Late fees of £6 may apply per missed instalment. Paying with
-                        Clearpay is subject to status, late fees, and our terms. 18+,
-                        UK residents only. Clearpay is a credit product offered by
-                        Clearpay Finance Ltd. You can pay in 4 interest-free
-                        instalments of {formatGbp(splitAmount(total, 4)[0])}.
-                        Representative example: representative 0% APR. Credit is
-                        subject to status. T&amp;Cs apply. PayPal Pay in 3 is 3
-                        interest-free monthly payments of{' '}
+                        {total <= 1200 && (
+                          <>
+                            Late fees of £6 may apply per missed instalment. Paying with
+                            Clearpay is subject to status, late fees, and our terms. 18+,
+                            UK residents only. Clearpay is a credit product offered by
+                            Clearpay Finance Ltd. You can pay in 4 interest-free
+                            instalments of {formatGbp(splitAmount(total, 4)[0])}.
+                            Representative example: representative 0% APR. Credit is
+                            subject to status. T&amp;Cs apply.{' '}
+                          </>
+                        )}
+                        PayPal Pay in 3 is 3 interest-free monthly payments of{' '}
                         {formatGbp(splitAmount(total, 3)[0])}, subject to status.
                         You can also pay in full with PayPal.
                       </p>
