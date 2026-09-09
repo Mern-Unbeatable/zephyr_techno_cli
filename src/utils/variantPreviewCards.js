@@ -112,6 +112,9 @@ export function expandProductToVariantCards(
       storageOptionId: pair.storageOptionId,
       stockQuantity: pair.stockQuantity,
       inStock: pair.stockQuantity > 0,
+      createdAt: product.createdAt || null,
+      isFeatured: Boolean(product.isFeatured),
+      featuredAt: product.featuredAt || null,
       colors: color ? [color] : [],
       storageOptions: storage ? [storage] : [],
     };

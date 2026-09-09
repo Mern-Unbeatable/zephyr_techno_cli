@@ -135,6 +135,10 @@ const Footer = () => {
               The Porter Building, Brunel Way,
               <br />
               Slough, England, SL1 1FQ
+              <br />
+              CRN: 15640926
+              <br />
+              VAT: GB478099142
             </p>
             <div className="flex flex-col gap-2 mt-3">
               <a

@@ -414,7 +414,7 @@ export default function Products() {
   const [priceMin, setPriceMin] = useState(0);
   const [priceMax, setPriceMax] = useState(2000);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState("");
+  const [sortBy, setSortBy] = useState("All");
   const [page, setPage] = useState(1);
 
   // ── NEW: track which main filter key is selected (ALL / NEW / USED)
@@ -434,7 +434,9 @@ export default function Products() {
     switch (option) {
       case "Price: Low to High": return "priceAsc";
       case "Price: High to Low": return "priceDesc";
-      case "Featured": return "featured";
+      // Shop "Featured" = all products with featured ones first (not featured-only filter).
+      case "Featured": return "featuredFirst";
+      case "Newest": return "newest";
       default: return "";
     }
   };
@@ -535,13 +537,57 @@ export default function Products() {
   }, [categoryId, seriesId, deviceModelId, colorId, storageId, priceMin, priceMax, search, sortBy, isLoadingAttributes]);
 
   const variantCards = useMemo(() => {
-    return expandProductsToVariantCards(products, {
+    // Price sorts must use the card's displayed storage price, not product.basePrice.
+    // Expanding colour×storage first then sorting fixes Low→High / High→Low.
+    const priceSorting =
+      sortBy === "Price: Low to High" || sortBy === "Price: High to Low";
+    const featuredSorting = sortBy === "Featured";
+
+    let cards = expandProductsToVariantCards(products, {
       maxPerProduct: Infinity,
-      inStockFirst: true,
+      inStockFirst: !priceSorting && !featuredSorting,
       colorId,
       storageOptionId: storageId,
-    }).filter(card => !inStockOnly || card.inStock);
-  }, [products, colorId, storageId, inStockOnly]);
+    }).filter((card) => !inStockOnly || card.inStock);
+
+    if (sortBy === "Price: Low to High") {
+      cards = [...cards].sort(
+        (a, b) => Number(a.price || 0) - Number(b.price || 0),
+      );
+    } else if (sortBy === "Price: High to Low") {
+      cards = [...cards].sort(
+        (a, b) => Number(b.price || 0) - Number(a.price || 0),
+      );
+    } else if (sortBy === "Newest") {
+      cards = [...cards].sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime(),
+      );
+    } else if (sortBy === "Featured") {
+      // Featured products first, then by when they were featured / created.
+      cards = [...cards].sort((a, b) => {
+        const featuredDiff =
+          Number(Boolean(b.isFeatured)) - Number(Boolean(a.isFeatured));
+        if (featuredDiff !== 0) return featuredDiff;
+        const featuredAtDiff =
+          new Date(b.featuredAt || 0).getTime() -
+          new Date(a.featuredAt || 0).getTime();
+        if (featuredAtDiff !== 0) return featuredAtDiff;
+        return (
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime()
+        );
+      });
+    }
+
+    return cards;
+  }, [products, colorId, storageId, inStockOnly, sortBy]);
+
+  const handleSortChange = (value) => {
+    setSortBy(value);
+    setPage(1);
+  };
 
   const totalPages = Math.max(1, Math.ceil(variantCards.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -617,7 +663,7 @@ export default function Products() {
                   </button>
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
+                    onChange={(e) => handleSortChange(e.target.value)}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-300"
                   >
                     {sortOptions.map((o) => <option key={o}>{o}</option>)}
@@ -635,7 +681,7 @@ export default function Products() {
                 </span>
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => handleSortChange(e.target.value)}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-300"
                 >
                   {sortOptions.map((o) => <option key={o}>{o}</option>)}
