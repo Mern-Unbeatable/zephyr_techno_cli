@@ -112,6 +112,12 @@ const Footer = () => {
                 Terms and conditions
               </Link>
               <Link
+                to="/sell-terms-condition"
+                className="text-[#6A6A6A] text-base hover:underline text-left"
+              >
+                Sell Your Phone Terms
+              </Link>
+              <Link
                 to="/refund-policy"
                 className="text-[#6A6A6A] text-base hover:underline text-left"
               >

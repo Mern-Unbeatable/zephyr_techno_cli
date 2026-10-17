@@ -481,7 +481,7 @@ const Terms = () => {
             <Container>
                 <div className="grid gap-6 py-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8 lg:py-12">
                     <aside className="hidden lg:block">
-                        <div className="sticky top-24 rounded-2xl border border-[#E4EDF1] bg-white/80 p-5 shadow-[0_12px_30px_rgba(23,28,30,0.04)] backdrop-blur">
+                        <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain [scrollbar-width:thin] rounded-2xl border border-[#E4EDF1] bg-white/80 py-5 pl-5 pr-2 shadow-[0_12px_30px_rgba(23,28,30,0.04)] backdrop-blur">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8A93A6]">
                                 Contents
                             </p>
@@ -491,9 +491,9 @@ const Terms = () => {
                                     <a
                                         key={item.id}
                                         href={`#${item.id}`}
-                                        className="group flex items-start gap-3 rounded-lg px-2 py-1.5 text-sm text-[#6F7A8F] transition-colors hover:bg-[#F6FAFB] hover:text-[#4E5A79]"
+                                        className="group flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm text-[#6F7A8F] transition-colors hover:bg-[#F6FAFB] hover:text-[#4E5A79]"
                                     >
-                                        <span className="mt-0.5 min-w-[1.8rem] text-[11px] font-semibold tracking-[0.18em] text-[#9DA7B6] group-hover:text-custom">
+                                        <span className="mt-0.5 min-w-[1.6rem] text-[11px] font-semibold tracking-[0.18em] text-[#9DA7B6] group-hover:text-custom">
                                             {item.number}
                                         </span>
                                         <span className="leading-5 font-medium">{item.title}</span>

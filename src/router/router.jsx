@@ -41,6 +41,7 @@ import StockNotifications from "../pages/admin/stockNotifications/StockNotificat
 import ForgetCode from "../pages/auth/ForgetCode";
 import Privacy from "../pages/public/privacy-policy/Privacy";
 import Terms from "../pages/public/terms-condition/Terms";
+import SellTerms from "../pages/public/terms-condition/SellTerms";
 import Refund from "../pages/public/refund-policy/Refund";
 import Shipping from "../pages/public/shipping-policy/Shipping";
 import TrackRequest from "../pages/public/trackRequest/TrackRequest";
@@ -94,6 +95,10 @@ const router = createBrowserRouter([
       {
         path: "terms-condition",
         element: <Terms />,
+      },
+      {
+        path: "sell-terms-condition",
+        element: <SellTerms />,
       },
       {
         path: "refund-policy",
