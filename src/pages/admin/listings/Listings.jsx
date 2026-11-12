@@ -4,6 +4,7 @@ import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTi
 import Tabs from './components/Tabs';
 import Card from './components/Card';
 import Pagination from './components/Pagination';
+import ProductCsvActions from './components/ProductCsvActions';
 import { Link, useNavigate } from 'react-router';
 import { formatStorageLabel } from '../../../utils/storageSort';
 
@@ -150,14 +151,17 @@ const Listings = () => {
     return (
         <div className="">
             {/* Header Row */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-wrap items-start justify-between gap-3">
                 <AdminDashboardTitle
                     title="Phone Listings"
                     subtitle="Manage your inventory of new and used phones."
                 />
-                <Link to="/dashboard/admin/add-listing" className="btn-custom cursor-pointer text-white text-sm px-4 py-2 rounded transition whitespace-nowrap">
-                    + Add New Listing
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                    <ProductCsvActions onImported={() => fetchListings(currentPage, activeTab)} />
+                    <Link to="/dashboard/admin/add-listing" className="btn-custom cursor-pointer text-white text-sm px-4 py-2 rounded transition whitespace-nowrap">
+                        + Add New Listing
+                    </Link>
+                </div>
             </div>
 
             {/* Tabs */}
@@ -186,6 +190,7 @@ const Listings = () => {
                                 units={`${listing.stockQuantity} Units`}
                                 badge={listing.category?.name || ''}
                                 onEdit={() => navigate(`/dashboard/admin/edit-listing/${listing.id}`)}
+                                onDuplicate={() => navigate(`/dashboard/admin/duplicate-listing/${listing.id}`)}
                                 onDelete={() => handleDelete(listing)}
                                 onFavorite={() => handleFavorite(listing)}
                                 isFavorite={!!listing.isFeatured}

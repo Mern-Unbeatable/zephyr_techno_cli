@@ -11,6 +11,8 @@ import FaqItem from "./components/FaqItem";
 import TechnicalSpecItem from "./components/TechnicalSpecItem";
 import IncludedItem from "./components/IncludedItem";
 import ImageUpload from "./components/ImageUpload";
+import CopyFaqsModal from "./components/CopyFaqsModal";
+import { Copy } from "lucide-react";
 import {
   CATEGORY_OPTIONS,
   SERIES_OPTIONS,
@@ -112,8 +114,10 @@ const bridgeLegacyMatrixMap = (
   return next;
 };
 
-const Addlisting = ({ isEdit = false, listingId = null }) => {
+const Addlisting = ({ isEdit = false, listingId = null, duplicateFromId = null }) => {
   const navigate = useNavigate();
+  const isDuplicate = !isEdit && !!duplicateFromId;
+  const sourceListingId = isEdit ? listingId : duplicateFromId;
   const [formData, setFormData] = useState({
     title: "",
     categoryId: "",
@@ -141,6 +145,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   const [colorImages, setColorImages] = useState({});
   const [removedImageIds, setRemovedImageIds] = useState([]);
   const [deletingImageId, setDeletingImageId] = useState(null);
+  const [showCopyFaqs, setShowCopyFaqs] = useState(false);
 
   // Attribute options from API
   const [categories, setCategories] = useState([]);
@@ -210,7 +215,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       }
     };
     fetchOptions();
-  }, [isEdit]);
+  }, [isEdit, isDuplicate]);
 
   // Filter models when series changes
   useEffect(() => {
@@ -248,15 +253,15 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     conditionCategoryIds,
   ]);
 
-  // Fetch listing data when in edit mode
+  // Fetch listing data when editing, or when duplicating another listing
   useEffect(() => {
-    if (isEdit && listingId) {
+    if (sourceListingId) {
       const fetchListing = async () => {
         setLoading(true);
         try {
           const token = localStorage.getItem("token");
           const res = await fetch(
-            `${API_BASE_URL}/api/admin/products/${listingId}`,
+            `${API_BASE_URL}/api/admin/products/${sourceListingId}`,
             {
               headers: token ? { Authorization: `Bearer ${token}` } : {},
             },
@@ -297,7 +302,9 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             );
 
           setFormData({
-            title: listing.title || "",
+            title: isDuplicate
+              ? `Copy of ${listing.title || ""}`.trim()
+              : listing.title || "",
             categoryId: loadedCategoryId,
             seriesId: listing.series?.id || "",
             deviceModelId: listing.deviceModel?.id || "",
@@ -307,7 +314,9 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
             colorIds: listing.availableColors?.map((c) => c.id) || [],
             storageOptionIds: validStorageIds,
             introduction: listing.introduction || "",
-            listingStatus: listing.listingStatus || "ACTIVE",
+            listingStatus: isDuplicate
+              ? "INACTIVE"
+              : listing.listingStatus || "ACTIVE",
           });
 
           const listingConditions = listing.availableConditions || [];
@@ -503,7 +512,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
       };
       fetchListing();
     }
-  }, [isEdit, listingId]);
+  }, [sourceListingId, isDuplicate]);
 
   const updateField = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -707,6 +716,13 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
   };
 
   const addFaq = () => setFaqs([...faqs, { question: "", answer: "" }]);
+
+  const handleCopyFaqs = (copied) => {
+    setFaqs((prev) => [
+      ...prev.filter((faq) => faq.question?.trim() || faq.answer?.trim()),
+      ...copied,
+    ]);
+  };
 
   const handleTechnicalSpecSpecificationChange = (index, value) => {
     const updated = [...specifications];
@@ -1029,6 +1045,8 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           "removedImageIds",
           JSON.stringify(removedImageIds),
         );
+      } else if (isDuplicate && keptImages.length > 0) {
+        formDataToSend.append("copiedImages", JSON.stringify(keptImages));
       }
 
       const url = isEdit
@@ -1081,7 +1099,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     e.preventDefault();
   };
 
-  if (loading && isEdit) {
+  if (loading && (isEdit || isDuplicate)) {
     return (
       <div className="bg-gray-50 min-h-screen flex items-center justify-center">
         <div className="text-sm text-gray-400">Loading listing...</div>
@@ -1093,7 +1111,7 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
     <div className="bg-gray-50 min-h-screen">
       <div className="pb-3">
         <p className="text-xs text-gray-400 mb-2">
-          Listing &gt; {isEdit ? "Edit" : "Create"} Listing
+          Listing &gt; {isEdit ? "Edit" : isDuplicate ? "Duplicate" : "Create"} Listing
         </p>
         <Link
           to="/dashboard/admin/listing"
@@ -1105,8 +1123,23 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
 
       <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className="pb-10">
         <AdminDashboardTitle
-          title={isEdit ? "Edit Listing" : "Add New Listing"}
+          title={
+            isEdit
+              ? "Edit Listing"
+              : isDuplicate
+                ? "Duplicate Listing"
+                : "Add New Listing"
+          }
         />
+
+        {isDuplicate && (
+          <div className="mb-4 rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
+            This is a copy of an existing listing. Change the model, title, images or
+            prices as needed, then click Save to create a new listing. The original
+            listing is not changed. The copy is saved as Inactive until you set it
+            to Active.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <FormField label="Product Title">
@@ -1422,9 +1455,19 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
         </div>
 
         <div className="mb-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">
-            Frequently Asked Question
-          </h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-base font-semibold text-gray-900">
+              Frequently Asked Question
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowCopyFaqs(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:border-custom hover:text-custom cursor-pointer"
+            >
+              <Copy className="h-4 w-4" />
+              Copy FAQs from another product
+            </button>
+          </div>
           {faqs.map((faq, index) => (
             <FaqItem
               key={index}
@@ -1535,6 +1578,13 @@ const Addlisting = ({ isEdit = false, listingId = null }) => {
           {loading ? "Saving..." : isEdit ? "Save Changes" : "Save"}
         </button>
       </form>
+
+      <CopyFaqsModal
+        isOpen={showCopyFaqs}
+        onClose={() => setShowCopyFaqs(false)}
+        onCopy={handleCopyFaqs}
+        excludeProductId={isEdit ? listingId : null}
+      />
     </div>
   );
 };

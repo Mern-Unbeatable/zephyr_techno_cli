@@ -1,4 +1,5 @@
 import React from 'react';
+import { Copy } from 'lucide-react';
 
 const badgeColors = {
     'New': 'bg-blue-500 text-white',
@@ -26,6 +27,7 @@ const Card = ({
     units,
     badge,
     onEdit,
+    onDuplicate,
     onDelete,
     onFavorite,
     isFavorite,
@@ -102,6 +104,15 @@ const Card = ({
                         Delete
                     </button>
                 </div>
+                {onDuplicate && (
+                    <button
+                        onClick={onDuplicate}
+                        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded border border-gray-200 py-2 text-sm font-medium text-gray-700 transition-colors hover:border-custom hover:text-custom cursor-pointer"
+                    >
+                        <Copy className="h-4 w-4" />
+                        Duplicate
+                    </button>
+                )}
             </div>
         </div>
     );

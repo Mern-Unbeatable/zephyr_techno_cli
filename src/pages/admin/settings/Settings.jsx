@@ -5,6 +5,7 @@ import Tag from './components/Tag';
 import AddModal from './components/AddModal';
 import BulkConditionPriceModal from './components/BulkConditionPriceModal';
 import ConditionPriceTable from './components/ConditionPriceTable';
+import SellPriceCsvActions from './components/SellPriceCsvActions';
 import { INITIAL_SETTINGS, SECTIONS } from './constants';
 import AdminDashboardTitle from '../../../components/dashboards/AdminDashboardTitle';
 import { getColorHex } from '../../../utils/color';
@@ -29,6 +30,51 @@ const Settings = () => {
     const [maintenanceLoading, setMaintenanceLoading] = useState(true);
     const [maintenanceSaving, setMaintenanceSaving] = useState(false);
     const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
+
+    const loadConditionPrices = async () => {
+        const token = localStorage.getItem('token');
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/admin/attributes/condition-model-prices`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (!res.ok) return;
+            const payload = await res.json();
+            const data = Array.isArray(payload) ? payload : payload?.data || payload?.prices || [];
+
+            const entries = Array.isArray(data)
+                ? data.map((p) => ({
+                      id: p.id || p._id || null,
+                      conditionId: p.conditionId || p.condition?.id || null,
+                      conditionName: p.condition?.name || p.conditionName || null,
+                      deviceModelId: p.deviceModelId || p.deviceModel?.id || null,
+                      deviceModelName: p.deviceModel?.name || p.deviceModelName || null,
+                      storageOptionId: p.storageOptionId || p.storageOption?.id || null,
+                      storageOptionName: p.storageOption?.name || p.storageOptionName || null,
+                      price: p.price || p.amount || p.value || null,
+                  }))
+                : [];
+
+            const byModel = {};
+            entries.forEach((e) => {
+                const mid = e.deviceModelId || 'global';
+                if (!byModel[mid]) byModel[mid] = {};
+                const cname = e.conditionName || e.conditionId || 'unknown';
+                if (e.price != null) byModel[mid][cname] = e.price;
+            });
+
+            const firstModelId = Object.keys(byModel).find((k) => k && k !== 'global');
+            const defaultPrices = firstModelId ? byModel[firstModelId] : byModel['global'] || {};
+
+            setSettings((prev) => ({
+                ...prev,
+                conditionModelPrices: entries,
+                conditionModelPricesMap: byModel,
+                conditionPrices: { ...prev.conditionPrices, ...defaultPrices },
+            }));
+        } catch (err) {
+            // ignore
+        }
+    };
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -190,50 +236,6 @@ const Settings = () => {
                 setSettings((prev) => ({ ...prev, colors: normalized }));
             } catch (err) {
                 // ignore load errors
-            }
-        };
-
-        const loadConditionPrices = async () => {
-            try {
-                const res = await fetch(`${API_BASE_URL}/api/admin/attributes/condition-model-prices`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-                if (!res.ok) return;
-                const payload = await res.json();
-                const data = Array.isArray(payload) ? payload : payload?.data || payload?.prices || [];
-
-                const entries = Array.isArray(data)
-                    ? data.map((p) => ({
-                          id: p.id || p._id || null,
-                          conditionId: p.conditionId || p.condition?.id || null,
-                          conditionName: p.condition?.name || p.conditionName || null,
-                          deviceModelId: p.deviceModelId || p.deviceModel?.id || null,
-                          deviceModelName: p.deviceModel?.name || p.deviceModelName || null,
-                          storageOptionId: p.storageOptionId || p.storageOption?.id || null,
-                          storageOptionName: p.storageOption?.name || p.storageOptionName || null,
-                          price: p.price || p.amount || p.value || null,
-                      }))
-                    : [];
-
-                const byModel = {};
-                entries.forEach((e) => {
-                    const mid = e.deviceModelId || 'global';
-                    if (!byModel[mid]) byModel[mid] = {};
-                    const cname = e.conditionName || e.conditionId || 'unknown';
-                    if (e.price != null) byModel[mid][cname] = e.price;
-                });
-
-                const firstModelId = Object.keys(byModel).find((k) => k && k !== 'global');
-                const defaultPrices = firstModelId ? byModel[firstModelId] : byModel['global'] || {};
-
-                setSettings((prev) => ({
-                    ...prev,
-                    conditionModelPrices: entries,
-                    conditionModelPricesMap: byModel,
-                    conditionPrices: { ...prev.conditionPrices, ...defaultPrices },
-                }));
-            } catch (err) {
-                // ignore
             }
         };
 
@@ -1114,6 +1116,13 @@ const Settings = () => {
                     models={settings.models}
                     conditions={settings.conditions}
                     conditionModelPrices={settings.conditionModelPrices}
+                    headerActions={
+                        <SellPriceCsvActions
+                            models={settings.models}
+                            conditions={settings.conditions}
+                            onImported={loadConditionPrices}
+                        />
+                    }
                     onAddPrice={openAddPriceModal}
                     onEditPrice={(entry) => {
                         // For editing an existing entry, only allow editing the price (backend expects only price in PATCH)

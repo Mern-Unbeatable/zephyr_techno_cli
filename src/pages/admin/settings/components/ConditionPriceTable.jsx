@@ -10,6 +10,7 @@ const ConditionPriceTable = ({
   onAddPrice,
   onEditPrice,
   onDeletePrice,
+  headerActions = null,
   pageSize = 7,
 }) => {
   const [openMenuKey, setOpenMenuKey] = useState(null);
@@ -85,17 +86,20 @@ const ConditionPriceTable = ({
 
   return (
     <div className="rounded-lg border border-gray-100 bg-white">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 rounded-t-lg">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 rounded-t-lg">
         <h3 className="text-base font-semibold text-gray-900">
           Set Condition Price
         </h3>
-        <button
-          type="button"
-          onClick={onAddPrice}
-          className="rounded-md bg-custom px-3 py-1 text-sm font-medium text-white hover:bg-[#12806f]"
-        >
-          Add Condition
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {headerActions}
+          <button
+            type="button"
+            onClick={onAddPrice}
+            className="rounded-md bg-custom px-3 py-1 text-sm font-medium text-white hover:bg-[#12806f]"
+          >
+            Add Condition
+          </button>
+        </div>
       </div>
 
       <div className="p-5">

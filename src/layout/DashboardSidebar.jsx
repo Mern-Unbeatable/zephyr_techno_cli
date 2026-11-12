@@ -22,7 +22,12 @@ const ADMIN_NAV_ITEMS = [
         label: 'Listing',
         icon: List,
         path: '/dashboard/admin/listing',
-        activePatterns: ['/dashboard/admin/listing', '/dashboard/admin/add-listing'],
+        activePatterns: [
+            '/dashboard/admin/listing',
+            '/dashboard/admin/add-listing',
+            '/dashboard/admin/edit-listing',
+            '/dashboard/admin/duplicate-listing',
+        ],
     },
     { label: 'Order', icon: ShoppingCart, path: '/dashboard/admin/order' },
     { label: 'Sell Phone', icon: Smartphone, path: '/dashboard/admin/cell-phone' },
