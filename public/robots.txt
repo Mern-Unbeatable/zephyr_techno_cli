@@ -4,6 +4,7 @@ Allow: /
 Disallow: /dashboard/
 Disallow: /cart
 Disallow: /checkout
+Disallow: /account
 Disallow: /login
 Disallow: /register
 Disallow: /forget-password
@@ -14,4 +15,3 @@ Disallow: /confirm-sale
 Disallow: /finalize-sale
 
 Sitemap: https://www.zephyrtechnology.co.uk/sitemap.xml
-Sitemap: https://api.zephyrtechnology.co.uk/sitemap-products.xml

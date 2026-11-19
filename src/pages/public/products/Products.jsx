@@ -399,13 +399,20 @@ import Filter from "./components/Filter";
 import Pagination from "./components/Pagination";
 import EmptyState from "./components/EmptyState";
 import { expandProductsToVariantCards } from "../../../utils/variantPreviewCards";
+import DocumentHead from "../../../seo/DocumentHead";
+import { STATIC_SEO } from "../../../seo/staticPages";
+import { cleanCanonicalPath } from "../../../seo/productCopy";
 
 const API_BASE_URL = import.meta.env.VITE_BASE_URL || 'https://api.zephyrtechnology.co.uk';
 const PAGE_SIZE = 15;
 const FETCH_LIMIT = 100;
 
-export default function Products() {
-  const [searchParams] = useSearchParams();
+export default function Products({
+  listingTitle = 'Shop All Phones',
+  listingIntro = 'Explore our full collection of new and certified pre-owned devices.',
+  paginationBasePath = '/products',
+} = {}) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [categoryId, setCategoryId] = useState(null);
   const [seriesId, setSeriesId] = useState(null);
   const [deviceModelId, setDeviceModelId] = useState(null);
@@ -602,7 +609,22 @@ export default function Products() {
 
   const handlePageChange = (nextPage) => {
     setPage(nextPage);
+    const next = new URLSearchParams(searchParams);
+    if (nextPage <= 1) next.delete('page');
+    else next.set('page', String(nextPage));
+    setSearchParams(next, { replace: true });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const buildPageHref = (pageNumber) => {
+    const next = new URLSearchParams(searchParams);
+    if (pageNumber <= 1) next.delete('page');
+    else next.set('page', String(pageNumber));
+    const base =
+      paginationBasePath ||
+      (typeof window !== 'undefined' ? window.location.pathname : '/products');
+    const qs = next.toString();
+    return qs ? `${base}?${qs}` : base;
   };
 
   const closeFilterPanel = () => setIsFilterOpen(false);
@@ -638,16 +660,34 @@ export default function Products() {
     onClearAll: clearAllFilters,
   };
 
+  const filterKey = (searchParams.get('filter') || selectedFilterKey || 'ALL').toUpperCase();
+  const listingSeo =
+    filterKey === 'USED'
+      ? STATIC_SEO.phonesUsed
+      : filterKey === 'NEW' || filterKey === 'SEALED'
+        ? STATIC_SEO.phonesNew
+        : STATIC_SEO.phonesNew;
+  const pageNum = Number(searchParams.get('page') || page || 1);
+  const listingCanonical = cleanCanonicalPath(
+    pageNum > 1
+      ? `${listingSeo.canonicalPath}${listingSeo.canonicalPath.includes('?') ? '&' : '?'}page=${pageNum}`
+      : listingSeo.canonicalPath,
+  );
+
   return (
     <div className="min-h-screen">
+      <DocumentHead
+        title={listingSeo.title}
+        description={listingSeo.description}
+        canonicalPath={listingCanonical}
+        imageAlt={listingSeo.h1}
+      />
       <Container>
         <div className="py-6 md:py-8 lg:py-10">
           <div className="flex items-start sm:items-end justify-between mb-6 md:mb-8 lg:mb-10 flex-wrap gap-4">
             <div>
-              <h1 className="title-custom">Shop All Phones</h1>
-              <p className="subtitle-custom mt-1">
-                Explore our full collection of new and certified pre-owned devices.
-              </p>
+              <h1 className="title-custom">{listingTitle}</h1>
+              <p className="subtitle-custom mt-1">{listingIntro}</p>
             </div>
             <div className="w-full sm:w-auto mt-1">
               <div className="lg:hidden space-y-2">
@@ -729,6 +769,7 @@ export default function Products() {
                   currentPage={currentPage}
                   totalPages={totalPages}
                   onPageChange={handlePageChange}
+                  buildHref={buildPageHref}
                 />
               )}
             </div>

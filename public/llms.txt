@@ -1,0 +1,8 @@
+# Zephyr Technology
+> UK shop to buy new and used phones and to sell your old phone. Genuine, checked devices, fast UK delivery and secure checkout.
+
+## Main pages
+- [Buy phones](https://www.zephyrtechnology.co.uk/): all phones for sale, with live price and stock
+- [New phones](https://www.zephyrtechnology.co.uk/phones/new): new iPhones and phones
+- [Used phones](https://www.zephyrtechnology.co.uk/phones/used): professionally checked used phones
+- [Sell your phone](https://www.zephyrtechnology.co.uk/sell-your-phone): choose your model and get a quote

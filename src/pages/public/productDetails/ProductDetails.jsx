@@ -958,6 +958,9 @@ import NotifyMeModal from './NotifyMeModal';
 import InfoTooltip from './InfoTooltip';
 import PriceDisplay from '../../../components/shared/PriceDisplay';
 import { checkout } from '../../../utils/cartApi';
+import { getProductSeoParts } from '../../../seo/productCopy';
+import DocumentHead from '../../../seo/DocumentHead';
+import { SITE_NAME } from '../../../seo/staticPages';
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -1112,8 +1115,15 @@ function getWalletType() {
   return 'google';
 }
 
-const ProductDetails = () => {
-  const { id } = useParams();
+const ProductDetails = ({
+  productIdOverride = null,
+  initialColorId = null,
+  initialStorageOptionId = null,
+  initialConditionCategoryId = null,
+  seoLock = false,
+} = {}) => {
+  const { id: routeId } = useParams();
+  const id = productIdOverride || routeId;
   const [searchParams] = useSearchParams();
   const { addToCart, cartItems } = useCart();
   const { user } = useAuth();
@@ -1143,9 +1153,10 @@ const ProductDetails = () => {
     if (!id) return;
     setLoading(true);
     setError(null);
-    const urlColorId = searchParams.get('colorId');
-    const urlStorageId = searchParams.get('storageOptionId');
-    const urlConditionId = searchParams.get('conditionCategoryId');
+    const urlColorId = initialColorId || searchParams.get('colorId');
+    const urlStorageId = initialStorageOptionId || searchParams.get('storageOptionId');
+    const urlConditionId =
+      initialConditionCategoryId || searchParams.get('conditionCategoryId');
 
     fetch(`${BASE_URL}/api/public/product/${id}`)
       .then((res) => {
@@ -1207,7 +1218,13 @@ const ProductDetails = () => {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [id, searchParams]);
+  }, [
+    id,
+    searchParams,
+    initialColorId,
+    initialStorageOptionId,
+    initialConditionCategoryId,
+  ]);
 
   const allImages = useMemo(() => sortImages(product?.images), [product]);
 
@@ -1374,24 +1391,17 @@ const ProductDetails = () => {
     [product, selectedCondition],
   );
 
-  useEffect(() => {
-    const defaultTitle = 'ZEPHYR TECHNO | BUY & SELL PHONES';
-    if (!product?.title) {
-      document.title = defaultTitle;
-      return undefined;
-    }
-    document.title = [
-      product.title,
-      selectedStorageName,
-      selectedColorName,
-      selectedConditionName,
-    ]
-      .filter(Boolean)
-      .join(' ');
-    return () => {
-      document.title = defaultTitle;
-    };
-  }, [product, selectedColorName, selectedStorageName, selectedConditionName]);
+  const productSeo = useMemo(
+    () =>
+      getProductSeoParts(product, {
+        storageName: selectedStorageName,
+        colourName: selectedColorName,
+        conditionName: selectedConditionName,
+      }),
+    [product, selectedStorageName, selectedColorName, selectedConditionName],
+  );
+
+  // Browser tab title is handled by DocumentHead (meta only — no visible UI change).
 
   const selectedCompareAtPrice = useMemo(() => {
     if (!product) return null;
@@ -1727,8 +1737,37 @@ const ProductDetails = () => {
       )
     : [];
 
+  const productCanonicalParams = new URLSearchParams();
+  if (selectedColor) productCanonicalParams.set('colorId', selectedColor);
+  if (selectedStorage) productCanonicalParams.set('storageOptionId', selectedStorage);
+  if (selectedCondition) {
+    productCanonicalParams.set('conditionCategoryId', selectedCondition);
+  }
+  const productCanonicalQs = productCanonicalParams.toString();
+  const productCanonicalPath = id
+    ? productCanonicalQs
+      ? `/product-details/${id}?${productCanonicalQs}`
+      : `/product-details/${id}`
+    : '/products';
+  const productMetaTitle = productSeo.h1
+    ? `${productSeo.h1} | ${SITE_NAME}`
+    : undefined;
+  const productMetaDescription = productSeo.opening || undefined;
+  const primaryImage =
+    allImages[selectedImage]?.imageUrl || allImages[0]?.imageUrl || undefined;
+
   return (
     <div className="min-h-screen bg-white pb-20">
+      {product ? (
+        <DocumentHead
+          title={productMetaTitle}
+          description={productMetaDescription}
+          canonicalPath={productCanonicalPath}
+          image={primaryImage}
+          imageAlt={productSeo.imageAlt || product.title}
+          ogType="product"
+        />
+      ) : null}
       <Container>
         <div className="flex flex-col lg:flex-row gap-10 lg:gap-14 pt-8 md:pt-12 mb-20">
           {/* Left: Image Gallery */}
@@ -1737,7 +1776,7 @@ const ProductDetails = () => {
               {allImages.length > 0 ? (
                 <img
                   src={allImages[selectedImage]?.imageUrl}
-                  alt={product.title}
+                  alt={productSeo.imageAlt || product.title}
                   className="h-full w-full bg-transparent object-contain"
                 />
               ) : (
@@ -1763,7 +1802,7 @@ const ProductDetails = () => {
                   >
                     <img
                       src={img.imageUrl}
-                      alt={`${product.title} view ${idx + 1}`}
+                      alt={`${productSeo.imageAlt || product.title} view ${idx + 1}`}
                       className="h-full w-full rounded-md bg-transparent object-contain"
                     />
                   </button>
