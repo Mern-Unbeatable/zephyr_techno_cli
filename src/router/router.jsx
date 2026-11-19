@@ -31,6 +31,7 @@ import Cart from "../pages/public/cart/Cart";
 import AboutUs from "../pages/public/aboutUs/AboutUs";
 import ForBusinesses from "../pages/public/forBusinesses/ForBusinesses";
 import Sell from "../pages/public/sellYourPhone/Sell";
+import SellModelPage from "../pages/public/sellYourPhone/SellModelPage";
 import SellWorth from "../pages/public/sellWorth/SellWorth";
 import AboutDevice from "../pages/public/aboutdevice/AboutDevice";
 import FinalizeSale from "../pages/public/finalizeSale/FinalizeSale";
@@ -47,100 +48,51 @@ import Refund from "../pages/public/refund-policy/Refund";
 import Shipping from "../pages/public/shipping-policy/Shipping";
 import TrackRequest from "../pages/public/trackRequest/TrackRequest";
 import MaintenanceGate from "../components/MaintenanceGate";
+import PhoneProductPage from "../pages/public/phones/PhoneProductPage";
+import PhonesListingPage from "../pages/public/phones/PhonesListingPage";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <MainLayout />,
     children: [
-      {
-        index: true,
-        element: <Home />,
-      },
-      {
-        path: "products",
-        element: <Products />,
-      },
-      {
-        path: "product-details/:id",
-        element: <ProductDetails />,
-      },
-      {
-        path: "about-us",
-        element: <AboutUs />,
-      },
-      {
-        path: "cart",
-        element: <Cart />,
-      },
-      {
-        path: "checkout",
-        element: <Navigate to="/cart" replace />,
-      },
-      {
-        path: "checkout/success",
-        element: <CheckoutSuccess />,
-      },
-      {
-        path: "checkout/cancel",
-        element: <CheckoutCancel />,
-      },
-      {
-        path: "contact",
-        element: <Contact />,
-      },
-      {
-        path: "privacy-policy",
-        element: <Privacy />,
-      },
-      {
-        path: "terms-condition",
-        element: <Terms />,
-      },
-      {
-        path: "sell-terms-condition",
-        element: <SellTerms />,
-      },
-      {
-        path: "refund-policy",
-        element: <Refund />,
-      },
-      {
-        path: "shipping-policy",
-        element: <Shipping />,
-      },
-      {
-        path: "for-businesses",
-        element: <ForBusinesses />,
-      },
-      {
-        path: "sell",
-        element: <Sell />,
-      },
-      {
-        path: "sell-worth",
-        element: <SellWorth />,
-      },
-      {
-        path: "confirm-sale",
-        element: <AboutDevice />,
-      },
+      { index: true, element: <Home /> },
+      // Primary user-facing routes (unchanged URLs / UI)
+      { path: "products", element: <Products /> },
+      { path: "product-details/:id", element: <ProductDetails /> },
+      { path: "sell", element: <Sell /> },
+      // SEO aliases only — redirect into the same old UI routes
+      { path: "phones/new", element: <PhonesListingPage filterKey="NEW" /> },
+      { path: "phones/used", element: <PhonesListingPage filterKey="USED" /> },
+      { path: "phones/:slug", element: <PhoneProductPage /> },
+      { path: "sell-your-phone", element: <Navigate to="/sell" replace /> },
+      { path: "sell-your-phone/:slug", element: <SellModelPage /> },
+      { path: "about-us", element: <AboutUs /> },
+      { path: "cart", element: <Cart /> },
+      { path: "checkout", element: <Navigate to="/cart" replace /> },
+      { path: "checkout/success", element: <CheckoutSuccess /> },
+      { path: "checkout/cancel", element: <CheckoutCancel /> },
+      { path: "contact", element: <Contact /> },
+      { path: "privacy-policy", element: <Privacy /> },
+      { path: "terms-condition", element: <Terms /> },
+      { path: "sell-terms-condition", element: <SellTerms /> },
+      { path: "refund-policy", element: <Refund /> },
+      { path: "shipping-policy", element: <Shipping /> },
+      { path: "for-businesses", element: <ForBusinesses /> },
+      { path: "sell-worth", element: <SellWorth /> },
+      { path: "confirm-sale", element: <AboutDevice /> },
       { path: "finalize-sale", element: <FinalizeSale /> },
       { path: "track-request", element: <TrackRequest /> },
     ],
   },
 
-  // admin dashboard routes
   {
     path: "/dashboard/admin",
     element: <AdminLayout />,
     children: [
       { index: true, element: <AdminOverview /> },
       { path: "listing", element: <Listings /> },
-      {
-        path: "add-listing",
-        element: <Addlisting />,
-      },
+      { path: "add-listing", element: <Addlisting /> },
       { path: "edit-listing/:id", element: <Editlisting /> },
       { path: "duplicate-listing/:id", element: <DuplicateListing /> },
       { path: "order", element: <Order /> },
@@ -156,7 +108,6 @@ const router = createBrowserRouter([
     ],
   },
 
-  // user dashboard routes
   {
     path: "/dashboard/user",
     element: <UserDashboardLayout />,
@@ -166,7 +117,6 @@ const router = createBrowserRouter([
     ],
   },
 
-  // auth routes — during maintenance only /login stays open (see MaintenanceGate ALLOWED_PATHS)
   { path: "/login", element: <Login /> },
   {
     path: "/register",
@@ -208,8 +158,6 @@ const router = createBrowserRouter([
       </MaintenanceGate>
     ),
   },
-
-  // not found — still blocked by maintenance
   {
     path: "*",
     element: (

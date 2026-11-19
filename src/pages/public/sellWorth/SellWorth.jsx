@@ -287,12 +287,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ChevronDown, ShieldCheck } from "lucide-react";
 import Container from "../../../layout/Container";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { sortStorageOptionsBySize, formatStorageLabel } from "../../../utils/storageSort";
 
 const STORAGE_KEY = "sellFlow";
 
 const SellWorth = () => {
+  const [searchParams] = useSearchParams();
   const [series, setSeries] = useState([]);
   const [models, setModels] = useState([]);
   const [selectedSeries, setSelectedSeries] = useState(null);
@@ -306,11 +307,16 @@ const SellWorth = () => {
   const [dropUp, setDropUp] = useState(false);
   const modelsRef = useRef(null);
   const triggerRef = useRef(null);
+  const prefillDone = useRef(false);
 
   useEffect(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {}
+    const hasSeoPrefill =
+      searchParams.get("seriesId") && searchParams.get("deviceModelId");
+    if (!hasSeoPrefill) {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+    }
 
     const fetchSeries = async () => {
       setLoadingSeries(true);
@@ -324,7 +330,34 @@ const SellWorth = () => {
     };
 
     fetchSeries();
-  }, []);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (prefillDone.current || !series.length) return;
+    const seriesId = searchParams.get("seriesId");
+    const deviceModelId = searchParams.get("deviceModelId");
+    if (!seriesId || !deviceModelId) return;
+
+    const matchSeries = series.find((s) => s.id === seriesId);
+    if (!matchSeries) return;
+    prefillDone.current = true;
+
+    (async () => {
+      setSelectedSeries(matchSeries);
+      setLoadingModels(true);
+      try {
+        const base = import.meta.env.VITE_BASE_URL || "";
+        const res = await fetch(`${base}/api/sell/models?seriesId=${seriesId}`);
+        const json = await res.json();
+        if (json?.success && Array.isArray(json.data)) {
+          setModels(json.data);
+          const matchModel = json.data.find((m) => m.id === deviceModelId);
+          if (matchModel) setSelectedModel(matchModel);
+        }
+      } catch (e) {}
+      setLoadingModels(false);
+    })();
+  }, [series, searchParams]);
 
   const fetchStorageOptionsForModel = async (deviceModelId) => {
     setLoadingStorage(true);
